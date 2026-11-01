@@ -2,13 +2,11 @@ name: Firebase yükle
 
 # Firestore kuralları/dizinleri ve Cloud Functions'ı Firebase'e yükler.
 # Gerekli sır: FIREBASE_SERVICE_ACCOUNT (Firebase konsolu → Proje ayarları → Hizmet hesapları → yeni özel anahtar, JSON'un tamamı)
-# - main'e kural/dizin değişikliği gelince: yalnızca Firestore
-# - Elle çalıştırma (Actions → Firebase yükle → Run workflow): firestore | functions | hepsi
-#   Functions için proje Blaze planında olmalı.
+# Elle çalıştırma (Actions → Firebase yükle → Run workflow): firestore | functions | hepsi
+# - Hizmet hesabının Google Cloud IAM'de şu rollere ihtiyacı var: Firebase Admin, Service Usage Consumer
+#   (+ functions için: Cloud Functions Admin, Service Account User, Secret Manager Admin, Artifact Registry Administrator)
+# - Functions için proje Blaze planında olmalı.
 on:
-  push:
-    branches: [main]
-    paths: [firestore.rules, firestore.indexes.json]
   workflow_dispatch:
     inputs:
       hedef:
