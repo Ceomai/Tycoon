@@ -1,7 +1,7 @@
 name: Web (GitHub Pages)
 
 # main'e her gönderimde oyunun web sürümü gh-pages dalına yazılır; GitHub Pages oradan yayınlar:
-# https://ceomai.github.io/tycoon/
+# https://ceomai.github.io/Tycoon/
 on:
   push:
     branches: [main]

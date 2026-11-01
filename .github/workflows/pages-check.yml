@@ -17,7 +17,7 @@ jobs:
       - name: Adresleri dene
         run: |
           sleep 60
-          for u in https://ceomai.github.io/Tycoon/ https://ceomai.github.io/tycoon/ https://ceomai.github.io/Tycoon/manifest.webmanifest; do
+          for u in https://ceomai.github.io/Tycoon/ https://ceomai.github.io/Tycoon/manifest.webmanifest; do
             code=$(curl -s -o page.txt -w "%{http_code}" -L "$u")
             echo "$u -> $code"
             head -c 300 page.txt; echo; echo ----

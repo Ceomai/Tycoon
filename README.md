@@ -9,7 +9,7 @@ Yayına çıkış adımları: [`docs/RELEASE.md`](docs/RELEASE.md). Gizlilik met
 ## Hemen dene
 | | Bağlantı |
 |---|---|
-| Web (her cihaz, tarayıcıda; ana ekrana eklenince uygulama gibi açılır, internetsiz çalışır) | https://ceomai.github.io/tycoon/ |
+| Web (her cihaz, tarayıcıda; ana ekrana eklenince uygulama gibi açılır, internetsiz çalışır) | https://ceomai.github.io/Tycoon/ |
 | Android test APK'sı (her güncellemede yenilenir) | https://github.com/Ceomai/tycoon/releases/latest/download/tapu-test.apk |
 
 İkisi de `main` dalına her gönderimde GitHub Actions ile otomatik yenilenir (`.github/workflows/`).
