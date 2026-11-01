@@ -48,6 +48,7 @@ export const CFG = {
   LOT_BOOST: 60 * 60e3, LOT_BOOST_MAX: 4 * 3600e3, // mülke özel 2x: reklam başına süre, en fazla birikim
   AD_SKIP: 30 * 60e3,          // reklamla hızlandırma: süreden düşülen
   SKIP_LEFT: 5e3,
+  TIER_INC: 1.25,              // kira çarpanı = kademe çarpanı × TIER_INC^kademe (yeni semtte binalar daha verimli)
   PAIR: 0.1,                   // akıllı ikili komşu (kafe+ofis, ev+dükkân) başına bonus
   SP_ADJ: 0.15,                // özel yapının her komşusuna bonus
   STAR_BONUS: 0.1,             // 3 yıldızlı semte kalıcı bonus

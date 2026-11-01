@@ -12,7 +12,7 @@
     "test:unit": "vitest run",
     "test:e2e": "vite build --mode preview && node tests/qa.cjs",
     "test": "npm run typecheck && npm run test:unit && npm run test:e2e",
-    "sim": "python3 tests/economy_sim.py",
+    "sim": "rolldown -c scripts/rolldown.sim.mjs && node node_modules/.cache/tapu-sim.mjs",
     "cap:sync": "vite build && cap sync",
     "android": "vite build && cap sync android && cap open android",
     "ios": "vite build && cap sync ios && cap open ios",

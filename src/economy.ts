@@ -12,7 +12,7 @@ import { festivalOn } from './game/festival';
 export const now = () => { const t = Time.now(); return S && t < S.maxSeen - 300e3 ? S.maxSeen : t; };
 const D = (k: DistrictKey) => DMAP[k];
 export const tierOf = (k: DistrictKey) => D(k).idx;
-export const incM = (k: DistrictKey) => TIER_M[tierOf(k)] * Math.pow(1.25, tierOf(k));
+export const incM = (k: DistrictKey) => TIER_M[tierOf(k)] * Math.pow(CFG.TIER_INC, tierOf(k));
 export const costM = (k: DistrictKey) => TIER_M[tierOf(k)];
 export const cnt = (k: DistrictKey, t: BuildingType) => lotsOf(S, k).filter(p => p && p.t === t).length;
 export const withDisc = (p: number) => p * (1 - S.disc);

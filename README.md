@@ -31,7 +31,7 @@ Test APK'sında Google'ın test reklamları çıkar; Firebase ayarı eklenmediys
 | `firestore.rules`, `firestore.indexes.json`, `firebase.json` | Güvenlik kuralları ve sıralama dizini |
 | `tests/unit/` | Birim testleri (vitest): biçimleme, kayıt taşıma, saat hilesi, il açılışı, portföy bonusu |
 | `tests/qa.cjs` | Uçtan uca test (Playwright, sahte saat): 75 kontrol, 5 ekran boyutu |
-| `tests/economy_sim.py` | Ekonomi simülasyonu |
+| `scripts/sim.ts` | Ekonomi simülasyonu (oyunun gerçek ekonomi koduyla; `npm run sim`, ayar denemesi için `SIM_TIER_M`, `SIM_TIER_INC`, `SIM_TIER_FEE`) |
 
 Servis ayarı yoksa (`.env` boş) oyun tamamen yerel çalışır; Firebase kodu hiç indirilmez.
 
