@@ -1,0 +1,24 @@
+name: Web kontrolü
+
+# Yayından sonra sitenin gerçekten açıldığını GitHub sunucusundan kontrol eder.
+on:
+  workflow_run:
+    workflows: ["pages-build-deployment"]
+    types: [completed]
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/pages-check.yml"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Adresleri dene
+        run: |
+          sleep 60
+          for u in https://ceomai.github.io/Tycoon/ https://ceomai.github.io/tycoon/ https://ceomai.github.io/Tycoon/manifest.webmanifest; do
+            code=$(curl -s -o page.txt -w "%{http_code}" -L "$u")
+            echo "$u -> $code"
+            head -c 300 page.txt; echo; echo ----
+          done
