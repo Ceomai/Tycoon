@@ -67,7 +67,9 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
  s=await st(p); ok(s.d['ist-0'][0].bu-s._now<=4*3600e3+1000,'mülke 2x en fazla 4 saat birikiyor');
  await p.keyboard.press('Escape'); await p.waitForTimeout(400);
  await tap(p,'.lot[data-i="1"]'); await p.clock.runFor(300); await tap(p,'[data-a="skip"]'); await p.clock.runFor(5300); await tap(p,'#adX'); await p.clock.runFor(400);
- s=await st(p); ok(s.d['ist-0'][1].lvl===1,'10 dk inşaat reklamla anında bitti');
+ s=await st(p); { const left=(s.d['ist-0'][1].until-s._now)/1000; ok(s.d['ist-0'][1].lvl===0 && left>3 && left<=5.5,'10 dk inşaat reklamla 5 saniyeye indi (kalan '+left.toFixed(1)+' sn)'); }
+ ok(await p.isDisabled('#sheetBody .btn[disabled]'),'son saniyelerde hızlandırma kapalı (bitmek üzere)');
+ await p.clock.runFor(5500); s=await st(p); ok(s.d['ist-0'][1].lvl===1,'5 saniye sonra inşaat bitti');
  await p.keyboard.press('Escape'); await p.waitForTimeout(380);
  await tap(p,'.lot[data-i="2"]'); await p.clock.runFor(300); await tap(p,'[data-a="skip"]'); await p.clock.runFor(5300); await tap(p,'#adX'); await p.clock.runFor(400);
  s=await st(p); {const rem=(s.d['ist-0'][2].until-s._now)/60e3; ok(rem>262&&rem<271,'5 saatlik tadilattan 30 dk düştü (kalan '+rem.toFixed(1)+' dk)');}

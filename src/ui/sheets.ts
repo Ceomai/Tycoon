@@ -48,13 +48,14 @@ export function renderSheet() {
         }).join('')}</div>${short ? '<p class="note">Kira toplamak için ortadaki TOPLA mührüne bas.</p>' : ''}`;
       }
     } else if (p.until) {
-      sig = 'c|' + p.t + p.lvl + (p.up ? 1 : 0) + (p.until - t <= CFG.AD_SKIP ? 1 : 0);
+      const nearly = p.until - t <= CFG.SKIP_LEFT + 1e3;
+      sig = 'c|' + p.t + p.lvl + (p.up ? 1 : 0) + (p.until - t <= CFG.AD_SKIP ? 1 : 0) + (nearly ? 1 : 0);
       if (sig !== ui.sheetSig) {
         html = `<div class="sh-head k-${p.t}"><div class="sh-art bpbg" data-art></div><div class="sh-t"><h3>${TYPES[p.t].n}</h3><p data-pt></p></div></div>
           <div class="cd"><span class="sec">Kalan süre</span><span class="cdv" data-cd></span></div>
           <div class="k-${p.t}"><div class="prog"><i data-pb></i></div></div>
           <p class="note">İnşaat sen oyunda değilken de sürer.</p>
-          <div class="btns"><button class="btn gold" data-a="skip">${I.play} ${p.until - t <= CFG.AD_SKIP ? 'İzle, hemen bitir' : 'İzle, 30 dk kısalt'}</button><button class="txt" data-a="close">Bekle</button></div>`;
+          <div class="btns">${nearly ? '<button class="btn" disabled>Bitmek üzere…</button>' : `<button class="btn gold" data-a="skip">${I.play} ${p.until - t <= CFG.AD_SKIP ? 'İzle, 5 saniyeye indir' : 'İzle, 30 dk kısalt'}</button>`}<button class="txt" data-a="close">Bekle</button></div>`;
       }
     } else {
       const canUp = p.lvl < MAXLV, uc = canUp ? withDisc(upCost(k, p)) : 0, afford = canUp && S.cash >= uc, a = adj(k, i);

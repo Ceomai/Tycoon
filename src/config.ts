@@ -46,7 +46,8 @@ export const CFG = {
   BOOST_MAX: 4 * 3600e3,       // tüm mülklere 2x (yalnızca günlük görevlerin üçü bitince) en fazla birikim
   TASK_BOOST: 60 * 60e3,       // görev bonusu: tüm mülklere 2x süresi
   LOT_BOOST: 60 * 60e3, LOT_BOOST_MAX: 4 * 3600e3, // mülke özel 2x: reklam başına süre, en fazla birikim
-  AD_SKIP: 30 * 60e3,
+  AD_SKIP: 30 * 60e3,          // reklamla hızlandırma: süreden düşülen
+  SKIP_LEFT: 5e3,              // reklam inşaatı tamamen bitirmez: son 5 sn kalır (bitiş anı oyuncunun gözü önünde)
   OFFLINE_RATE: 0.3, OFFLINE_MAX: 3 * 3600e3,
   INTER_MIN: 15 * 60e3, INTER_MAX: 20 * 60e3,
   EVENT_MIN: 150e3, EVENT_MAX: 270e3,

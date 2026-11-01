@@ -57,9 +57,11 @@ export function demolish(k: DistrictKey, i: number) {
 export function skip(k: DistrictKey, i: number) {
   const p = lotsOf(S, k)[i]; if (!p || !p.until) return;
   const rem = p.until - now();
-  Ads.rewarded('skip', rem <= CFG.AD_SKIP ? 'İnşaat hemen biter' : 'İnşaattan 30 dk düşer', () => {
+  if (rem <= CFG.SKIP_LEFT + 1e3) return; // zaten bitmek üzere
+  Ads.rewarded('skip', rem <= CFG.AD_SKIP ? 'İnşaat 5 saniyeye iner' : 'İnşaattan 30 dk düşer', () => {
     const q = lotsOf(S, k)[i]; if (!q || !q.until) return;
-    q.until = (q.until - now() <= CFG.AD_SKIP) ? now() : q.until - CFG.AD_SKIP; S.skipHint = 1; ui.sheetSig = '';
+    const left = q.until - now();
+    q.until = left <= CFG.AD_SKIP ? now() + Math.min(left, CFG.SKIP_LEFT) : q.until - CFG.AD_SKIP; S.skipHint = 1; ui.sheetSig = '';
   });
 }
 /** Tek tuşla topla: bütün semtlerdeki kumbaralar kasaya. */
