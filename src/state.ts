@@ -1,4 +1,4 @@
-import { BuildingType, CityId, DistrictKey, N, SCHEMA, dkey, CFG } from './config';
+import { BuildingType, CityId, DistrictKey, N, SCHEMA, dkey, CFG, DMAP, TYPES, MAXLV, CITY_ORDER } from './config';
 
 export interface Skin { c?: number; r?: number; s?: boolean; }
 export interface Plot { t: BuildingType; lvl: number; buf: number; until: number; dur: number; up: boolean; bu?: number; sp?: string; ob?: string; sk?: Skin; } // bu: bu mülke 2x bitişi · sp: özel yapı · ob: engel (gecekondu, hurda…)
@@ -91,15 +91,71 @@ export function migrate(raw: any, now: number, weekKey: string): State | null {
       fx: (s.fx || []).map((f: any) => f.k === 'row' ? { ...f, d: dkey('ist', f.d | 0) } : f), maxSeen: s.lastSeen || now, savedAt: 0, clockFlag: 0 };
     delete s.unlocked;
   }
-  if (s.v !== SCHEMA || typeof s.d !== 'object' || !Array.isArray(s.own)) return null;
-  const base = newState(now, weekKey, s.city || null);
-  for (const k of Object.keys(base) as (keyof State)[]) if (s[k] === undefined) (s as any)[k] = base[k];
-  if (!s.ref || !s.ref.code) s.ref = base.ref;
-  if (!s.own.length) s.own = base.own;
-  if (!s.own.includes(s.cur)) s.cur = s.own[0];
-  for (const k of s.own) if (!Array.isArray(s.d[k])) s.d[k] = emptyLots();
-  if (!Number.isFinite(s.cash) || s.cash < 0) s.cash = 0;
-  return s as State;
+  if (s.v !== SCHEMA || !s.d || typeof s.d !== 'object' || Array.isArray(s.d) || !Array.isArray(s.own)) return null;
+  return sanitize(s, now, weekKey);
+}
+
+/* ---------- kayıt temizliği: bozuk, eksik ya da elle değiştirilmiş alanlar varsayılana döner ---------- */
+const kind = (x: unknown) => (x === null ? 'null' : Array.isArray(x) ? 'array' : typeof x);
+const isObj = (x: unknown): x is Record<string, any> => kind(x) === 'object';
+const num = (x: unknown, def: number, min = -Infinity, max = Infinity) => (typeof x === 'number' && Number.isFinite(x) ? Math.min(max, Math.max(min, x)) : def);
+const strs = (x: unknown) => (Array.isArray(x) ? x.filter(v => typeof v === 'string') : []);
+const nums = (x: unknown) => (Array.isArray(x) ? x.filter(v => typeof v === 'number' && Number.isFinite(v)) : []);
+const isD = (k: unknown): k is DistrictKey => typeof k === 'string' && Object.prototype.hasOwnProperty.call(DMAP, k);
+const MAX_CASH = 1e300; // taşmayı (Infinity) önler
+function rec<T>(x: unknown, f: (v: unknown) => T | undefined): Record<string, T> {
+  const o: Record<string, T> = {};
+  if (isObj(x)) for (const k of Object.keys(x)) { if (!isD(k)) continue; const v = f(x[k]); if (v !== undefined) o[k] = v; }
+  return o;
+}
+function cleanLot(q: unknown): Lot {
+  if (!isObj(q) || !TYPES[q.t as BuildingType]) return null;
+  const p: Plot = { t: q.t, lvl: Math.round(num(q.lvl, 0, 0, MAXLV)), buf: num(q.buf, 0, 0, MAX_CASH), until: num(q.until, 0, 0), dur: num(q.dur, 1, 1), up: q.up === true };
+  if (typeof q.bu === 'number' && Number.isFinite(q.bu)) p.bu = q.bu;
+  if (typeof q.sp === 'string') p.sp = q.sp;
+  if (typeof q.ob === 'string') p.ob = q.ob;
+  if (isObj(q.sk)) p.sk = { ...(typeof q.sk.c === 'number' ? { c: q.sk.c } : {}), ...(typeof q.sk.r === 'number' ? { r: q.sk.r } : {}), ...(q.sk.s === true ? { s: true } : {}) };
+  return p;
+}
+const cleanLots = (x: unknown): Lot[] => { const a = Array.isArray(x) ? x.slice(0, N).map(cleanLot) : []; while (a.length < N) a.push(null); return a; };
+function sanitize(s: any, now: number, weekKey: string): State {
+  const own = [...new Set(strs(s.own).filter(isD))];
+  const city: CityId | null = CITY_ORDER.includes(s.city) ? s.city : own.length ? DMAP[own[0]].city : null;
+  const base = newState(now, weekKey, city) as any;
+  const out: any = {};
+  for (const k of Object.keys(base)) {
+    const bv = base[k], sv = s[k];
+    if (sv === undefined || sv === null) { out[k] = bv; continue; }
+    if (bv === null) { out[k] = isObj(sv) ? sv : null; continue; }           // tasks, offer: nesne ya da null
+    if (kind(sv) !== kind(bv)) { out[k] = bv; continue; }
+    if (typeof bv === 'number') { out[k] = num(sv, bv); continue; }
+    if (isObj(bv) && Object.keys(bv).length) {                                 // yapılı nesneler: alan alan birleştir
+      const o: any = {}; for (const f of Object.keys(bv)) { const a = sv[f], d = bv[f]; o[f] = a === undefined || (kind(a) !== kind(d) && !(d === false && typeof a === 'string')) ? d : typeof d === 'number' ? num(a, d) : a; }
+      out[k] = o; continue;
+    }
+    out[k] = sv;
+  }
+  out.v = SCHEMA; out.city = city;
+  out.own = own.length ? own : base.own;
+  out.cur = out.own.includes(s.cur) ? s.cur : out.own[0];
+  out.d = {}; for (const k of Object.keys(s.d)) if (isD(k)) out.d[k] = cleanLots(s.d[k]);
+  for (const k of out.own) if (!out.d[k]) out.d[k] = cleanLots(null);
+  out.cash = num(s.cash, 0, 0, MAX_CASH); out.earned = num(s.earned, 0, 0, MAX_CASH);
+  out.disc = num(s.disc, 0, 0, 0.9); out.shares = Math.floor(num(s.shares, 0, 0, 1e6)); out.tokens = Math.floor(num(s.tokens, 0, 0, 1e6));
+  out.fx = Array.isArray(s.fx) ? s.fx.filter((f: any) => isObj(f) && (f.k === 'row' || f.k === 'type') && Number.isFinite(f.x) && Number.isFinite(f.until)) : [];
+  out.inv = strs(s.inv); out.coll = strs(s.coll); out.cards = strs(s.cards); out.ach = strs(s.ach); out.skinsU = nums(s.skinsU);
+  out.stars = rec(s.stars, v => (Array.isArray(v) ? nums(v) : undefined));
+  out.lien = rec(s.lien, v => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined));
+  out.lienT = rec(s.lienT, v => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined));
+  out.dEarn = rec(s.dEarn, v => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, v) : undefined));
+  out.civic = rec(s.civic, v => (Array.isArray(v) ? strs(v) : undefined));
+  out.seen = isObj(s.seen) ? Object.fromEntries(Object.keys(TYPES).filter(t => s.seen[t] === true).map(t => [t, true])) : base.seen;
+  out.season = { ...out.season, got: nums(out.season.got), ggot: nums(out.season.ggot) };
+  out.tasks = isObj(s.tasks) && Array.isArray(s.tasks.list) ? { day: String(s.tasks.day || ''), bonus: s.tasks.bonus === true, list: s.tasks.list.filter(isObj) } : null;
+  out.offer = isObj(s.offer) && typeof s.offer.k === 'string' && Number.isFinite(s.offer.until) ? s.offer : null;
+  if (!out.ref.code || typeof out.ref.code !== 'string') out.ref = base.ref;
+  if (out.collectMode !== 'auto') out.collectMode = 'tap';
+  return out as State;
 }
 
 /* oyun genelinde paylaşılan canlı durum */
