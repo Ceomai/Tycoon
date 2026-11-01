@@ -13,6 +13,7 @@ import { track } from './tasks';
 import { lmLeft } from './collection';
 import { Ads } from '../services/ads';
 import { festivalOn } from './festival';
+import { payLien } from './district';
 
 interface Ev { ic?: string; art?: string; title: string; text: string; big?: boolean; rw: (m: number) => string; apply: (m: number) => void; }
 
@@ -54,7 +55,9 @@ export function catchUp(ms: number) {
     const b = baseRate(k, i), cap = b * CFG.CAP_SEC; if (p.buf < cap) p.buf = Math.min(cap, p.buf + b * ms / 1000);
   }
   if (ms < 120e3) return;
-  const away = Math.min(ms, CFG.OFFLINE_MAX), boostAway = Math.max(0, Math.min(S.boostUntil, now()) - (now() - ms));
+  const away0 = Math.min(ms, CFG.OFFLINE_MAX);
+  for (const k of Object.keys(S.lien)) { let r = 0; for (let i = 0; i < N; i++) r += baseRate(k, i); payLien(k, r * away0 / 1000 * CFG.OFFLINE_RATE * CFG.KAPORA_SHARE); }
+  const away = away0, boostAway = Math.max(0, Math.min(S.boostUntil, now()) - (now() - ms));
   const lump = totalRate(false) * (away + Math.min(boostAway, away)) / 1000 * CFG.OFFLINE_RATE;
   if (lump < 1) return;
   openModal(`<div class="card"><div class="badge">${I.moon}</div><h3>Sen yokken</h3><p>${fmtTime(away)} boyunca kiralar yattı.</p>

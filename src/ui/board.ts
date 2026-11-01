@@ -2,10 +2,11 @@
 import { CFG, COLS, ROWS, N, TYPES, DMAP, CITIES } from '../config';
 import { S, lotsOf } from '../state';
 import { fmt, fmtX, clock, rand } from '../format';
-import { now, totalRate, coinFill, fxMult, producing, buyableDistricts, pending } from '../economy';
+import { now, totalRate, coinFill, fxMult, producing, buyableDistricts, pending, unlockInfo } from '../economy';
 import { bld, site, emptyLot, svg } from '../draw';
 import { specialSvg, specialOf } from '../specials';
 import { festivalOn, festivalLeft, season } from '../game/festival';
+import { progressInfo, builtCount, lienBlocks, obstacleSvg, OBSTACLES } from '../game/district';
 import { I } from '../icons';
 import { Snd, buzz } from '../sound';
 import { $, ui, reduceMotion } from './ctx';
@@ -23,6 +24,12 @@ export function render() {
   if (document.body.className !== bodyCls) document.body.className = bodyCls;
   const dn = S.city ? `${CITIES[d.city].n} · ${d.n}` : "İl seçimi"; const dEl = $('#dname'); if (dEl.textContent !== dn) dEl.textContent = dn;
   $('#cash').textContent = fmt(S.cash);
+  // semt ilerlemesi: bu semtin yüzdesi + altta gri yazıyla sonraki semt kaporası
+  const pi = progressInfo(k), db = $('#distBar');
+  const dh = !S.city ? '' : pi.lien
+    ? `<span class="dl"><b>${d.n} · kaporalı</b><i>borç ${fmt(pi.lien)}</i></span><span class="dp"><u style="width:${Math.round(100 * (1 - pi.lien / Math.max(pi.lien, S.lienT[k] || pi.lien)))}%" class="kp"></u></span><small>${builtCount(k)}/${CFG.KAPORA_LOTS} arsa açık · borç ${d.n} kirasının yarısıyla ödeniyor</small>`
+    : `<span class="dl"><b>${d.n} · %${pi.pct}</b><i>${pi.f >= N ? 'tamamlandı' : `bitirmeye ${N - pi.f} arsa kaldı`}</i></span><span class="dp"><u style="width:${pi.pct}%"></u></span>${pi.sub ? `<small>${pi.sub}</small>` : ''}`;
+  if (db.dataset.v !== dh) { db.dataset.v = dh; db.innerHTML = dh; db.hidden = !dh; }
   const fb = $('#festBar'), fh = fest ? `<b>${fest.n}</b><span>Kiralar +%${Math.round(CFG.FEST_BONUS * 100)} · bugün bayram ikramiyesi · ${clock(festivalLeft(t))}</span>` : '';
   if (fb.dataset.v !== fh) { fb.dataset.v = fh; fb.innerHTML = fh; fb.hidden = !fest; }
   const rateHtml = `${fmt(totalRate(true), true)}/sn${boosted ? '<span class="x2">2x</span>' : ''}${S.premium ? '<span class="x2">PRO</span>' : ''}${fest ? `<span class="x2">+%${Math.round(CFG.FEST_BONUS * 100)}</span>` : ''}${S.shares ? `<span class="x2">${I.crown.replace('<svg', '<svg width="10" height="10"')} ${fmtX(1 + 0.1 * S.shares)}</span>` : ''}`;
@@ -44,7 +51,9 @@ export function render() {
   for (let i = 0; i < N; i++) {
     const el = ui.tiles[i], p = lots[i];
     let sig: string;
-    if (!p) sig = 'e' + (i === hintI ? 1 : 0);
+    const lockE = !p && lienBlocks(k);
+    if (!p) sig = 'e' + (i === hintI ? 1 : 0) + (lockE ? 'L' : '');
+    else if (p.ob) sig = 'ob|' + p.ob + (ui.teslim[i] && ui.teslim[i].at > performance.now() ? 1 : 0);
     else {
       const coin = S.collectMode === 'auto' || !producing(p) ? -1 : Math.round(coinFill(k, i) * 10);
       const lb = (p.bu || 0) > t ? 1 : 0;
@@ -56,7 +65,13 @@ export function render() {
     }
     if (sig === ui.tileSig[i]) continue;
     ui.tileSig[i] = sig;
-    if (!p) { el.className = 'lot' + (i === hintI ? ' hint' : ''); el.innerHTML = svg(emptyLot(i), 'art'); el.setAttribute('aria-label', 'Boş arsa'); continue; }
+    if (!p) {
+      el.className = 'lot' + (i === hintI ? ' hint' : '') + (lockE ? ' lk' : '');
+      const tsl = ui.teslim[i] && ui.teslim[i].at > performance.now() ? `<span class="teslim"><b>TEMİZ</b><small>${ui.teslim[i].txt}</small></span>` : '';
+      el.innerHTML = svg(emptyLot(i), 'art') + (lockE ? `<span class="lkb">${I.lock}</span>` : '') + tsl;
+      el.setAttribute('aria-label', lockE ? 'Kilitli arsa (kapora borcu)' : 'Boş arsa'); continue;
+    }
+    if (p.ob) { el.className = 'lot ob'; el.innerHTML = svg(obstacleSvg(p.ob), 'art') + `<span class="obn">${OBSTACLES[p.ob].n}</span>`; el.setAttribute('aria-label', `${OBSTACLES[p.ob].n}: temizlenmesi gerekiyor`); continue; }
     const prog = p.until ? Math.min(1, 1 - (p.until - t) / p.dur) : 1;
     const hot = producing(p) && fxMult(k, i, p, t) > 1;
     el.className = `lot k-${p.t} ${p.until ? 'c' : 'b'}${hot ? ' hot' : ''}${p.until ? '' : mergeSides(i)}`;

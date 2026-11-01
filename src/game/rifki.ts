@@ -4,7 +4,7 @@
    ========================================================= */
 import { CFG, TYPES, ORDER, DMAP, N } from '../config';
 import { S, lotsOf } from '../state';
-import { now, pending, producing, neighbors, PAIRS, buildCost, withDisc, rate } from '../economy';
+import { now, pending, producing, neighbors, PAIRS, buildCost, withDisc, rate, isFull, unlockInfo } from '../economy';
 import { weekKey, loc } from '../format';
 
 const GEN: Record<string, string> = { ev: 'Evin', kafe: 'Kafenin', dukkan: 'Dükkânın', ofis: 'Ofisin' };
@@ -12,6 +12,7 @@ const LOW: Record<string, string> = { ev: 'ev', kafe: 'kafe', dukkan: 'dükkân'
 import { $, ui, SheetState } from '../ui/ctx';
 import { openSheet } from '../ui/sheets';
 import { nearestGoal } from './goals';
+import { nextDistrict, kaporaOf, clearCost } from './district';
 import { festivalOn } from './festival';
 import { weekSpecial } from '../specials';
 import { specialPrice } from './actions';
@@ -42,6 +43,10 @@ function tips(): Tip[] {
       break;
     }
   }
+  const nk = nextDistrict(k);
+  if (nk && isFull(k) && !S.lien[k]) { const kap = kaporaOf(nk), fee = unlockInfo(nk).fee; if (S.cash >= kap && S.cash < fee) out.push({ id: 'kapora', text: `${DMAP[nk].n} için kapora hazır efendim. Tapuyu beklemeyin; %30 verip hemen başlayın.`, go: { k: 'map' } }); }
+  const obi = lots.findIndex(p => p && p.ob);
+  if (obi >= 0 && S.cash >= clearCost(k)) out.push({ id: 'ob', text: 'Arsadaki hurdayı bir temizletin; içinden ne çıkacağı belli olmaz.', go: { k: 'plot', key: k, i: obi } });
   const ng = nearestGoal();
   if (ng && ng.ratio >= .6) out.push({ id: 'goal', text: `${loc(DMAP[ng.k].n)} bir yıldıza az kaldı: ${ng.g.t.toLocaleLowerCase('tr-TR')}. Söylemedi demeyin.`, go: { k: 'map' } });
   const wk = weekKey(new Date(t)), sp = weekSpecial(wk);

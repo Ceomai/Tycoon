@@ -6,6 +6,7 @@ import { COLS, ROWS, N, DMAP, CITIES } from '../config';
 import { S, lotsOf } from '../state';
 import { fmt } from '../format';
 import { now, totalRate } from '../economy';
+import { specialSvg } from '../specials';
 import { bld, site, emptyLot } from '../draw';
 import { I } from '../icons';
 import { $ } from '../ui/ctx';
@@ -33,10 +34,10 @@ function citySvg() {
   const lots = lotsOf(S, k);
   for (let i = 0; i < N; i++) {
     const p = lots[i], x = P + (i % COLS) * (L + G), y = P + Math.floor(i / COLS) * (L + G);
-    if (!p) { s += `<rect x="${x}" y="${y}" width="${L}" height="${L}" rx="7" fill="${c('--dirt')}"/><g transform="translate(${x} ${y})">${emptyLot(i)}</g>`; continue; }
+    if (!p || p.ob) { s += `<rect x="${x}" y="${y}" width="${L}" height="${L}" rx="7" fill="${c('--dirt')}"/><g transform="translate(${x} ${y})">${emptyLot(i)}</g>`; continue; }
     s += `<rect x="${x}" y="${y}" width="${L}" height="${L}" rx="7" fill="${p.until ? c('--site') : c('--' + p.t + '-z')}" stroke="${c('--ink')}" stroke-width="1.5"/>`;
     const prog = p.until ? Math.min(1, 1 - (p.until - now()) / p.dur) : 1;
-    s += `<g class="k-${p.t} inked" transform="translate(${x} ${y})">${p.until ? site(p.t, p.up ? p.lvl : 0, p.up ? p.lvl + 1 : 1, prog, v) : bld(p.t, p.lvl, v)}</g>`;
+    s += `<g class="k-${p.t} inked" transform="translate(${x} ${y})">${p.sp ? specialSvg(p.sp) : p.until ? site(p.t, p.up ? p.lvl : 0, p.up ? p.lvl + 1 : 1, prog, v) : bld(p.t, p.lvl, v)}</g>`;
   }
   return { w: Wd, h: Ht, str: `<svg xmlns="http://www.w3.org/2000/svg" class="d-${v}" viewBox="0 0 ${Wd} ${Ht}" width="${Wd * 2}" height="${Ht * 2}"><style>${svgCss()}</style>${s}</svg>` };
 }

@@ -662,3 +662,47 @@ body.idle *,body.idle *::before,body.idle *::after{animation-play-state:paused!i
 @keyframes rkin{from{transform:translateY(16px);opacity:0}}
 /* boşta animasyonlar durur; ama şeffaf başlayan bu ikisi donarsa görünmez kalır */
 body.idle .rifki,body.idle .rifki *,body.idle .lot .teslim{animation-play-state:running!important}
+
+/* ---------- semt geçişleri (tasarım G1–G4) ---------- */
+.distbar{display:flex;flex-direction:column;gap:4px;margin-top:6px;padding:7px 10px;border:1.5px solid var(--ink);border-radius:8px;background:var(--surface);color:var(--ink);text-align:left;cursor:pointer;box-shadow:0 2px 0 rgba(30,58,50,.12);width:100%}
+.distbar .dl{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.distbar .dl b{font:700 14px/1 var(--cond);letter-spacing:.06em;text-transform:uppercase}
+.distbar .dl i{font:600 11px var(--mono);font-style:normal;color:var(--stamp)}
+.dp{display:block;height:7px;border-radius:4px;background:var(--line);overflow:hidden;box-shadow:inset 0 0 0 1px var(--ink)}
+.dp u{display:block;height:100%;background:var(--ink);transition:width .4s}
+.dp u.kp{background:#e0a21b}
+.distbar small{font:500 11px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sumbar{position:absolute;left:0;right:0;bottom:8px;z-index:7;display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--surface);border-radius:8px;padding:9px 12px;animation:rkin .3s ease-out;pointer-events:none}
+.sumbar .tl{font:600 18px var(--mono);color:#e0a21b}
+.sumbar .tx{font:400 13px/1.35 var(--ui)}
+body.idle .sumbar{animation-play-state:running!important}
+.lot.ob{background:#e9e1cf;outline:1.5px dashed var(--stamp);outline-offset:-2px;border-radius:4px}
+.lot .obn{position:absolute;left:6%;right:6%;bottom:5%;z-index:2;text-align:center;font:600 8px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--stamp);background:color-mix(in srgb,var(--surface) 90%,transparent);border-radius:3px;padding:1px 0;pointer-events:none;white-space:nowrap;overflow:hidden}
+.lot.lk .art{opacity:.45}
+.lot .lkb{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);pointer-events:none}
+.lot .lkb svg{width:20px;height:20px}
+.em,.rl{display:block;font:500 11px var(--mono);font-style:normal;color:var(--stamp);margin-top:2px}
+.lienrow{display:flex;flex-direction:column;gap:6px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.lienrow .chip{align-self:flex-start}
+.salerow{display:flex;flex-direction:column;gap:6px;padding:12px;margin:6px -6px;border:2px solid var(--ink);border-radius:10px;background:var(--me)}
+.salerow .sh2{display:flex;justify-content:space-between;align-items:baseline}
+.salerow .sh2 b{font:700 20px/1 var(--cond);letter-spacing:.05em;text-transform:uppercase}
+.salerow .st{font:600 11px var(--mono);color:var(--stamp);border:1.5px solid var(--stamp);border-radius:4px;padding:2px 6px;transform:rotate(-4deg)}
+.salerow p{margin:0;font:400 13px/1.4 var(--ui);color:var(--muted)}
+.salerow .sbtns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.salerow .btn{flex-direction:column;gap:2px;min-height:56px;font-size:16px}
+.salerow .btn small{display:block;font:600 10px var(--mono);letter-spacing:0;text-transform:none;opacity:.85}
+.postcard .post{padding:10px;background:#fbfbf7;border:1.5px solid var(--ink);border-radius:6px;transform:rotate(-1.5deg);box-shadow:0 6px 0 rgba(30,58,50,.12);text-align:left;color:#1e3a32}
+.postcard .pimg{position:relative}
+.postcard .postimg{display:block;width:100%;height:auto;border-radius:3px}
+.postcard .pst{position:absolute;right:6px;top:6px;width:52px;height:52px;box-sizing:border-box;border-radius:50%;border:3px double var(--stamp);color:var(--stamp);display:grid;place-items:center;font:600 9px/1.1 var(--mono);text-align:center;transform:rotate(12deg);background:rgba(251,251,247,.8)}
+.postcard .post b{display:block;margin-top:8px;font:700 26px/1 var(--cond);letter-spacing:.04em;text-transform:uppercase}
+.postcard .post small{display:block;font:400 13px/1.4 var(--ui);color:#3d5249}
+.postcard .prule{display:flex;gap:12px;align-items:center;border:2px solid var(--stamp);border-radius:10px;padding:10px 12px;margin-top:14px;text-align:left}
+.postcard .pr{width:52px;height:52px;flex:none;box-sizing:border-box;border-radius:50%;border:4px double var(--stamp);color:var(--stamp);display:grid;place-items:center;font:600 13px var(--mono);transform:rotate(-8deg)}
+.postcard .prule small{display:block;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--stamp)}
+.postcard .prule b{font:700 17px/1.1 var(--cond);letter-spacing:.04em;text-transform:uppercase;color:var(--ink)}
+/* uzun kartlar (kartpostal vb.) küçük ekranda kaydırılır */
+.modal .card{max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain}
+.postcard .post{padding:8px}
+.postcard .postimg{max-height:28vh;object-fit:cover}

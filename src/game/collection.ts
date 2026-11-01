@@ -29,6 +29,7 @@ export function doHolding() {
   const fresh = newState(now(), weekKey(new Date(now())), S.city);
   S.shares = (S.shares || 0) + n;
   for (const k of S.own) for (const q of lotsOf(S, k)) if (q && q.sp) S.inv.push(q.sp); // özel yapılar korunur
+  S.lien = {}; S.lienT = {}; S.dEarn = {};
   Object.assign(S, { cash: 150, earned: 0, own: fresh.own, cur: fresh.cur, d: fresh.d, fx: [], disc: 0, offer: null });
   lotsOf(S, S.cur);
   ui.tileSig = []; ui.linkSig = ''; closeSheet(); persist(); render(); Snd.unlock(); buzz(40);

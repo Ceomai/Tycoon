@@ -1,6 +1,6 @@
 import { BuildingType, CityId, DistrictKey, N, SCHEMA, dkey, CFG } from './config';
 
-export interface Plot { t: BuildingType; lvl: number; buf: number; until: number; dur: number; up: boolean; bu?: number; sp?: string; } // bu: bu mülke 2x bitişi · sp: özel yapı kimliği
+export interface Plot { t: BuildingType; lvl: number; buf: number; until: number; dur: number; up: boolean; bu?: number; sp?: string; ob?: string; } // bu: bu mülke 2x bitişi · sp: özel yapı · ob: engel (gecekondu, hurda…)
 export type Lot = Plot | null;
 export interface Fx { k: 'row' | 'type'; d?: DistrictKey; r?: number; t?: BuildingType; x: number; until: number; }
 export interface Task { k: string; goal: number; prog: number; claimed: boolean; }
@@ -33,7 +33,11 @@ export interface State {
   inv: string[];                   // depodaki özel yapılar (yerleştirilmeyi bekleyen)
   ozel: { week: string; bought: boolean }; // haftanın özel tapusu
   fest: string;                    // bayram ikramiyesinin alındığı gün
-  rifki: boolean;                  // Rıfkı Abi'nin ipuçları açık mı // lig (kaynak sunucu; bu önbellek), last = gösterilen son hafta sonucu
+  rifki: boolean;                  // Rıfkı Abi'nin ipuçları açık mı
+  lien: Record<DistrictKey, number>; // kaporalı semtlerin kalan borcu
+  lienT: Record<DistrictKey, number>; // kaporalı semtlerin ilk borcu (ilerleme için)
+  dEarn: Record<DistrictKey, number>; // semt, oyuncu başka semtteyken ne kazandı (semt özeti)
+  cards: string[];                 // gösterilen il kartpostalları // lig (kaynak sunucu; bu önbellek), last = gösterilen son hafta sonucu
 }
 
 const emptyLots = (): Lot[] => Array(N).fill(null);
@@ -54,7 +58,7 @@ export function newState(now: number, weekKey: string, city: CityId | null = nul
     sound: true, notif: true, collects: 0, ads: 0, skipHint: 0, seen: { ev: true },
     daily: { last: '', streak: 0 }, tasks: null, shares: 0, coll: [],
     ref: { code: makeCode(), used: false, rewarded: 0 }, week: { key: weekKey, earned: 0 },
-    offer: null, premium: false, clockFlag: 0, league: { tier: 0, seals: 0, last: '' }, guideHint: false, collectMode: 'tap', stars: {}, inv: [], ozel: { week: '', bought: false }, fest: '', rifki: true,
+    offer: null, premium: false, clockFlag: 0, league: { tier: 0, seals: 0, last: '' }, guideHint: false, collectMode: 'tap', stars: {}, inv: [], ozel: { week: '', bought: false }, fest: '', rifki: true, lien: {}, lienT: {}, dEarn: {}, cards: [],
   };
 }
 

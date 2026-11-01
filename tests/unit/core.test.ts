@@ -163,3 +163,24 @@ describe('yeni özellikler', () => {
     expect(weekSpecial('2026-H44').id).not.toBe(weekSpecial('2026-H45').id);
   });
 });
+
+import { ruleMult, buildTime as bt, upCost as uc } from '../../src/economy';
+import { kaporaOf } from '../../src/game/district';
+import { DRULES, TIER_FEE as TF } from '../../src/config';
+describe('semt geçişleri', () => {
+  beforeEach(() => setS(newState(T, 'x', 'ist')));
+  it('semt kuralları: tür, sahil sırası, hız, tadilat indirimi', () => {
+    expect(ruleMult('ist-1', 0, 'kafe')).toBeCloseTo(1.2);
+    expect(ruleMult('ist-1', 0, 'ev')).toBe(1);
+    expect(ruleMult('ist-4', 17, 'ev')).toBeCloseTo(1.3);  // en alt sıra
+    expect(ruleMult('ist-4', 5, 'ev')).toBe(1);
+    expect(bt('izm-1', 'ev') / bt('izm-0', 'ev')).toBeCloseTo(0.75 * 1.5 / 1, 5); // %25 hızlı, kademe 1 → ×1.5 süre
+    const p = { t: 'ev' as const, lvl: 1, buf: 0, until: 0, dur: 1, up: false };
+    expect(uc('ank-3', p) / uc('ist-3', p)).toBeCloseTo(0.8);
+    expect(Object.keys(DRULES).length).toBe(15);
+  });
+  it('kapora tapunun %30’u', () => {
+    S.d['ist-0'] = Array.from({ length: 20 }, () => ({ t: 'ev' as const, lvl: 1, buf: 0, until: 0, dur: 1, up: false }));
+    expect(kaporaOf('ist-1')).toBe(Math.ceil(TF[1] * 0.3));
+  });
+});
