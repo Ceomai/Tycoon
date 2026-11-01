@@ -7,6 +7,7 @@ import { totalRate } from '../economy';
 import { Snd } from '../sound';
 import { openModal, closeModal, bump } from '../ui/modal';
 import { addCash } from './actions';
+import { addXp } from './fun';
 import { persist } from './persist';
 import { Ads } from '../services/ads';
 import { Analytics } from '../services/analytics';
@@ -54,7 +55,7 @@ export function showLeagueResult(r: LeagueResult) {
     cash ? ['Tapu ikramiyesi', fmt(cash)] : null,
     up || r.seal ? [`${r.seal ? 'Zirve' : leagueName(r.to)} mührü`, 'Profilde'] : null,
   ].filter(Boolean) as string[][];
-  const grant = (m: number) => { if (cash) addCash(cash * m); bump(); Snd.reward(); persist(); };
+  const grant = (m: number) => { if (up) addXp(200); if (cash) addCash(cash * m); bump(); Snd.reward(); persist(); };
   Analytics.log('league_result', { from: r.from, to: r.to, rank: r.rank, size: r.size });
   openModal(`<div class="card lgcard">
     <div class="lgstamp"><span>${stamp}</span><b>${leagueShort(r.to)}</b></div>

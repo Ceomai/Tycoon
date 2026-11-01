@@ -45,3 +45,29 @@ export function flyCoin(fromEl: Element) {
   c.animate([{ transform: 'translate(0,0) scale(1)' }, { transform: `translate(${dx * .25}px,${dy * .15 - 36}px) scale(1.15)`, offset: .3 }, { transform: `translate(${dx}px,${dy}px) scale(.5)`, opacity: .7 }],
     { duration: 620, easing: 'cubic-bezier(.45,0,.7,1)' }).onfinish = () => { c.remove(); bump(); };
 }
+
+/** TOPLA anı: binalardan bir hedefe para uçar (iz çizgisi yok). */
+export function flyTo(fromEl: Element, toEl: Element, delay = 0) {
+  if (reduceMotion || !(fromEl as any).animate) return;
+  const r = fromEl.getBoundingClientRect(), to = toEl.getBoundingClientRect();
+  const c = document.createElement('div'); c.className = 'fly';
+  c.style.left = (r.left + r.width / 2 - 11) + 'px'; c.style.top = (r.top + r.height * .35 - 11) + 'px';
+  document.body.appendChild(c);
+  const dx = to.left + to.width / 2 - (r.left + r.width / 2), dy = to.top + to.height / 2 - (r.top + r.height * .35);
+  c.animate([{ transform: 'translate(0,0) scale(.6)', opacity: 0 }, { transform: 'translate(0,-10px) scale(1)', opacity: 1, offset: .15 }, { transform: `translate(${dx}px,${dy}px) scale(.55)`, opacity: .8 }],
+    { duration: 560, delay, easing: 'cubic-bezier(.5,0,.75,1)', fill: 'both' }).onfinish = () => c.remove();
+}
+/** Kasa rakamı yarım saniyede sayarak yükselir. */
+export function countUp(from: number, to: number) { ui.cashAnim = { from, to, t0: performance.now() + 420 }; }
+let gainT: any = 0;
+export function showGain(text: string) {
+  const g = $('#gain'); if (!g) return;
+  g.textContent = text; g.hidden = false; g.classList.remove('go'); void (g as HTMLElement).offsetWidth; g.classList.add('go');
+  clearTimeout(gainT); gainT = setTimeout(() => { g.hidden = true; }, 1600);
+}
+let stampT: any = 0;
+export function bigStamp(main: string, sub: string) {
+  const s = $('#bigStamp'); if (!s) return;
+  s.innerHTML = `<b>${main}</b><small>${sub}</small>`; s.hidden = false; s.classList.remove('go'); void (s as HTMLElement).offsetWidth; s.classList.add('go');
+  clearTimeout(stampT); stampT = setTimeout(() => { s.hidden = true; }, 1400);
+}

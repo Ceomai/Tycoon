@@ -2,7 +2,7 @@
 import { CFG, N, CITIES, CITY_ORDER, CityId, dkey, TYPES } from '../config';
 import { S, setS, newState, lotsOf } from '../state';
 import { rand, dayKey, weekKey } from '../format';
-import { now, producing, rate, pending } from '../economy';
+import { now, producing, rate, pending, curWeek } from '../economy';
 import { Time } from '../time';
 import { Snd, buzz } from '../sound';
 import { $, ui } from '../ui/ctx';
@@ -20,6 +20,7 @@ import { Ads } from '../services/ads';
 import { Cloud } from '../services/cloud';
 import { Analytics } from '../services/analytics';
 import { checkGoals } from './goals';
+import { checkAch, showMarket, maybeCivic } from './fun';
 import { payLien, showDistrictCard } from './district';
 import { maybeTip } from './rifki';
 import { festivalOn } from './festival';
@@ -64,11 +65,13 @@ export function tick() {
   Cloud.maybePostScore();
   const free = !ui.sheet && !ui.modal && !ui.ad && pt - ui.lastClose > 2500 && S.city;
   if (free && S.collects >= 3 && ui.lastDay !== dayKey(new Date(t))) { ui.lastDay = dayKey(new Date(t)); ensureTasks(); checkDaily(); }
+  else if (free && S.collects >= 3 && S.market !== curWeek()) showMarket();
+  else if (free && maybeCivic()) { /* belediye kartı açıldı */ }
   else if (free && festivalOn(t) && S.fest !== dayKey(new Date(t))) { S.fest = dayKey(new Date(t)); showFestGift(); }
   else if (free && S.playMs >= S.nextEvent) { S.nextEvent = S.playMs + rand(CFG.EVENT_MIN, CFG.EVENT_MAX); if (anyProducing()) showEvent(); }
   else if (free && !S.offer && S.playMs >= S.nextOffer) { S.nextOffer = S.playMs + rand(CFG.OFFER_MIN, CFG.OFFER_MAX); if (anyProducing()) showOffer(); }
   else if (free && S.playMs >= S.nextAd) { S.nextAd = S.playMs + rand(CFG.INTER_MIN, CFG.INTER_MAX); Ads.interstitial(); }
-  if (pt - lastGoals > 2000) { lastGoals = pt; checkGoals(); }
+  if (pt - lastGoals > 2000) { lastGoals = pt; checkGoals(); checkAch(); }
   maybeTip(pt);
   if (S.collectMode === 'auto') autoCollect(pt);
   // kumbaralar dolunca TOPLA mührü hafifçe sallanır (dakikada en fazla bir kez)

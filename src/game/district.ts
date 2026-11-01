@@ -11,6 +11,7 @@ import { $, ui } from '../ui/ctx';
 import { openModal, closeModal, toast, bump } from '../ui/modal';
 import { lmLeft, landmarkCard } from './collection';
 import { addCash } from './actions';
+import { addXp } from './fun';
 import { persist } from './persist';
 import { Analytics } from '../services/analytics';
 
@@ -58,7 +59,7 @@ export function placeObstacles(k: DistrictKey) {
 export function clearObstacle(k: DistrictKey, i: number) {
   const p = lotsOf(S, k)[i]; if (!p || !p.ob) return;
   const c = clearCost(k); if (S.cash < c) { Snd.no(); return; }
-  S.cash -= c; lotsOf(S, k)[i] = null;
+  S.cash -= c; lotsOf(S, k)[i] = null; S.cnt.ob++; addXp(10);
   const back = Math.round(c * (1.5 + Math.random())); addCash(back); bump(); Snd.wreck(); buzz(20);
   if (k === S.cur) ui.teslim[i] = { at: performance.now() + 1600, txt: `+${fmt(back)}` };
   ui.sheetSig = ''; ui.tileSig[i] = ''; persist();

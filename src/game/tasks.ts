@@ -8,6 +8,7 @@ import { toast, bump } from '../ui/modal';
 import { addCash, addBoost } from './actions';
 import { persist } from './persist';
 import { offerComplete } from './offers';
+import { addXp } from './fun';
 
 export const TASKS: Record<string, { t: (n: number) => string; n: () => number }> = {
   collect: { t: n => `Kiraları ${n} kez topla`, n: () => 8 },
@@ -41,10 +42,10 @@ export function track(k: string, amt = 1) {
 }
 export function claimTask(i: number) {
   const q = S.tasks?.list[i]; if (!q || q.claimed || q.prog < q.goal) return;
-  q.claimed = true; addCash(taskReward()); bump(); Snd.collect(6); persist();
+  q.claimed = true; addXp(60); addCash(taskReward()); bump(); Snd.collect(6); persist();
 }
 export function claimBonus() {
   const T = S.tasks; if (!T || T.bonus || !T.list.every(q => q.claimed)) return;
-  T.bonus = true; addCash(bonusReward()); addBoost(CFG.TASK_BOOST); bump(); Snd.reward(); toast('Günün büyük ödülü: tüm mülklere 2x · 1 saat'); persist();
+  T.bonus = true; addXp(100); addCash(bonusReward()); addBoost(CFG.TASK_BOOST); bump(); Snd.reward(); toast('Günün büyük ödülü: tüm mülklere 2x · 1 saat'); persist();
 }
 export function tasksClaimable() { ensureTasks(); const T = S.tasks!; return T.list.some(q => !q.claimed && q.prog >= q.goal) || (!T.bonus && T.list.every(q => q.claimed)); }

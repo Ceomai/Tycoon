@@ -22,6 +22,8 @@ export const ui = {
   lastCloudSave: 0,
   /** Panel/kart açıldığı an: Android'de dokunuşun ardından gelen hayalet tıklamayı yok saymak için */
   openedAt: 0,
+  /** TOPLA sonrası kasa sayacı */
+  cashAnim: null as null | { from: number; to: number; t0: number },
   /** Tapu teslim mührü: arsa → { bitiş zamanı, yazı } */
   teslim: {} as Record<number, { at: number; txt: string }>,
 };

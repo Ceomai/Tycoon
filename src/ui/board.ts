@@ -6,6 +6,7 @@ import { now, totalRate, coinFill, fxMult, producing, buyableDistricts, pending,
 import { bld, site, emptyLot, svg } from '../draw';
 import { specialSvg, specialOf } from '../specials';
 import { festivalOn, festivalLeft, season } from '../game/festival';
+import { skinStyle, marketChip, seasonClaimable } from '../game/fun';
 import { progressInfo, builtCount, lienBlocks, obstacleSvg, OBSTACLES } from '../game/district';
 import { I } from '../icons';
 import { Snd, buzz } from '../sound';
@@ -20,10 +21,13 @@ import { persist } from '../game/persist';
 export function render() {
   const t = now(), k = S.cur, d = DMAP[k], boosted = S.boostUntil > t;
   const fest = festivalOn(t), ssn = season(t);
-  const bodyCls = 'd-' + d.v + (ui.idle ? ' idle' : '') + (fest ? ' fest-' + fest.k : '') + (ssn ? ' ' + ssn : '');
+  const hr = new Date(t).getHours(), night = S.night !== false && (hr >= 19 || hr < 6);
+  const bodyCls = 'd-' + d.v + (ui.idle ? ' idle' : '') + (fest ? ' fest-' + fest.k : '') + (ssn ? ' ' + ssn : '') + (night ? ' night' : '');
   if (document.body.className !== bodyCls) document.body.className = bodyCls;
   const dn = S.city ? `${CITIES[d.city].n} · ${d.n}` : "İl seçimi"; const dEl = $('#dname'); if (dEl.textContent !== dn) dEl.textContent = dn;
-  $('#cash').textContent = fmt(S.cash);
+  const ca = ui.cashAnim; let cv = S.cash;
+  if (ca) { const q = (performance.now() - ca.t0) / 500; if (q >= 1) ui.cashAnim = null; else if (q > 0) cv = ca.from + (ca.to - ca.from) * (1 - Math.pow(1 - q, 3)) + (S.cash - ca.to); else cv = ca.from + (S.cash - ca.to); }
+  $('#cash').textContent = fmt(cv);
   // semt ilerlemesi: bu semtin yüzdesi + altta gri yazıyla sonraki semt kaporası
   const pi = progressInfo(k), db = $('#distBar');
   const dh = !S.city ? '' : pi.lien
@@ -32,12 +36,12 @@ export function render() {
   if (db.dataset.v !== dh) { db.dataset.v = dh; db.innerHTML = dh; db.hidden = !dh; }
   const fb = $('#festBar'), fh = fest ? `<b>${fest.n}</b><span>Kiralar +%${Math.round(CFG.FEST_BONUS * 100)} · bugün bayram ikramiyesi · ${clock(festivalLeft(t))}</span>` : '';
   if (fb.dataset.v !== fh) { fb.dataset.v = fh; fb.innerHTML = fh; fb.hidden = !fest; }
-  const rateHtml = `${fmt(totalRate(true), true)}/sn${boosted ? '<span class="x2">2x</span>' : ''}${S.premium ? '<span class="x2">PRO</span>' : ''}${fest ? `<span class="x2">+%${Math.round(CFG.FEST_BONUS * 100)}</span>` : ''}${S.shares ? `<span class="x2">${I.crown.replace('<svg', '<svg width="10" height="10"')} ${fmtX(1 + 0.1 * S.shares)}</span>` : ''}`;
+  const rateHtml = `${fmt(totalRate(true), true)}/sn${boosted ? '<span class="x2">2x</span>' : ''}${S.premium ? '<span class="x2">PRO</span>' : ''}${fest ? `<span class="x2">+%${Math.round(CFG.FEST_BONUS * 100)}</span>` : ''}<span class="x2 mk">${marketChip()}</span>${S.shares ? `<span class="x2">${I.crown.replace('<svg', '<svg width="10" height="10"')} ${fmtX(1 + 0.1 * S.shares)}</span>` : ''}`;
   if (ui.rateHtml !== rateHtml) { ui.rateHtml = rateHtml; $('#rate').innerHTML = rateHtml; }
   const op = $('#offerPill'), o = S.offer;
   if (o && !o.done) { const h = `${o.title} <i><b style="width:${o.prog / o.goal * 100}%"></b></i> ${o.prog}/${o.goal} <span class="ot">${clock(o.until - t)}</span>`; if (op.dataset.v !== h) { op.dataset.v = h; op.innerHTML = h; } op.hidden = false; } else op.hidden = true;
   $('#taskDot').hidden = !tasksClaimable();
-  $('#menuDot').hidden = !canHolding();
+  $('#menuDot').hidden = !(canHolding() || seasonClaimable());
   // orta mühür: TOPLA (bekleyen kira + kumbara doluluğu) ya da OTO (saniyelik kira)
   const auto = S.collectMode === 'auto', pd = auto ? { amount: 0, fill: 1 } : pending();
   const cb = $('#collectBtn'), cls = 'boost collect' + (auto ? ' auto' : pd.fill >= .999 ? ' full' : '') + (cb.classList.contains('nudge') ? ' nudge' : '');
@@ -61,17 +65,17 @@ export function render() {
       const hot = producing(p) && fxMult(k, i, p, t) > 1;
       const cd = p.until && p.until - t <= CFG.SKIP_LEFT ? Math.ceil((p.until - t) / 1000) : 0; // son 5 sn geri sayım
       const ts = ui.teslim[i] && ui.teslim[i].at > performance.now() ? 1 : 0;
-      sig = [p.t, p.sp || '', p.lvl, p.until ? 1 : 0, prog, cd, ts, coin, lb, hot ? 1 : 0, mergeSides(i), d.v].join('|');
+      sig = [JSON.stringify(p.sk || ''), p.t, p.sp || '', p.lvl, p.until ? 1 : 0, prog, cd, ts, coin, lb, hot ? 1 : 0, mergeSides(i), d.v].join('|');
     }
     if (sig === ui.tileSig[i]) continue;
     ui.tileSig[i] = sig;
     if (!p) {
-      el.className = 'lot' + (i === hintI ? ' hint' : '') + (lockE ? ' lk' : '');
+      el.className = 'lot' + (i === hintI ? ' hint' : '') + (lockE ? ' lk' : ''); el.style.cssText = '';
       const tsl = ui.teslim[i] && ui.teslim[i].at > performance.now() ? `<span class="teslim"><b>TEMİZ</b><small>${ui.teslim[i].txt}</small></span>` : '';
       el.innerHTML = svg(emptyLot(i), 'art') + (lockE ? `<span class="lkb">${I.lock}</span>` : '') + tsl;
       el.setAttribute('aria-label', lockE ? 'Kilitli arsa (kapora borcu)' : 'Boş arsa'); continue;
     }
-    if (p.ob) { el.className = 'lot ob'; el.innerHTML = svg(obstacleSvg(p.ob), 'art') + `<span class="obn">${OBSTACLES[p.ob].n}</span>`; el.setAttribute('aria-label', `${OBSTACLES[p.ob].n}: temizlenmesi gerekiyor`); continue; }
+    if (p.ob) { el.className = 'lot ob'; el.style.cssText = ''; el.innerHTML = svg(obstacleSvg(p.ob), 'art') + `<span class="obn">${OBSTACLES[p.ob].n}</span>`; el.setAttribute('aria-label', `${OBSTACLES[p.ob].n}: temizlenmesi gerekiyor`); continue; }
     const prog = p.until ? Math.min(1, 1 - (p.until - t) / p.dur) : 1;
     const hot = producing(p) && fxMult(k, i, p, t) > 1;
     el.className = `lot k-${p.t} ${p.until ? 'c' : 'b'}${hot ? ' hot' : ''}${p.until ? '' : mergeSides(i)}`;
@@ -86,7 +90,8 @@ export function render() {
     // para baloncuğu yok: ince doluluk çubuğu (tek tuş modunda) ve mülke özel 2x etiketi
     if (producing(p) && S.collectMode !== 'auto') { const f = coinFill(k, i); h += `<span class="fill${f >= .999 ? ' full' : ''}"><i style="width:${Math.round(f * 100)}%"></i></span>`; }
     if ((p.bu || 0) > t) h += '<span class="lb2">2x</span>';
-    el.innerHTML = h;
+    if (p.sk && p.sk.s && !p.until) h += `<span class="tab">${p.sp ? 'ÖZEL' : TYPES[p.t].n.toLocaleUpperCase('tr-TR')}</span>`;
+    el.innerHTML = h; el.style.cssText = skinStyle(p);
     el.setAttribute('aria-label', `${p.sp ? specialOf(p.sp).n : TYPES[p.t].n}, seviye ${p.lvl}${p.until ? ', inşaatta' : ''}${(p.bu || 0) > t ? ', 2x kazanıyor' : ''}`);
   }
   renderLinks(); renderBubble();
@@ -191,6 +196,7 @@ export const Street = {
     g.prepend(this.low); g.appendChild(this.high); this.loop();
   },
   spawn(kind: 'car' | 'ped' | 'taxi') {
+    if (kind !== 'taxi' && document.body.classList.contains('night') && Math.random() < .6) return; // gece sokaklar sakin
     if (document.hidden || (ui.idle && kind !== 'taxi') || (reduceMotion && kind !== 'taxi') || this.n > 8) return;
     const s = ui.sw, sh = ui.sh, g = ui.gap, off = 14, Wd = COLS * s + (COLS - 1) * g + 2 * off, Ht = ROWS * sh + (ROWS - 1) * g + 2 * off, taxi = kind === 'taxi', ped = kind === 'ped';
     const horiz = Math.random() < .5, fwd = Math.random() < .5, e = document.createElement('div');
