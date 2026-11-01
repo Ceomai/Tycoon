@@ -82,6 +82,7 @@ function bindUi() {
   $('#offerPill').addEventListener('click', () => openSheet({ k: 'tasks' }));
   $('#mapBtn').addEventListener('click', () => openSheet({ k: 'map' }));
   $('#rifki').addEventListener('click', onTipClick);
+  $('#distBar').addEventListener('click', () => openSheet({ k: 'map' }));
   $('#guideBtn').addEventListener('click', () => { $('#guideHint').hidden = true; $('#guideBtn').classList.remove('wig'); openSheet({ k: 'guide' }); });
   $('#scrim').addEventListener('click', () => { if (ui.sheet && !justOpened()) closeSheet(); });
   $('#sheetBody').addEventListener('click', (e: Event) => { const b = (e.target as HTMLElement).closest('[data-a]') as HTMLButtonElement | null; if (b && !b.disabled && !justOpened()) void onSheetAction(b.dataset.a!, b); });

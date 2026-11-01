@@ -1,8 +1,8 @@
 /* ALT PANELLER — arsa, semtler (çok şehirli), görevler, koleksiyon, menü, sıralama, davet, mağaza, holding, ayarlar */
-import { COLS, N, CFG, MAXLV, ORDER, TYPES, LV_INC, DMAP, CITIES, CITY_ORDER, dkey, PRIVACY_URL, BuildingType } from '../config';
+import { COLS, N, CFG, DRULES, MAXLV, ORDER, TYPES, LV_INC, DMAP, CITIES, CITY_ORDER, dkey, PRIVACY_URL, BuildingType } from '../config';
 import { S, lotsOf } from '../state';
 import { fmt, fmtTime, fmtX, clock, esc, dayKey, dayDiff, weekKey } from '../format';
-import { now, PAIRS, neighborBonus, pairAdj, spAdj, districtMult, neighbors, withDisc, buildCost, buildTime, upCost, upTime, adj, rate, incM, permMult, fxMult, filled, unlockInfo, collBonus, citiesOwned, portfolioBonus } from '../economy';
+import { now, PAIRS, ruleMult, neighborBonus, pairAdj, spAdj, districtMult, neighbors, withDisc, buildCost, buildTime, upCost, upTime, adj, rate, incM, permMult, fxMult, filled, unlockInfo, collBonus, citiesOwned, portfolioBonus } from '../economy';
 import { bld, site, svg } from '../draw';
 import { LM, lmSvg } from '../landmarks';
 import { I, small } from '../icons';
@@ -12,6 +12,7 @@ import { toast } from './modal';
 import { build, upgrade, skip, demolish, lotBoost, buyDistrict, switchDistrict, buySpecial, placeSpecial, specialPrice } from '../game/actions';
 import { specialSvg, specialOf, weekSpecial } from '../specials';
 import { goalsOf, starsOf } from '../game/goals';
+import { kaporaOf, builtCount, lienBlocks, closeLien, clearCost, clearObstacle, obstacleSvg, OBSTACLES } from '../game/district';
 import { hideTip } from '../game/rifki';
 import { ensureTasks, taskText, taskReward, bonusReward, claimTask, claimBonus } from '../game/tasks';
 import { streakStrip } from '../game/daily';
@@ -39,8 +40,12 @@ export function renderSheet() {
   if (s.k === 'plot') {
     const k = s.key!, i = s.i!, p = lotsOf(S, k)[i];
     if (!p) {
-      sig = 'e|' + ORDER.map(b => (S.seen[b] ? 1 : 0) + '' + (S.cash >= withDisc(buildCost(k, b)) ? 1 : 0)).join() + S.disc + S.inv.join();
-      if (sig !== ui.sheetSig) {
+      sig = 'e|' + ORDER.map(b => (S.seen[b] ? 1 : 0) + '' + (S.cash >= withDisc(buildCost(k, b)) ? 1 : 0)).join() + S.disc + S.inv.join() + (lienBlocks(k) ? 'L' + Math.floor(S.lien[k]) : '');
+      if (sig !== ui.sheetSig && lienBlocks(k)) {
+        html = `<div class="sh-head"><div class="sh-t"><h3>Kilitli arsa</h3><p>${DMAP[k].n} · kaporalı semt</p></div></div>
+          <p class="gdp">Kapora ile alınan semtte ${CFG.KAPORA_LOTS} arsa açık. Kalan ${fmt(S.lien[k])} borç ${DMAP[k].n} kirasının yarısıyla kendiliğinden ödeniyor; bitince 20 arsanın hepsi açılır.</p>
+          <div class="btns"><button class="btn" data-a="payoff" ${S.cash >= S.lien[k] ? '' : 'disabled'}>Borcu şimdi kapat · ${fmt(S.lien[k])}</button></div>`;
+      } else if (sig !== ui.sheetSig) {
         const short = ORDER.some(b => S.seen[b] && S.cash < withDisc(buildCost(k, b)));
         const inv = S.inv.length ? `<p class="sec">Depodaki özel yapılar</p><div class="cards spcards">${S.inv.map(id => `<button class="bcard bpbg k-ozel" data-a="place" data-id="${id}">${svg(specialSvg(id))}<span class="bn">${specialOf(id).n}</span><span class="bm">Komşularına +%${Math.round(CFG.SP_ADJ * 100)}</span><span class="bp">Yerleştir</span></button>`).join('')}</div><p class="sec">Yeni bina</p>` : '';
         html = `${discBox()}${inv}<div class="cards">${ORDER.map(b => {
@@ -50,6 +55,14 @@ export function renderSheet() {
           return `<button class="bcard bpbg k-${b}" data-a="build" data-t="${b}" ${S.cash >= c ? '' : 'disabled'}>${svg(bld(b, 1))}
             <span class="bn">${T.n}</span><span class="bm">${fmt(T.inc * incM(k) * (1 + nb) * permMult() * districtMult(k), true)}/sn · ${fmtTime(buildTime(k, b))}</span><span class="bp">${fmt(c)}</span>${nb ? `<span class="chain" title="Komşu bonusu">+%${Math.round(nb * 100)}</span>` : ''}</button>`;
         }).join('')}</div>${short ? '<p class="note">Kira toplamak için ortadaki TOPLA mührüne bas.</p>' : ''}`;
+      }
+    } else if (p.ob) {
+      const c = clearCost(k), ob = OBSTACLES[p.ob];
+      sig = 'ob|' + p.ob + (S.cash >= c ? 1 : 0);
+      if (sig !== ui.sheetSig) {
+        html = `<div class="sh-head"><div class="sh-art bpbg">${svg(obstacleSvg(p.ob))}</div><div class="sh-t"><h3>${ob.n}</h3><p>${DMAP[k].n} · engelli arsa</p></div></div>
+          <p class="gdp">${ob.d} Temizlenmeden bina kurulamaz. Molozun arasından bazen eski eşyalar, nadiren tarihi bir kalıntı çıkar.</p>
+          <div class="btns"><button class="btn lotb" data-a="clear" ${S.cash >= c ? '' : 'disabled'}><span class="lbl">Temizle · ${fmt(c)}</span><small>anında · kasaya ufak bir sürpriz</small></button></div>`;
       }
     } else if (p.until) {
       const nearly = p.until - t <= CFG.SKIP_LEFT + 1e3;
@@ -77,6 +90,7 @@ export function renderSheet() {
             ${sp ? `<div><span>Komşularına</span><i></i><b>her yöne +%${Math.round(CFG.SP_ADJ * 100)}</b></div>` : `<div><span>Aynı tür komşu</span><i></i><b>${a ? '+%' + Math.round(a * CFG.ADJ * 100) : 'yok'}</b></div>
             <div><span>Akıllı ikili (${PAIR_NAME[p.t]})</span><i></i><b>${pa ? '+%' + Math.round(pa * CFG.PAIR * 100) : 'yok'}</b></div>
             ${sa ? `<div><span>Özel yapı komşusu</span><i></i><b>+%${Math.round(sa * CFG.SP_ADJ * 100)}</b></div>` : ''}`}
+            ${!sp && DRULES[k] && (ruleMult(k, i, p.t) > 1 || DRULES[k].kind === 'pair' && pa || DRULES[k].kind === 'speed' || DRULES[k].kind === 'upDisc') ? `<div><span>Semt kuralı · ${DRULES[k].n}</span><i></i><b>${DRULES[k].t.replace(/ \(.*\)/, '')}</b></div>` : ''}
             ${districtMult(k) > 1 ? `<div><span>3 yıldızlı semt</span><i></i><b>+%${Math.round(CFG.STAR_BONUS * 100)}</b></div>` : ''}
             ${lbLeft > 0 ? `<div><span>Bu mülke 2x</span><i></i><b class="red">${fmtTime(lbLeft)} kaldı</b></div>` : ''}
             ${S.boostUntil > t ? `<div><span>Tüm mülklere 2x</span><i></i><b class="red">${fmtTime(S.boostUntil - t)} kaldı</b></div>` : ''}
@@ -88,7 +102,7 @@ export function renderSheet() {
     }
   }
   else if (s.k === 'map') {
-    sig = 'm|' + JSON.stringify(S.stars) + goalsOf(S.cur).map(g => g.f(S.cur).join('/')).join() + S.cur + S.own.join() + S.own.map(filled).join() + CITY_ORDER.map(c => CITIES[c].districts.map((_, i) => { const u = unlockInfo(dkey(c, i)); return (u.ok ? 1 : 0) + '' + (S.cash >= u.fee ? 1 : 0); }).join('')).join();
+    sig = 'm|' + JSON.stringify(S.lien) + Math.floor(S.cash) + JSON.stringify(S.stars) + goalsOf(S.cur).map(g => g.f(S.cur).join('/')).join() + S.cur + S.own.join() + S.own.map(filled).join() + CITY_ORDER.map(c => CITIES[c].districts.map((_, i) => { const u = unlockInfo(dkey(c, i)); return (u.ok ? 1 : 0) + '' + (S.cash >= u.fee ? 1 : 0); }).join('')).join();
     if (sig !== ui.sheetSig) {
       const start = S.city || 'ist';
       const order = [start, ...CITY_ORDER.filter(c => c !== start)];
@@ -97,14 +111,24 @@ export function renderSheet() {
         const ownedHere = S.own.filter(k => DMAP[k].city === c).length;
         const rows = CITIES[c].districts.map((d, i) => {
           const k = dkey(c, i);
-          if (S.own.includes(k)) return `<button class="drow${k === S.cur ? ' on' : ''}" data-a="go" data-k="${k}"><span class="di"><b>${d.n}${starsOf(k).length >= 3 ? ' <span class="gold">ALTIN MÜHÜR</span>' : ''}</b><small>${filled(k)}/20 dolu · ${'★'.repeat(starsOf(k).length)}${'☆'.repeat(3 - starsOf(k).length)}</small></span><span class="mini"><i style="width:${filled(k) / 20 * 100}%"></i></span></button>`;
+          const rl = DRULES[k] ? `<em class="rl">${DRULES[k].n}: ${DRULES[k].t.toLocaleLowerCase('tr-TR')}</em>` : '';
+          if (S.own.includes(k) && S.lien[k]) return `<div class="lienrow"><button class="drow${k === S.cur ? ' on' : ''}" data-a="go" data-k="${k}"><span class="di"><b>${d.n} · kaporalı</b><small>${builtCount(k)}/${CFG.KAPORA_LOTS} arsa açık · kalan borç ${fmt(S.lien[k])}</small>${rl}</span></button>
+            <span class="dp"><u style="width:${Math.round(100 * (1 - S.lien[k] / Math.max(S.lien[k], S.lienT[k] || S.lien[k])))}%"></u></span>
+            <button class="chip" data-a="payoff" data-k="${k}" ${S.cash >= S.lien[k] ? '' : 'disabled'}>Borcu kapat · ${fmt(S.lien[k])}</button></div>`;
+          if (S.own.includes(k)) return `<button class="drow${k === S.cur ? ' on' : ''}" data-a="go" data-k="${k}"><span class="di"><b>${d.n}${starsOf(k).length >= 3 ? ' <span class="gold">ALTIN MÜHÜR</span>' : ''}</b><small>${filled(k)}/20 dolu · ${'★'.repeat(starsOf(k).length)}${'☆'.repeat(3 - starsOf(k).length)}</small>${rl}</span><span class="mini"><i style="width:${filled(k) / 20 * 100}%"></i></span></button>`;
           const u = unlockInfo(k);
-          if (u.ok) { const af = S.cash >= u.fee; if (!af) anyShort = true; return `<button class="drow" data-a="buy" data-k="${k}" ${af ? '' : 'disabled'}><span class="di"><b>${d.n}</b><small>Tapu ${fmt(u.fee)}</small></span><span class="st">SATIŞTA</span></button>`; }
+          if (u.ok) {
+            const af = S.cash >= u.fee, kap = kaporaOf(k), kf = S.cash >= kap; if (!af) anyShort = true;
+            return `<div class="salerow"><div class="sh2"><b>${d.n}</b><span class="st">SATIŞTA</span></div>${rl}
+              <p>Tapu ${fmt(u.fee)}${af ? '' : kf ? ' · paran şimdilik yetmiyor ama kapora verip hemen başlayabilirsin' : ` · kaporaya ${fmt(kap - S.cash)} kaldı`}</p>
+              <div class="sbtns"><button class="btn" data-a="kapora" data-k="${k}" ${kf && !af ? '' : 'disabled'}>Kapora · ${fmt(kap)}<small>%${Math.round(CFG.KAPORA * 100)} · ${CFG.KAPORA_LOTS} arsa hemen</small></button>
+              <button class="btn ${af ? 'gold' : 'soft'}" data-a="buy" data-k="${k}" ${af ? '' : 'disabled'}>Tapuyu al · ${fmt(u.fee)}<small>20 arsa</small></button></div></div>`;
+          }
           const why = u.why === 'prev-not-full' ? `${CITIES[c].districts[i - 1].n} dolunca açılır` : u.why === 'start-not-full' ? `${CITIES[start].districts[0].n} dolunca açılır · ${fmt(u.fee)}` : 'Kilitli';
           return `<div class="drow" style="opacity:.5"><span class="di"><b>${d.n}</b><small>${why}</small></span>${I.lock}</div>`;
         }).join('');
         return `<div class="cityhead"><span>${CITIES[c].n}</span><small>${ownedHere ? `${ownedHere}/5 semt` : CITIES[c].tagline}</small></div><div class="dlist">${rows}</div>`;
-      }).join('') + `<p class="note">Başlangıç ilinin ilk semtini doldurunca diğer illerin ilk semtini alabilirsin. Her yeni il tüm kiralara kalıcı +%${Math.round(CFG.PORTFOLIO_BONUS * 100)} katar.</p>`;
+      }).join('') + `<p class="note">Kapora: tapunun %${Math.round(CFG.KAPORA * 100)}’unu öde, ilk ${CFG.KAPORA_LOTS} arsa hemen açılır; kalan borç o semtin kirasının yarısıyla kendiliğinden ödenir.</p><p class="note">Başlangıç ilinin ilk semtini doldurunca diğer illerin ilk semtini alabilirsin. Her yeni il tüm kiralara kalıcı +%${Math.round(CFG.PORTFOLIO_BONUS * 100)} katar.</p>`;
     }
   }
   else if (s.k === 'set') {
@@ -308,11 +332,13 @@ const later = (s: SheetState, key: string) => setTimeout(() => { if (ui.sheet ==
 export async function onSheetAction(a: string, btn: HTMLElement) {
   const s = ui.sheet; if (!s) return;
   if (a === 'close') return closeSheet();
+  if (s.k === 'plot' && a === 'payoff') { closeLien(s.key!); ui.sheetSig = ''; return; }
   if (s.k === 'plot') {
     if (a === 'build') return build(s.key!, s.i!, btn.dataset.t as BuildingType);
     if (a === 'up') upgrade(s.key!, s.i!);
     if (a === 'skip') skip(s.key!, s.i!);
     if (a === 'lotboost') lotBoost(s.key!, s.i!);
+    if (a === 'clear') return clearObstacle(s.key!, s.i!);
     if (a === 'place') return placeSpecial(s.key!, s.i!, btn.dataset.id!);
     if (a === 'del') { if (s.del) return demolish(s.key!, s.i!); s.del = true; later(s, 'del'); }
   }
@@ -320,6 +346,8 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
     const k = btn.dataset.k!;
     if (a === 'go') { switchDistrict(k); closeSheet(); return; }
     if (a === 'buy') return buyDistrict(k);
+    if (a === 'kapora') return buyDistrict(k, true);
+    if (a === 'payoff') { closeLien(k); ui.sheetSig = ''; return; }
   }
   if (s.k === 'menu') { if (a === 'share') return openShare(); return openSheet({ k: a }); }
   if (s.k === 'tasks') { if (a === 'daily') { closeSheet(); ui.lastDay = ''; return; } if (a === 'claim') claimTask(+btn.dataset.i!); if (a === 'bonus') claimBonus(); }

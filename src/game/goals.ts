@@ -55,7 +55,7 @@ const BY_TIER: Goal[][] = [
 ];
 export const goalsOf = (k: DistrictKey): Goal[] => BY_TIER[DMAP[k].idx] || BY_TIER[0];
 export const starsOf = (k: DistrictKey): number[] => (S.stars && S.stars[k]) || [];
-const prize = (k: DistrictKey) => Math.max(2000, totalRate(false) * 300 * (DMAP[k].idx + 1));
+const prize = (k: DistrictKey) => Math.max(1000, totalRate(false) * 90 * (1 + 0.5 * DMAP[k].idx)); // ~1,5 dk kira: tapu dengesini bozmaz
 
 /** Yeni kazanılan yıldızları verir (oyun döngüsünden birkaç saniyede bir çağrılır). */
 export function checkGoals() {

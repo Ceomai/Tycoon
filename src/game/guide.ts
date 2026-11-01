@@ -18,7 +18,7 @@ const sec = (s: number) => fmtTime(s * 1000);
 const icon = (s: string) => `<span class="gdicon">${s}</span>`;
 
 export function chapters(): Chapter[] {
-  const T = TYPES, tierRent = TIER_M[1] * 1.25;
+  const T = TYPES, tierRent = Math.round(TIER_M[1] * CFG.TIER_INC * 10) / 10;
   return [
     {
       t: 'İlk adımlar', s: 'İl seç, arsaya dokun, ilk evini kur',
@@ -77,17 +77,20 @@ export function chapters(): Chapter[] {
       facts: [['Reklamla hızlandırma', `${dk(CFG.AD_SKIP)} kısalır`], ['Kısa işlerde', '5 sn kalır'], ['Tadilatta', 'kira üretilmez'], ['Yıkmak', 'iki kez dokun (onaylı)']],
     },
     {
-      t: 'Semtler ve iller', s: `Tapu bedelleri · başka ilden arsa · +${pct(CFG.PORTFOLIO_BONUS)}`,
+      t: 'Semtler ve iller', s: 'Tapu, kapora, semt kuralları, engelli arsalar', isNew: true,
       art: () => icon('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg>'),
       body: [
         `Her ilde 5 semt var (${CITY_ORDER.map(c => CITIES[c].n).join(', ')}). Bir semtin 20 arsasını doldurunca sıradaki semtin <b>tapusunu</b> alabilirsin.`,
+        `Paran tapuya yetmiyorsa <b>kapora</b> ver: tapunun %${Math.round(CFG.KAPORA * 100)}’unu öde, yeni semtin ${CFG.KAPORA_LOTS} arsası hemen açılır. Kalan borç o semtin kirasının yarısıyla kendiliğinden ödenir; bitince 20 arsanın hepsi senin. Ana ekrandaki çubuk bu semtin ne kadarının dolduğunu ve sonraki kaporaya ne kadar kaldığını gösterir.`,
+        `Her semtin kendine özel bir <b>kuralı</b> var (örneğin Beşiktaş’ta kafeler +%20, Bebek’te sahil sırası +%30). Yeni semtlerde 3–4 arsa gecekondu, hurda araba ya da molozla dolu gelir: küçük bir bedelle temizle, eski eşyalardan para çıkar, nadiren tarihi bir kalıntı.`,
         `Her yeni semt kademesinde bina bedelleri ${TIER_M[1]} kat, kiralar ${String(tierRent).replace('.', ',')} kat artar. Başlangıç ilinin ilk semtini doldurunca diğer illerin ilk semtleri de satışa çıkar; her ek il tüm kiralarına kalıcı +${pct(CFG.PORTFOLIO_BONUS)} kazandırır.`,
       ],
       facts: [
         ['2. semt tapusu', fmt(TIER_FEE[1])], ['3. semt tapusu', fmt(TIER_FEE[2])], ['4. semt tapusu', fmt(TIER_FEE[3])], ['5. semt tapusu', fmt(TIER_FEE[4])],
         ['2. il · 3. il', `${fmt(CFG.EXTRA_CITY_FEE_1)} · ${fmt(CFG.EXTRA_CITY_FEE_2)}`], ['Portföy bonusu', `il başına +${pct(CFG.PORTFOLIO_BONUS)}`],
+        ['Kapora', `%${Math.round(CFG.KAPORA * 100)} peşin · ${CFG.KAPORA_LOTS} arsa hemen`], ['Borç ödemesi', 'o semtin kirasının yarısı'],
       ],
-      tip: 'İller arasında Semtler düğmesinden geçersin; her semt sen yokken de kira üretir.',
+      tip: 'Semtler arasında geçince, uzaktaki semtinin sen yokken ne kazandığını altta görürsün.',
     },
     {
       t: 'Semt hedefleri', s: `Her semtte 3 yıldız · 3 yıldıza +${pct(CFG.STAR_BONUS)}`, isNew: true,

@@ -30,8 +30,9 @@ export const CITIES: Record<CityId, { n: string; districts: { n: string; v: numb
     { n: 'Bahçelievler', v: 0 }, { n: 'Kızılay', v: 1 }, { n: 'Çankaya', v: 3 }, { n: 'Ümitköy', v: 2 }, { n: 'İncek', v: 0 }] },
 };
 export const CITY_ORDER: CityId[] = ['ist', 'izm', 'ank'];
-export const TIER_M = [1, 6, 36, 216, 1296];           // kademe çarpanı (maliyet)
-export const TIER_FEE = [0, 150e3, 4e6, 1.2e8, 4e9];    // il içinde sonraki semtin tapu bedeli
+// Denge (scripts/sim.ts ile ölçüldü): semtler 15–45 dk'da dolar, tapu beklemesi ≤ ~17 dk
+export const TIER_M = [1, 10, 100, 1000, 10000];       // kademe çarpanı (maliyet)
+export const TIER_FEE = [0, 80e3, 1e6, 1.2e7, 1.5e8];   // il içinde sonraki semtin tapu bedeli
 
 export type DistrictKey = string; // örn. "ist-0"
 export interface District { key: DistrictKey; city: CityId; idx: number; n: string; v: number; }
@@ -48,6 +49,10 @@ export const CFG = {
   LOT_BOOST: 60 * 60e3, LOT_BOOST_MAX: 4 * 3600e3, // mülke özel 2x: reklam başına süre, en fazla birikim
   AD_SKIP: 30 * 60e3,          // reklamla hızlandırma: süreden düşülen
   SKIP_LEFT: 5e3,
+  TIER_INC: 0.6,               // kira çarpanı = kademe çarpanı × TIER_INC^kademe (yeni semtin binaları eski kiralarla anında dolmasın)
+  KAPORA: 0.3,                 // kapora: tapunun bu kadarı peşin
+  KAPORA_LOTS: 4,              // kaporalı semtte açılan arsa sayısı
+  KAPORA_SHARE: 0.5,           // kaporalı semtin kirasının borca giden payı
   PAIR: 0.1,                   // akıllı ikili komşu (kafe+ofis, ev+dükkân) başına bonus
   SP_ADJ: 0.15,                // özel yapının her komşusuna bonus
   STAR_BONUS: 0.1,             // 3 yıldızlı semte kalıcı bonus
@@ -85,3 +90,25 @@ export const LEAGUES = [
 ] as const;
 export const LEAGUE_TOP = LEAGUES.length - 1;
 export const GROUP_SIZE = 30;
+
+/* ---------- semt kuralları (her semtin oynanışı değiştiren küçük özelliği) ----------
+   type: o türdeki binalar +x · row: en alt sıra (sahil) +x · speed: inşaat/tadilat x kadar hızlı
+   upDisc: tadilat x kadar ucuz · pair: akıllı ikili bonusu +x (ek) */
+export interface DRule { n: string; t: string; kind: 'type' | 'row' | 'speed' | 'upDisc' | 'pair'; type?: BuildingType; x: number; }
+export const DRULES: Record<string, DRule> = {
+  'ist-0': { n: 'Bahçeli evler', t: 'Evler +%15', kind: 'type', type: 'ev', x: 0.15 },
+  'ist-1': { n: 'Çarşı semti', t: 'Kafeler +%20', kind: 'type', type: 'kafe', x: 0.2 },
+  'ist-2': { n: 'İş merkezi', t: 'Ofisler +%15', kind: 'type', type: 'ofis', x: 0.15 },
+  'ist-3': { n: 'Butik caddesi', t: 'Dükkânlar +%25', kind: 'type', type: 'dukkan', x: 0.25 },
+  'ist-4': { n: 'Boğaz kıyısı', t: 'Sahil sırası (en alt sıra) +%30', kind: 'row', x: 0.3 },
+  'izm-0': { n: 'Çarşı ve sahil', t: 'Evler +%15', kind: 'type', type: 'ev', x: 0.15 },
+  'izm-1': { n: 'Genç ve hareketli', t: 'İnşaatlar %25 hızlı', kind: 'speed', x: 0.25 },
+  'izm-2': { n: 'Kordon boyu', t: 'Kafeler +%25', kind: 'type', type: 'kafe', x: 0.25 },
+  'izm-3': { n: 'Mahalle kültürü', t: 'Akıllı ikililer +%20', kind: 'pair', x: 0.1 },
+  'izm-4': { n: 'Ege kıyısı', t: 'Sahil sırası (en alt sıra) +%30', kind: 'row', x: 0.3 },
+  'ank-0': { n: 'Bahçeli evler', t: 'Evler +%20', kind: 'type', type: 'ev', x: 0.2 },
+  'ank-1': { n: 'Bulvar etkisi', t: 'Dükkânlar +%25', kind: 'type', type: 'dukkan', x: 0.25 },
+  'ank-2': { n: 'Elçilikler semti', t: 'Ofisler +%20', kind: 'type', type: 'ofis', x: 0.2 },
+  'ank-3': { n: 'Yeni yerleşim', t: 'Tadilat %20 ucuz', kind: 'upDisc', x: 0.2 },
+  'ank-4': { n: 'Yükselen bölge', t: 'İnşaatlar %25 hızlı', kind: 'speed', x: 0.25 },
+};

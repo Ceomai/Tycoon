@@ -31,7 +31,7 @@ Test APK'sında Google'ın test reklamları çıkar; Firebase ayarı eklenmediys
 | `firestore.rules`, `firestore.indexes.json`, `firebase.json` | Güvenlik kuralları ve sıralama dizini |
 | `tests/unit/` | Birim testleri (vitest): biçimleme, kayıt taşıma, saat hilesi, il açılışı, portföy bonusu |
 | `tests/qa.cjs` | Uçtan uca test (Playwright, sahte saat): 75 kontrol, 5 ekran boyutu |
-| `tests/economy_sim.py` | Ekonomi simülasyonu |
+| `scripts/sim.ts` | Ekonomi simülasyonu (oyunun gerçek ekonomi koduyla; `npm run sim`, ayar denemesi için `SIM_TIER_M`, `SIM_TIER_INC`, `SIM_TIER_FEE`) |
 
 Servis ayarı yoksa (`.env` boş) oyun tamamen yerel çalışır; Firebase kodu hiç indirilmez.
 
@@ -50,7 +50,7 @@ Arsaya dokun → inşaat (betonarme karkas kat kat yükselir) → kira birikir �
 | Etkinlik kartı | 2,5-4,5 dk'da bir (metro, turist akını, vergi iadesi, indirim…) |
 | Yokken kazanç | %30 verim, en fazla 3 saat; görev ödülü "tüm mülklere 2x" süresi yokken de sayılır |
 
-Simülasyona göre aktif oynayan biri reklamsız Kafe'yi ~5, Dükkân'ı ~13. dakikada açar, Beşiktaş'ı ~35. dakikada alır. Sürekli 2x ile Beşiktaş ~23. dakikaya iner.
+Simülasyona göre (`npm run sim`, aktif oyuncu, reklamsız) İstanbul'un semtleri 18 / 12 / 27 / 34 / 27 dk'da dolar; tapu beklemesi 4 / 6 / 7 / 13 dk. Denge: kademe çarpanı ×10, yeni semtte kira artışı 0,6, tapu ₺80B / ₺1Mn / ₺12Mn / ₺150Mn.
 
 ## Geri getiren ve büyüten sistemler
 | Sistem | Nasıl çalışır | Uygulamada bağlanacak servis |
@@ -65,6 +65,11 @@ Simülasyona göre aktif oynayan biri reklamsız Kafe'yi ~5, Dükkân'ı ~13. da
 | Holding (prestij) | Herhangi bir ilin 5. semtinden sonra sıfırla (başlangıç ili korunur); hisse = √(tur kazancı / 1e8), her hisse +%10 kalıcı kira. | – |
 | Şehrini paylaş | 1080×1920 story görseli (şehir + kasa + davet kodu); paylaş ya da kaydet. | `@capacitor/share` + `@capacitor/filesystem` |
 | Davet kodu | Arkadaşın kodunu girene ve davet edene (her katılan için) nakit tapu hediyesi. Kod tekilliği ve tek kullanım sunucuda. | Cloud Functions `hello`, `redeemInvite` |
+| Semt ilerlemesi | Ana ekranda bu semtin yüzdesi ("bitirmeye N arsa kaldı"); altta gri yazıyla sonraki semtin kaporasına ne kadar kaldığı. Para sen yokken birikince bildirim. | – |
+| Kapora | Tapunun %30'u peşin: yeni semtin 4 arsası hemen açılır; kalan borç o semtin kirasının yarısıyla (sen yokken de) ödenir, bitince 20 arsa açılır; istenirse kasadan kapatılır. | – |
+| İl kartpostalı ve semt kuralları | Yeni semtte il kartpostalı ve semtin kuralı (ör. Beşiktaş kafeler +%20, Bebek sahil sırası +%30, Bornova inşaatlar %25 hızlı, Ümitköy tadilat %20 ucuz). | – |
+| Engelli arsalar | Yeni semtte 3–4 arsa gecekondu / hurda / moloz / yıkık duvar; küçük bedelle temizlenir, bedelden fazlası geri döner, nadiren tarihi yapı çıkar. | – |
+| Semt özeti | Semte dönünce "Kadıköy sen Beşiktaş'tayken ₺… kazandı" şeridi. | – |
 | Tapu teslim anı | İnşaatın son 5 saniyesinde geri sayım; bitince binaya "TESLİM" mührü vurulur. Reklamla hızlandırma son 5 saniyeyi bırakır. | – |
 | Semt hedefleri | Her semtte 3 hedef (yan yana dizme, kat çıkma, semti doldurma); her yıldız ikramiye, 3 yıldız kalıcı +%10 ve altın mühür. | – |
 | Karma komşuluk | Aynı tür komşu +%20; akıllı ikililer Kafe+Ofis ve Ev+Dükkân +%10; mülk panelinde dört komşunun şeması. | – |

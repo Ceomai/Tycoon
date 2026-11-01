@@ -13,6 +13,7 @@ import { persist } from './persist';
 import { Analytics } from '../services/analytics';
 import { weekKey } from '../format';
 import { weekSpecial, specialOf } from '../specials';
+import { kaporaOf, lienBlocks, placeObstacles, showDistrictCard, showSummary } from './district';
 
 export function addCash(a: number) {
   if (!Number.isFinite(a) || a <= 0) return;
@@ -37,6 +38,7 @@ export function collect(k: DistrictKey, i: number) {
 export function build(k: DistrictKey, i: number, t: BuildingType) {
   const c = withDisc(buildCost(k, t)), d = buildTime(k, t);
   if (S.cash < c || lotsOf(S, k)[i]) { Snd.no(); return; }
+  if (lienBlocks(k)) { toast(`Kaporalı semtte ${CFG.KAPORA_LOTS} arsa açık · borç bitince hepsi açılır`); Snd.no(); return; }
   S.cash -= c; S.disc = 0;
   lotsOf(S, k)[i] = { t, lvl: 0, buf: 0, until: now() + d, dur: d, up: false }; track('build');
   Analytics.log('build', { type: t, district: k });
@@ -69,6 +71,7 @@ export function buySpecial() {
 }
 export function placeSpecial(k: DistrictKey, i: number, id: string) {
   const at = S.inv.indexOf(id); if (at < 0 || lotsOf(S, k)[i]) return;
+  if (lienBlocks(k)) { toast(`Kaporalı semtte ${CFG.KAPORA_LOTS} arsa açık · borç bitince hepsi açılır`); return; }
   S.inv.splice(at, 1);
   lotsOf(S, k)[i] = { t: 'ofis', lvl: 1, buf: 0, until: 0, dur: 1, up: false, sp: id };
   if (k === S.cur) ui.teslim[i] = { at: performance.now() + 1600, txt: specialOf(id).n };
@@ -114,16 +117,21 @@ export function lotBoost(k: DistrictKey, i: number) {
     Analytics.log('lot_boost', { type: q.t, district: k });
   });
 }
-export function buyDistrict(k: DistrictKey) {
+/** Tapu alımı (tam bedel) ya da kapora (%30 peşin, kalan borç semtin kirasıyla ödenir). */
+export function buyDistrict(k: DistrictKey, kapora = false) {
   const u = unlockInfo(k); if (!u.ok) return;
-  if (S.cash < u.fee) { Snd.no(); return; }
+  const pay = kapora ? kaporaOf(k) : u.fee;
+  if (S.cash < pay) { Snd.no(); return; }
   const d = DMAP[k], newCity = !S.own.some(o => DMAP[o].city === d.city);
-  S.cash -= u.fee; S.own.push(k); lotsOf(S, k); switchDistrict(k); persist(); closeSheet();
+  S.cash -= pay; S.own.push(k); lotsOf(S, k);
+  if (kapora) { S.lien[k] = u.fee - pay; S.lienT[k] = u.fee - pay; }
+  placeObstacles(k);
+  switchDistrict(k); persist(); closeSheet();
   Snd.unlock(); buzz(30);
-  toast(newCity ? `${CITIES[d.city].n} portföyüne eklendi · ${d.n}` : `${d.n} tapusu senin`);
-  Analytics.log(newCity ? 'city_unlock' : 'district_unlock', { district: k });
+  showDistrictCard(k);
+  Analytics.log(newCity ? 'city_unlock' : 'district_unlock', { district: k, kapora });
 }
-export function switchDistrict(k: DistrictKey) { if (!S.own.includes(k)) return; S.cur = k; ui.tileSig = []; ui.linkSig = ''; render(); }
+export function switchDistrict(k: DistrictKey) { if (!S.own.includes(k)) return; const from = S.cur; S.cur = k; showSummary(k, from); ui.tileSig = []; ui.linkSig = ''; render(); }
 
 /** Ödüllü reklam (ya da premium) sonrası ortak işlemler. */
 export function grantReward(fn?: () => void) {

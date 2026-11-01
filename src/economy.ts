@@ -1,7 +1,7 @@
 /* =========================================================
    EKONOMİ — kira, maliyet, süre, komşuluk ve semt/il açılışları
    ========================================================= */
-import { CFG, COLS, ROWS, N, TYPES, LV_INC, UP_COST, UP_TIME, DMAP, DistrictKey, CityId, BuildingType, TIER_M, TIER_FEE, dkey, CITIES, CITY_ORDER } from './config';
+import { CFG, COLS, ROWS, N, TYPES, LV_INC, UP_COST, UP_TIME, DMAP, DistrictKey, CityId, BuildingType, TIER_M, TIER_FEE, dkey, CITIES, CITY_ORDER, DRULES, DRule } from './config';
 import { S, Plot, Lot, lotsOf } from './state';
 import { Time } from './time';
 import { LM } from './landmarks';
@@ -12,14 +12,25 @@ import { festivalOn } from './game/festival';
 export const now = () => { const t = Time.now(); return S && t < S.maxSeen - 300e3 ? S.maxSeen : t; };
 const D = (k: DistrictKey) => DMAP[k];
 export const tierOf = (k: DistrictKey) => D(k).idx;
-export const incM = (k: DistrictKey) => TIER_M[tierOf(k)] * Math.pow(1.25, tierOf(k));
+export const incM = (k: DistrictKey) => TIER_M[tierOf(k)] * Math.pow(CFG.TIER_INC, tierOf(k));
 export const costM = (k: DistrictKey) => TIER_M[tierOf(k)];
 export const cnt = (k: DistrictKey, t: BuildingType) => lotsOf(S, k).filter(p => p && p.t === t).length;
 export const withDisc = (p: number) => p * (1 - S.disc);
 export const buildCost = (k: DistrictKey, t: BuildingType) => TYPES[t].cost * costM(k) * Math.pow(1.12, cnt(k, t));
-export const buildTime = (k: DistrictKey, t: BuildingType) => TYPES[t].time * 1000 * (1 + 0.1 * cnt(k, t)) * (1 + 0.5 * tierOf(k));
-export const upCost = (k: DistrictKey, p: Plot) => TYPES[p.t].cost * costM(k) * UP_COST[p.lvl];
-export const upTime = (k: DistrictKey, p: Plot) => TYPES[p.t].time * 1000 * UP_TIME[p.lvl] * (1 + 0.5 * tierOf(k));
+/* semt kuralı: hız ve tadilat indirimi */
+export const ruleOf = (k: DistrictKey): DRule | undefined => DRULES[k];
+const speedM = (k: DistrictKey) => { const r = DRULES[k]; return r && r.kind === 'speed' ? 1 - r.x : 1; };
+const upDiscM = (k: DistrictKey) => { const r = DRULES[k]; return r && r.kind === 'upDisc' ? 1 - r.x : 1; };
+export const buildTime = (k: DistrictKey, t: BuildingType) => TYPES[t].time * 1000 * (1 + 0.1 * cnt(k, t)) * (1 + 0.5 * tierOf(k)) * speedM(k);
+export const upCost = (k: DistrictKey, p: Plot) => TYPES[p.t].cost * costM(k) * UP_COST[p.lvl] * upDiscM(k);
+export const upTime = (k: DistrictKey, p: Plot) => TYPES[p.t].time * 1000 * UP_TIME[p.lvl] * (1 + 0.5 * tierOf(k)) * speedM(k);
+/** Semt kuralının bu arsadaki binaya kira etkisi (tür ya da sahil sırası). */
+export function ruleMult(k: DistrictKey, i: number, t: BuildingType): number {
+  const r = DRULES[k]; if (!r) return 1;
+  if (r.kind === 'type' && r.type === t) return 1 + r.x;
+  if (r.kind === 'row' && Math.floor(i / COLS) === ROWS - 1) return 1 + r.x;
+  return 1;
+}
 export const producing = (p: Lot): p is Plot => !!(p && p.lvl >= 1 && !p.until);
 
 export function neighbors(i: number): number[] {
@@ -44,7 +55,8 @@ export function spAdj(k: DistrictKey, i: number): number {
 }
 /** Toplam komşuluk bonusu (aynı tür + akıllı ikili + özel yapı). */
 export function neighborBonus(k: DistrictKey, i: number, t?: BuildingType): number {
-  return CFG.ADJ * adj(k, i, t) + CFG.PAIR * pairAdj(k, i, t) + CFG.SP_ADJ * spAdj(k, i);
+  const r = DRULES[k], pair = CFG.PAIR + (r && r.kind === 'pair' ? r.x : 0);
+  return CFG.ADJ * adj(k, i, t) + pair * pairAdj(k, i, t) + CFG.SP_ADJ * spAdj(k, i);
 }
 export function fxMult(k: DistrictKey, i: number, p: Plot, t: number): number {
   let m = 1;
@@ -72,7 +84,7 @@ export function specialBase(k: DistrictKey, i: number): number {
 export function baseRate(k: DistrictKey, i: number): number {
   const p = lotsOf(S, k)[i]; if (!producing(p)) return 0;
   if (p!.sp) return specialBase(k, i) * permMult() * districtMult(k);
-  return TYPES[p!.t].inc * LV_INC[p!.lvl] * incM(k) * (1 + neighborBonus(k, i)) * permMult() * districtMult(k);
+  return TYPES[p!.t].inc * LV_INC[p!.lvl] * incM(k) * (1 + neighborBonus(k, i)) * ruleMult(k, i, p!.t) * permMult() * districtMult(k);
 }
 export function rate(k: DistrictKey, i: number, t = now()): number {
   const b = baseRate(k, i); if (!b) return 0;

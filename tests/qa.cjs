@@ -24,6 +24,9 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
  ok(await p.isVisible('#modal .citycard'),'ilk açılışta il seçimi çıktı');
  ok((await p.$$('#modal .cityopt')).length===3,'3 il seçeneği var');
  await tap(p,'#modal .cityopt[data-a="izm"]'); await p.clock.runFor(300);
+ ok(await p.isVisible('#modal .postcard') && (await p.textContent('#modal .postcard')).includes('Karşıyaka') && (await p.textContent('#modal .postcard')).includes('evler'),'il kartpostalı ve başlangıç semtinin kuralı çıktı');
+ await tap(p,'#modal [data-a="ok"]');
+ ok(await p.isVisible('#distBar') && /%0/.test(await p.textContent('#distBar')),'ilerleme çubuğu: semtin yüzdesi');
  let s=await st(p); ok(s.city==='izm'&&s.cur==='izm-0'&&s.own.join()==='izm-0','İzmir seçildi, Karşıyaka açık');
  ok((await p.textContent('#dname')).includes('Karşıyaka'),'üstte İzmir · Karşıyaka');
  ok(await p.isVisible('#bubble:not([data-off])'),'yönlendirme balonu görünüyor');
@@ -91,6 +94,9 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
  await p.clock.runFor(3000); while(await p.isVisible('#modal .card')){ await tap(p,'#modal .card .txt'); await p.clock.runFor(800); }
  await tap(p,'#mapBtn'); await p.clock.runFor(300); await tap(p,'[data-a="buy"]'); s=await st(p); ok(s.own.length===2&&s.cur==='ist-1','Beşiktaş alındı ve açıldı');
  ok((await p.textContent('#dname')).includes('Beşiktaş'),'üstte yeni semt adı');
+ ok(await p.isVisible('#modal .postcard') && (await p.textContent('#modal .postcard')).includes('Çarşı'),'yeni semtte kartpostal + kural (Çarşı semti)');
+ await tap(p,'#modal [data-a="ok"]');
+ { const n=(await st(p)).d['ist-1'].filter(q=>q&&q.ob).length; ok(n>=3&&n<=4,'yeni semtte '+n+' engelli arsa'); }
  await tap(p,'#menuBtn'); await tap(p,'[data-a="set"]'); await p.clock.runFor(300); await tap(p,'[data-a="reset"]'); await tap(p,'[data-a="reset"]'); s=await st(p); ok(s.own.length===1&&s.cash===150&&s.city===null,'oyun sıfırlandı');
  ok(await p.isVisible('#modal .citycard'),'sıfırlamadan sonra il seçimi soruluyor');
  await tap(p,'#modal .cityopt[data-a="ank"]'); s=await st(p); ok(s.cur==='ank-0','Ankara · Bahçelievler ile yeniden başlandı');
@@ -145,8 +151,8 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
  ok(await p.isVisible('[data-a="buy"][data-k="ank-0"]'),'Ankara · Bahçelievler da satışta');
  ok(!(await p.$('[data-a="buy"][data-k="izm-1"]')),'İzmir\'in 2. semti henüz satılmıyor');
  const r0=await p.evaluate(()=>window.__tapuState().cash);
- await tap(p,'[data-a="buy"][data-k="izm-0"]'); s=await st(p);
- ok(s.own.includes('izm-0')&&s.cur==='izm-0'&&r0-s.cash>=59e3,'İzmir\'den arsa alındı (60B tapu)');
+ await tap(p,'[data-a="buy"][data-k="izm-0"]'); await dismiss(p); s=await st(p);
+ ok(s.own.includes('izm-0')&&s.cur==='izm-0'&&!s.lien['izm-0'],'İzmir\'den arsa alındı (60B tapu)');
  ok((await p.textContent('#dname')).includes('İzmir'),'üstte İzmir · Karşıyaka');
  await tap(p,'#mapBtn'); ok(await p.isDisabled('[data-a="buy"][data-k="ank-0"]'),'üçüncü il daha pahalı (600B), parası yetmiyor');
  ok((await p.textContent('#sheetBody')).includes('%10'),'portföy bonusu haritada yazıyor');
@@ -168,6 +174,7 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
    };
    const S = () => p.evaluate(() => JSON.parse(JSON.stringify(window.__tapuState())));
    await touch('.cityopt[data-a="ank"]'); let s = await S(); ok(s.city === 'ank', 'dokunuşla il seçildi');
+   await touch('#modal [data-a="ok"]');
    await touch('.lot[data-i="6"]'); ok(await p.isVisible('#sheet.on'), 'arsaya dokununca panel açık kalıyor');
    await touch('[data-a="build"][data-t="ev"]'); s = await S(); ok(s.d['ank-0'][6] && s.d['ank-0'][6].t === 'ev', 'dokunuşla inşaat başladı');
    await touch('#scrim'); ok(!(await p.isVisible('#sheet.on')), 'boşluğa dokununca panel kapandı');
@@ -316,6 +323,42 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
    await p.waitForTimeout(600); ok(await p.evaluate(()=>getComputedStyle(document.querySelector('#rifki')).opacity==='1' && document.body.classList.contains('idle')),'oyuncu boştayken bile balon tamamen görünür (animasyon donmuyor)');
    await tap(p,'#rifki .rk-x'); ok(await p.isHidden('#rifki'),'× ile kapandı');
    await tap(p,'#menuBtn'); await tap(p,'[data-a="set"]'); await tap(p,'[data-a="rifki"]'); s2=await st(p); ok(s2.rifki===false,'ayarlardan kapatıldı');
+   ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
+ }
+
+ log('M) semt geçişleri: kapora, engelli arsa, ilerleme çubuğu, semt özeti, kural');
+ {
+   const seedFull=(cash)=>`t=>{const d=[0,1,2,3,4].map(()=>Array(20).fill(null)); for(let i=0;i<20;i++) d[0][i]={t:i%2?'ev':'kafe',lvl:2,buf:0,until:0,dur:1,up:false}; return {v:1,cash:${cash},earned:3e5,boostUntil:0,lastSeen:t,unlocked:1,cur:0,d,fx:[],disc:0,playMs:0,nextAd:9e9,nextEvent:9e9,nextOffer:9e9,nextTaxi:9e9,sound:false,collects:50,seen:{ev:true,kafe:true},ads:0,skipHint:1,guideHint:true,rifki:false,daily:{last:${today},streak:1}}}`;
+   p=await page(b,{},seedFull(30000));
+   await dismiss(p); await p.clock.runFor(2600); await dismiss(p);
+   await p.evaluate(()=>{ window.__tapuState().cash=30000; }); await p.clock.runFor(400); // yıldız ödüllerinden sonra kasa sabitlenir
+   const bar=await p.textContent('#distBar'); ok(bar.includes('%100') && bar.includes('Beşiktaş kaporası verilebilir'),'çubuk: semt %100, altta "Beşiktaş kaporası verilebilir"');
+   await tap(p,'#mapBtn'); ok(await p.isEnabled('[data-a="kapora"][data-k="ist-1"]') && await p.isDisabled('[data-a="buy"][data-k="ist-1"]'),'tapuya yetmiyor, kapora verilebiliyor');
+   await tap(p,'[data-a="kapora"][data-k="ist-1"]'); let s3=await st(p);
+   ok(s3.cur==='ist-1' && Math.abs(s3.lien['ist-1']-56000)<1 && Math.abs(30000-s3.cash-24000)<1,'kapora verildi: ₺24B peşin, ₺56B borç');
+   await tap(p,'#modal [data-a="ok"]');
+   ok((await p.textContent('#distBar')).includes('kaporalı'),'çubuk kaporalı semti ve borcu gösteriyor');
+   // 4 arsa sınırı
+   await p.evaluate(()=>{ const st=window.__tapuState(); st.cash=1e6; const L=st.d['ist-1']; let n=0; for(let i=0;i<20&&n<4;i++) if(!L[i]){ L[i]={t:'ev',lvl:1,buf:0,until:0,dur:1,up:false}; n++; } });
+   await p.clock.runFor(600);
+   const free=await p.evaluate(()=>window.__tapuState().d['ist-1'].findIndex(q=>!q));
+   ok(await p.isVisible(`.lot[data-i="${free}"].lk`),'4 arsadan sonra kalan arsalar kilitli görünüyor');
+   await tap(p,`.lot[data-i="${free}"]`); ok((await p.textContent('#sheetBody')).includes('Kilitli arsa'),'kilitli arsada borç açıklaması');
+   await tap(p,'[data-a="payoff"]'); s3=await st(p); ok(!s3.lien['ist-1'],'borç kasadan kapatıldı, 20 arsa açık');
+   await p.keyboard.press('Escape'); await p.waitForTimeout(400);
+   // engelli arsa temizleme
+   const ob=await p.evaluate(()=>window.__tapuState().d['ist-1'].findIndex(q=>q&&q.ob));
+   ok(ob>=0 && await p.isVisible(`.lot[data-i="${ob}"].ob`),'engelli arsa haritada çiziliyor');
+   const c0=(await st(p)).cash; await tap(p,`.lot[data-i="${ob}"]`); await tap(p,'[data-a="clear"]'); s3=await st(p);
+   ok(s3.d['ist-1'][ob]===null && s3.cash>c0-50000,'engel temizlendi, eski eşyadan para çıktı');
+   await dismiss(p);
+   // borç kiradan ödenir
+   await p.evaluate(()=>{ const st=window.__tapuState(); st.lien['ist-1']=50; st.lienT['ist-1']=56000; }); await p.clock.runFor(4000); s3=await st(p);
+   ok(!s3.lien['ist-1'],'kalan borç semtin kirasından kendiliğinden ödendi');
+   // semt özeti
+   await p.clock.runFor(8000); await dismiss(p); await p.keyboard.press('Escape'); await p.waitForTimeout(400); await tap(p,'#mapBtn'); await tap(p,'[data-a="go"][data-k="ist-0"]');
+   ok(await p.isVisible('#sumBar') && (await p.textContent('#sumBar')).includes('Kadıköy sen Beşiktaş’tayken'),'semt özeti: "Kadıköy sen Beşiktaş’tayken … kazandı"');
+   // kural: Beşiktaş kafeleri +%20
    ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
  }
 

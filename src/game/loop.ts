@@ -20,6 +20,7 @@ import { Ads } from '../services/ads';
 import { Cloud } from '../services/cloud';
 import { Analytics } from '../services/analytics';
 import { checkGoals } from './goals';
+import { payLien, showDistrictCard } from './district';
 import { maybeTip } from './rifki';
 import { festivalOn } from './festival';
 import { showFestGift } from './events';
@@ -42,7 +43,12 @@ export function tick() {
         if (k === S.cur && ui.tiles[i]) { const el = ui.tiles[i]; ui.tileSig[i] = ''; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
         Snd.done(); buzz(12); ui.sheetSig = '';
       }
-      if (producing(p)) { const r = rate(k, i, t), cap = r * CFG.CAP_SEC; if (p.buf < cap) p.buf = Math.min(cap, p.buf + r * dt / 1000); }
+      if (producing(p)) {
+        const r = rate(k, i, t), cap = r * CFG.CAP_SEC; let g = r * dt / 1000;
+        if (k !== S.cur) S.dEarn[k] = (S.dEarn[k] || 0) + g; // semt özeti
+        if (S.lien[k]) { const share = g * CFG.KAPORA_SHARE; payLien(k, share); g -= share; } // kapora borcu kiradan ödenir
+        if (p.buf < cap) p.buf = Math.min(cap, p.buf + g);
+      }
     }
   }
   if (S.fx.length) S.fx = S.fx.filter(f => f.until > t);
@@ -88,7 +94,7 @@ export function pickCity(onDone?: () => void) {
       Object.assign(S, { city: c, own: fresh.own, cur: fresh.cur, d: fresh.d });
       ui.tileSig = []; ui.linkSig = ''; persist(); render(); Snd.unlock();
       Analytics.log('start_city', { city: c });
-      onDone && onDone();
+      showDistrictCard(fresh.cur, onDone); // il kartpostalı + başlangıç semtinin kuralı
     });
 }
 
