@@ -16,7 +16,9 @@ import { defineSecret } from 'firebase-functions/params';
 import { createVerify } from 'node:crypto';
 
 initializeApp();
-setGlobalOptions({ region: 'europe-west1', maxInstances: 20 });
+// Kapasite: her kopya aynı anda 80 isteğe bakar (2. nesil varsayılanı); 200 kopya ≈ 16.000 eşzamanlı istek.
+// Maliyet tavanı için Google Cloud'da bütçe uyarısı kurun (docs/RELEASE.md).
+setGlobalOptions({ region: 'europe-west1', maxInstances: 200, concurrency: 80, cpu: 1, memory: '256MiB' }); // concurrency > 1 için cpu en az 1 olmalı
 const db = getFirestore();
 const RC_SECRET = defineSecret('REVENUECAT_WEBHOOK_SECRET');
 

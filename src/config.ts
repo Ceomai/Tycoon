@@ -55,7 +55,7 @@ export const CFG = {
   SHARE_BASE: 1e8,             // holding hissesi = √(tur kazancı / SHARE_BASE)
   TICK_MS: 250,                // oyun döngüsü (4 Hz)
   IDLE_MS: 30e3,               // bu kadar dokunulmazsa animasyonlar durur
-  CLOUD_SAVE_MS: 60e3,         // bulut kaydı sıklığı
+  CLOUD_SAVE_MS: 5 * 60e3,     // bulut kaydı sıklığı (ayrıca uygulama arka plana alınınca hemen gönderilir)
   SCORE_POST_MS: 5 * 60e3,     // sıralamaya skor gönderme sıklığı
 };
 export type Cfg = typeof CFG;

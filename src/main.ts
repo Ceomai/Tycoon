@@ -20,6 +20,8 @@ import '@fontsource/ibm-plex-mono/latin-ext-600.css';
 import './styles.css';
 
 import { App } from '@capacitor/app';
+import { TextZoom } from '@capacitor/text-zoom';
+import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { Capacitor } from '@capacitor/core';
 import { CFG } from './config';
 import { S, setS, newState, migrate } from './state';
@@ -87,8 +89,19 @@ function bindUi() {
   }
 }
 
+/** Telefona özgü ayarlar: oyun dikey tasarlandı; sistem yazı boyutu büyütülse de düzen bozulmasın.
+ *  (Android WebView sistem yazı ölçeğini sayfaya uyguluyor; oyunun yazıları zaten büyük ve sabit.) */
+async function deviceSetup() {
+  if (!Capacitor.isNativePlatform()) return;
+  await Promise.all([
+    ScreenOrientation.lock({ orientation: 'portrait' }).catch(() => { /* tablet/çoklu pencere: kilit desteklenmeyebilir */ }),
+    TextZoom.set({ value: 1 }).catch(() => { /* yok */ }),
+  ]);
+}
+
 async function boot() {
   Analytics.installGlobalHandlers();
+  void deviceSetup();
   await applyRemoteConfig();
   const t0 = Date.now();
   const raw = await loadRaw();

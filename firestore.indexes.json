@@ -4,10 +4,52 @@
       "collectionGroup": "lb",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "week", "order": "ASCENDING" },
-        { "fieldPath": "earned", "order": "DESCENDING" }
+        {
+          "fieldPath": "week",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "earned",
+          "order": "DESCENDING"
+        }
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "lb",
+      "fieldPath": "atMs",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "lb",
+      "fieldPath": "lastWeek",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "lb",
+      "fieldPath": "name",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "saves",
+      "fieldPath": "j",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "saves",
+      "fieldPath": "savedAt",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "saves",
+      "fieldPath": "earned",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "rewards",
+      "fieldPath": "at",
+      "indexes": []
+    }
+  ]
 }
