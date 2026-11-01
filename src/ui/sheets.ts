@@ -21,6 +21,7 @@ import { Purchases } from '../services/purchases';
 import { Notify } from '../services/notify';
 import { Ads } from '../services/ads';
 import { resetGame } from '../game/loop';
+import { chapters } from '../game/guide';
 import { leagueZones, leagueName, leagueShort, weekEndsAt, fmtLeft } from '../game/league';
 import { LEAGUES, LEAGUE_TOP } from '../config';
 
@@ -109,6 +110,7 @@ export function renderSheet() {
           <li>Aynı türü <b>yan yana</b> kur; bahçeler, teraslar birleşir ve daha çok kazandırır.</li>
           <li>Semti doldur, <b>yeni semtin tapusunu</b> al. Başka illerde de arsa alabilirsin.</li>
         </ul>
+        <div class="btns" style="margin:-6px 0 14px"><button class="btn soft" data-a="guide">Kılavuzun tamamı</button></div>
         <div class="srow"><span>Ses</span><button class="sw${S.sound ? ' on' : ''}" data-a="sound" aria-label="Ses"></button></div>
         <div class="srow"><span>Bildirimler</span><button class="sw${S.notif ? ' on' : ''}" data-a="notif" aria-label="Bildirimler"></button></div>
         <div class="srow"><span>Reklamlar</span><span>${S.premium ? 'Kapalı (reklamsız paket)' : Ads.native() ? 'Açık' : 'Test modu'}</span></div>
@@ -192,6 +194,30 @@ export function renderSheet() {
         <button class="btn soft" data-a="leagues">Ligler ve kurallar</button><button class="txt" data-a="ref">${I.users} Arkadaşını davet et</button></div>`;
     }
   }
+  else if (s.k === 'guide') {
+    // tasarım: K3 · konu listesi
+    sig = 'gd';
+    if (sig !== ui.sheetSig) {
+      const C = chapters();
+      html = `<div class="lghead"><div><p class="sec">Kılavuz · ${C.length} madde</p><h4 class="lgt">Emlakçının el kitabı</h4>
+        <small class="gdsub">Oyunun tüm kuralları, sayılarıyla. İstediğin maddeye dokun.</small></div>
+        <svg class="lgseal" viewBox="0 0 100 100" aria-hidden="true"><g transform="rotate(-9 50 50)"><circle cx="50" cy="50" r="44" fill="none" stroke="currentColor" stroke-width="3.5"/><circle cx="50" cy="50" r="36" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="50" y="62" text-anchor="middle" font-family="IBM Plex Mono" font-weight="600" font-size="38" fill="currentColor">?</text></g></svg></div>
+        <div class="gdlist">${C.map((c, i) => `<button class="gditem" data-a="open" data-i="${i}"><span class="no">${String(i + 1).padStart(2, '0')}</span><span class="di"><b>${c.t}</b><small>${c.s}</small></span>${c.isNew ? '<span class="st">YENİ</span>' : ''}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>`).join('')}</div>`;
+    }
+  }
+  else if (s.k === 'guideItem') {
+    // tasarım: K4 · konu sayfası
+    const C = chapters(), i = Math.max(0, Math.min(C.length - 1, s.i || 0)), c = C[i], no = (n: number) => String(n + 1).padStart(2, '0');
+    sig = 'gi|' + i;
+    if (sig !== ui.sheetSig) {
+      html = `<button class="gdback" data-a="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Kılavuz</button>
+        <div class="gdhead"><div><p class="sec gdno">Madde ${no(i)}</p><h4 class="lgt">${c.t}</h4></div><div class="gdart bpbg">${c.art()}</div></div>
+        ${c.body.map(b => `<p class="gdp">${b}</p>`).join('')}
+        <div class="lgrw gdfacts">${c.facts.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('')}</div>
+        ${c.tip ? `<div class="gdtip"><span class="st">İPUCU</span><span>${c.tip}</span></div>` : ''}
+        <div class="gdnav">${i > 0 ? `<button class="gdprev" data-a="prev"><small>← Madde ${no(i - 1)}</small><b>${C[i - 1].t}</b></button>` : '<span></span>'}${i < C.length - 1 ? `<button class="gdnext" data-a="next"><small>Madde ${no(i + 1)} →</small><b>${C[i + 1].t}</b></button>` : '<span></span>'}</div>`;
+    }
+  }
   else if (s.k === 'leagues') {
     // tasarım: L3 · lig basamakları
     sig = 'lg|' + S.league.tier;
@@ -269,6 +295,12 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
   if (s.k === 'tasks') { if (a === 'daily') { closeSheet(); ui.lastDay = ''; return; } if (a === 'claim') claimTask(+btn.dataset.i!); if (a === 'bonus') claimBonus(); }
   if (s.k === 'lb') { if (a === 'ref') return openSheet({ k: 'ref' }); if (a === 'leagues') return openSheet({ k: 'leagues' }); if (a === 'boost') { closeSheet(); return watchBoost(); } }
   if (s.k === 'leagues' && a === 'back') return openSheet({ k: 'lb' });
+  if (s.k === 'guide' && a === 'open') return openSheet({ k: 'guideItem', i: +btn.dataset.i! });
+  if (s.k === 'guideItem') {
+    if (a === 'list') return openSheet({ k: 'guide' });
+    if (a === 'prev' || a === 'next') { s.i = (s.i || 0) + (a === 'next' ? 1 : -1); ui.sheetSig = ''; $('#sheetBody').scrollTop = 0; return; }
+  }
+  if (s.k === 'set' && a === 'guide') return openSheet({ k: 'guide' });
   if (s.k === 'ref') { if (a === 'copy') copyText(S.ref.code); if (a === 'sharetext') shareTextOnly(); if (a === 'usecode') await useCode(($('#refInput') || {}).value); }
   if (s.k === 'store') { if (a === 'buy') return Purchases.buy(); if (a === 'restore') return Purchases.restore(); }
   if (s.k === 'holding' && a === 'hold') { if (s.conf) return doHolding(); s.conf = true; later(s, 'conf'); }
