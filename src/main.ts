@@ -47,6 +47,7 @@ import { Purchases } from './services/purchases';
 import { Ads } from './services/ads';
 import { Notify } from './services/notify';
 import { showLeagueResult } from './game/league';
+import { onTipClick } from './game/rifki';
 
 let hiddenAt = 0;
 
@@ -80,6 +81,7 @@ function bindUi() {
   $('#collBtn').addEventListener('click', () => openSheet({ k: 'coll' }));
   $('#offerPill').addEventListener('click', () => openSheet({ k: 'tasks' }));
   $('#mapBtn').addEventListener('click', () => openSheet({ k: 'map' }));
+  $('#rifki').addEventListener('click', onTipClick);
   $('#guideBtn').addEventListener('click', () => { $('#guideHint').hidden = true; $('#guideBtn').classList.remove('wig'); openSheet({ k: 'guide' }); });
   $('#scrim').addEventListener('click', () => { if (ui.sheet && !justOpened()) closeSheet(); });
   $('#sheetBody').addEventListener('click', (e: Event) => { const b = (e.target as HTMLElement).closest('[data-a]') as HTMLButtonElement | null; if (b && !b.disabled && !justOpened()) void onSheetAction(b.dataset.a!, b); });

@@ -5,6 +5,7 @@ import { CFG, COLS, ROWS, N, TYPES, LV_INC, UP_COST, UP_TIME, DMAP, DistrictKey,
 import { S, Plot, Lot, lotsOf } from './state';
 import { Time } from './time';
 import { LM } from './landmarks';
+import { festivalOn } from './game/festival';
 
 /** Oyun saati: sunucuyla düzeltilmiş cihaz saati. Saat geri alınırsa (5 dk tolerans) zaman,
  *  cihaz saati son görülen ana yetişene kadar donar; böylece geri-ileri oynatmayla kazanç olmaz. */
@@ -28,7 +29,22 @@ export function neighbors(i: number): number[] {
 }
 export function adj(k: DistrictKey, i: number, t?: BuildingType): number {
   const lots = lotsOf(S, k); t = t || (lots[i] ? lots[i]!.t : undefined);
-  return neighbors(i).filter(j => { const q = lots[j]; return q && q.t === t && q.lvl >= 1; }).length;
+  return neighbors(i).filter(j => { const q = lots[j]; return q && !q.sp && q.t === t && q.lvl >= 1; }).length;
+}
+/** Akıllı ikililer: kafe ↔ ofis, ev ↔ dükkân (komşu başına +%10, iki tarafa da). */
+export const PAIRS: Record<BuildingType, BuildingType> = { kafe: 'ofis', ofis: 'kafe', ev: 'dukkan', dukkan: 'ev' };
+export function pairAdj(k: DistrictKey, i: number, t?: BuildingType): number {
+  const lots = lotsOf(S, k); t = t || (lots[i] ? lots[i]!.t : undefined); if (!t) return 0;
+  return neighbors(i).filter(j => { const q = lots[j]; return q && !q.sp && q.lvl >= 1 && q.t === PAIRS[t!]; }).length;
+}
+/** Komşu özel yapı sayısı (her biri +%15). */
+export function spAdj(k: DistrictKey, i: number): number {
+  const lots = lotsOf(S, k);
+  return neighbors(i).filter(j => { const q = lots[j]; return q && q.sp && q.lvl >= 1 && !q.until; }).length;
+}
+/** Toplam komşuluk bonusu (aynı tür + akıllı ikili + özel yapı). */
+export function neighborBonus(k: DistrictKey, i: number, t?: BuildingType): number {
+  return CFG.ADJ * adj(k, i, t) + CFG.PAIR * pairAdj(k, i, t) + CFG.SP_ADJ * spAdj(k, i);
 }
 export function fxMult(k: DistrictKey, i: number, p: Plot, t: number): number {
   let m = 1;
@@ -42,11 +58,21 @@ export function fxMult(k: DistrictKey, i: number, p: Plot, t: number): number {
 export const citiesOwned = () => new Set(S.own.map(k => D(k).city)).size;
 export function collBonus(): number { const n = (S.coll || []).length; return n * 0.05 + (n === LM.length ? 0.1 : 0); }
 export const portfolioBonus = () => CFG.PORTFOLIO_BONUS * Math.max(0, citiesOwned() - 1);
-export const permMult = () => (1 + 0.1 * (S.shares || 0)) * (1 + collBonus()) * (1 + portfolioBonus()) * (S.premium ? 2 : 1);
+export const permMult = () => (1 + 0.1 * (S.shares || 0)) * (1 + collBonus()) * (1 + portfolioBonus()) * (S.premium ? 2 : 1) * (festivalOn(now()) ? 1 + CFG.FEST_BONUS : 1);
+/** 3 yıldızlı semte kalıcı bonus. */
+export const districtMult = (k: DistrictKey) => ((S.stars && S.stars[k] ? S.stars[k].length : 0) >= 3 ? 1 + CFG.STAR_BONUS : 1);
+/** Özel yapı: semtteki en iyi (özel olmayan) binanın 3 katı; hiç bina yoksa 1. kat ofis kadar. */
+export function specialBase(k: DistrictKey, i: number): number {
+  let best = 0; const lots = lotsOf(S, k);
+  lots.forEach((q, j) => { if (j === i || !q || q.sp || !producing(q)) return; best = Math.max(best, TYPES[q.t].inc * LV_INC[q.lvl] * incM(k) * (1 + CFG.ADJ * adj(k, j))); });
+  if (!best) best = TYPES.ofis.inc * incM(k);
+  return 3 * best;
+}
 
 export function baseRate(k: DistrictKey, i: number): number {
   const p = lotsOf(S, k)[i]; if (!producing(p)) return 0;
-  return TYPES[p.t].inc * LV_INC[p.lvl] * incM(k) * (1 + CFG.ADJ * adj(k, i)) * permMult();
+  if (p!.sp) return specialBase(k, i) * permMult() * districtMult(k);
+  return TYPES[p!.t].inc * LV_INC[p!.lvl] * incM(k) * (1 + neighborBonus(k, i)) * permMult() * districtMult(k);
 }
 export function rate(k: DistrictKey, i: number, t = now()): number {
   const b = baseRate(k, i); if (!b) return 0;

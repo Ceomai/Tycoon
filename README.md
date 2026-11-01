@@ -65,6 +65,12 @@ Simülasyona göre aktif oynayan biri reklamsız Kafe'yi ~5, Dükkân'ı ~13. da
 | Holding (prestij) | Herhangi bir ilin 5. semtinden sonra sıfırla (başlangıç ili korunur); hisse = √(tur kazancı / 1e8), her hisse +%10 kalıcı kira. | – |
 | Şehrini paylaş | 1080×1920 story görseli (şehir + kasa + davet kodu); paylaş ya da kaydet. | `@capacitor/share` + `@capacitor/filesystem` |
 | Davet kodu | Arkadaşın kodunu girene ve davet edene (her katılan için) nakit tapu hediyesi. Kod tekilliği ve tek kullanım sunucuda. | Cloud Functions `hello`, `redeemInvite` |
+| Tapu teslim anı | İnşaatın son 5 saniyesinde geri sayım; bitince binaya "TESLİM" mührü vurulur. Reklamla hızlandırma son 5 saniyeyi bırakır. | – |
+| Semt hedefleri | Her semtte 3 hedef (yan yana dizme, kat çıkma, semti doldurma); her yıldız ikramiye, 3 yıldız kalıcı +%10 ve altın mühür. | – |
+| Karma komşuluk | Aynı tür komşu +%20; akıllı ikililer Kafe+Ofis ve Ev+Dükkân +%10; mülk panelinde dört komşunun şeması. | – |
+| Bayramlar ve mevsimler | Yılbaşı, 23 Nisan, 19 Mayıs, 30 Ağustos, 29 Ekim: kiralar +%20, bayrak zinciri, günde bir bayram ikramiyesi. Kışın kar, yazın Çeşme'de plaj şemsiyeleri. Tarih girişi gerektirmez. | – |
+| Haftanın özel tapusu | Her hafta bir nadir yapı (Han, Pasaj, Yalı Köşkü, Bahçeli Köşk), ~2 saatlik kira geliri fiyatında; semtteki en iyi binanın 3 katı kira, komşularına +%15; depoya girer, yıkınca/Holding'de kaybolmaz. | – |
+| Rıfkı Abi | Klasik, hafif esprili emlakçı; en fazla 3 dakikada bir duruma göre tek satırlık ipucu (kumbara doldu, akıllı ikili, yıldıza az kaldı, özel tapu…). Ayarlar'dan kapatılabilir. | – |
 | Haftalık lig | Arsa → Kat → Apartman → Plaza → Gökdelen. Her pazartesi benzer kazançtaki 30 oyuncuyla grup; ilk 5 yükselir (büyük tapu ikramiyesi), son 5 düşer; Gökdelen'de ilk 3 zirve mührü. Sonuç yeni haftanın ilk girişinde gelir. İstemci yazamaz; skor sunucuda zamana göre sınırlanır. | Firestore `lb`, `groups` + `submitScore`, `hello` (`functions/src/league.ts`) |
 | Reklamsız paket | Geçiş reklamı yok, ödüller izlemeden, kalıcı 2x. Yetki RevenueCat'ten okunur (makbuz sunucuda doğrulanır). | RevenueCat |
 

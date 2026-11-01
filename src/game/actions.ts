@@ -1,7 +1,7 @@
 /* Oyuncu eylemleri: topla (tek tuş / otomatik), kur, kat çık, yık, hızlandır, mülke 2x, semt al */
 import { CFG, MAXLV, ORDER, TYPES, BuildingType, DistrictKey, DMAP, CITIES } from '../config';
 import { S, lotsOf } from '../state';
-import { now, withDisc, buildCost, buildTime, upCost, upTime, producing, unlockInfo } from '../economy';
+import { now, withDisc, buildCost, buildTime, upCost, upTime, producing, unlockInfo, totalRate } from '../economy';
 import { Snd, buzz } from '../sound';
 import { ui, $ } from '../ui/ctx';
 import { toast, flyCoin, bump } from '../ui/modal';
@@ -12,6 +12,7 @@ import { Ads } from '../services/ads';
 import { persist } from './persist';
 import { Analytics } from '../services/analytics';
 import { weekKey } from '../format';
+import { weekSpecial, specialOf } from '../specials';
 
 export function addCash(a: number) {
   if (!Number.isFinite(a) || a <= 0) return;
@@ -42,7 +43,7 @@ export function build(k: DistrictKey, i: number, t: BuildingType) {
   Snd.build(); buzz(15); persist(); closeSheet(); render();
 }
 export function upgrade(k: DistrictKey, i: number) {
-  const p = lotsOf(S, k)[i]; if (!producing(p) || p.lvl >= MAXLV) return;
+  const p = lotsOf(S, k)[i]; if (!producing(p) || p!.sp || p!.lvl >= MAXLV) return;
   const c = withDisc(upCost(k, p)), d = upTime(k, p);
   if (S.cash < c) { Snd.no(); return; }
   if (p.buf > 0) collect(k, i);
@@ -52,7 +53,27 @@ export function upgrade(k: DistrictKey, i: number) {
 }
 export function demolish(k: DistrictKey, i: number) {
   const p = lotsOf(S, k)[i]; if (p && p.buf > 0) collect(k, i);
+  if (p && p.sp) { S.inv.push(p.sp); toast(`${specialOf(p.sp).n} depoya kaldırıldı`); } // özel yapı kaybolmaz
   lotsOf(S, k)[i] = null; persist(); closeSheet(); Snd.wreck(); render();
+}
+/** Haftanın özel tapusu: yaklaşık 2 saatlik kira geliri; haftada bir kez. */
+export const specialPrice = () => Math.max(20000, totalRate(false) * 3600 * CFG.SP_PRICE_H);
+export function buySpecial() {
+  const wk = weekKey(new Date(now())), sp = weekSpecial(wk), price = specialPrice();
+  if (S.ozel.week === wk && S.ozel.bought) return toast('Bu haftanın tapusu zaten senin');
+  if (S.cash < price) { Snd.no(); return; }
+  S.cash -= price; S.inv.push(sp.id); S.ozel = { week: wk, bought: true };
+  Snd.unlock(); buzz(30); persist(); ui.sheetSig = '';
+  toast(`${sp.n} tapusu senin · boş bir arsaya dokunup yerleştir`);
+  Analytics.log('special_buy', { id: sp.id });
+}
+export function placeSpecial(k: DistrictKey, i: number, id: string) {
+  const at = S.inv.indexOf(id); if (at < 0 || lotsOf(S, k)[i]) return;
+  S.inv.splice(at, 1);
+  lotsOf(S, k)[i] = { t: 'ofis', lvl: 1, buf: 0, until: 0, dur: 1, up: false, sp: id };
+  if (k === S.cur) ui.teslim[i] = { at: performance.now() + 1600, txt: specialOf(id).n };
+  Snd.unlock(); buzz(30); persist(); closeSheet(); render();
+  Analytics.log('special_place', { id, district: k });
 }
 export function skip(k: DistrictKey, i: number) {
   const p = lotsOf(S, k)[i]; if (!p || !p.until) return;

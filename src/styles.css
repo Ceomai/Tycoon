@@ -592,3 +592,73 @@ body.idle *,body.idle *::before,body.idle *::after{animation-play-state:paused!i
 .lot:focus{outline:none}
 .lot:focus-visible{outline:2px solid var(--haz);outline-offset:2px}
 .btn.lotb .lbl{display:flex;align-items:center;gap:8px}
+
+/* ---------- yeni özellikler (tasarım F1–F6) ---------- */
+/* 1 · tapu teslim anı */
+.lot.final{box-shadow:0 0 0 2px var(--haz);border-radius:4px}
+.lot .cd{position:absolute;inset:8% 8%;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:color-mix(in srgb,var(--surface) 88%,transparent);border-radius:4px;pointer-events:none}
+.lot .cd small{font:600 8px var(--mono);letter-spacing:.14em;color:var(--muted)}
+.lot .cd b{font:600 clamp(18px,7vw,28px)/1 var(--mono);color:var(--ink)}
+.lot .cd i{width:70%;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.lot .cd u{display:block;height:100%;background:var(--haz)}
+.lot .teslim{position:absolute;left:-8%;right:-8%;top:24%;z-index:4;display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 2px;border:3.5px solid var(--stamp);border-radius:6px;outline:1.2px solid var(--stamp);outline-offset:-7px;background:color-mix(in srgb,var(--surface) 86%,transparent);color:var(--stamp);transform:rotate(-12deg);animation:stampin .5s cubic-bezier(.2,1.6,.4,1);pointer-events:none}
+.lot .teslim b{font:700 clamp(14px,5vw,20px)/1 var(--cond);letter-spacing:.12em}
+.lot .teslim small{font:600 7px var(--mono);letter-spacing:.14em;text-transform:uppercase;white-space:nowrap;overflow:hidden;max-width:100%}
+@keyframes stampin{0%{transform:rotate(-12deg) scale(2.2);opacity:0}60%{transform:rotate(-12deg) scale(.92);opacity:1}100%{transform:rotate(-12deg) scale(1)}}
+/* 3 · semt hedefleri */
+.goals{border:1.5px solid var(--ink);border-radius:10px;padding:12px 14px;margin-bottom:16px}
+.goals .gh{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px}
+.goals .gh .sec{margin:0 0 2px}
+.goals .stars i{font-style:normal;font-size:24px;color:var(--line);-webkit-text-stroke:1px var(--ink)}
+.goals .stars i.on{color:#e0a21b}
+.goals .gr{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.goals .gm{width:26px;height:26px;flex:none;box-sizing:border-box;border-radius:50%;border:1.5px solid var(--ink);display:grid;place-items:center;font-size:13px}
+.goals .gr.done .gm{background:#e0a21b}
+.goals .gt{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.goals .gt b{font:600 14px var(--ui)}
+.goals .gt i{height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.goals .gt u{display:block;height:100%;background:var(--ink)}
+.goals .gr.done .gt u{background:#e0a21b}
+.goals .gp{font:600 12px var(--mono);color:var(--muted);min-width:42px;text-align:right}
+.gold{font:600 9px var(--mono);letter-spacing:.1em;color:#9a6b00;border:1.5px solid #b8860b;border-radius:4px;padding:1px 4px;margin-left:6px;vertical-align:middle}
+/* 4 · karma komşuluk */
+.nbgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-areas:". u ." "l c r" ". d .";gap:6px;margin:12px 0 4px}
+.nb{min-height:44px;border-radius:5px;border:1.2px solid var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3px;text-align:center;background:var(--bg)}
+.nb.u{grid-area:u}.nb.l{grid-area:l}.nb.c{grid-area:c}.nb.r{grid-area:r}.nb.d{grid-area:d}
+.nb b{font:700 12px/1.1 var(--cond);letter-spacing:.04em;text-transform:uppercase}
+.nb i{font:600 11px var(--mono);font-style:normal}
+.nb.me{background:var(--me);border-width:2px}
+.nb.same i{color:var(--up)} .nb.pair i,.nb.sp i{color:var(--stamp)}
+.nb.emp{border-style:dashed;color:var(--muted)} .nb.none{color:var(--muted)} .nb.off{visibility:hidden}
+.nbnote{margin:6px 0 0}
+/* 5 · bayramlar ve mevsimler */
+.festbar{display:flex;flex-direction:column;gap:1px;margin-top:6px;background:var(--ink);color:var(--surface);border-radius:8px;padding:6px 10px}
+.festbar b{font:700 14px/1.1 var(--cond);letter-spacing:.05em;text-transform:uppercase}
+.festbar span{font:500 11px var(--mono);color:var(--line)}
+.fest-milli .plate,.fest-yil .plate{position:relative}
+.fest-milli .plate::before,.fest-yil .plate::before{content:"";position:absolute;left:6px;right:6px;top:-6px;height:16px;z-index:3;pointer-events:none;
+  background:repeating-linear-gradient(90deg,var(--stamp) 0 10px,transparent 10px 12px,#fbfbf7 12px 22px,transparent 22px 24px);
+  -webkit-mask:repeating-linear-gradient(90deg,#000 0 24px) ,linear-gradient(180deg,#000 0 100%);clip-path:polygon(0 0,100% 0,100% 30%,50% 100%,0 30%)}
+.fest-yil .plate::before{background:repeating-linear-gradient(90deg,#e0a21b 0 10px,transparent 10px 12px,#2f7d5b 12px 22px,transparent 22px 24px,var(--stamp) 24px 34px,transparent 34px 36px)}
+.kis .board::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:4;opacity:.9;
+  background-image:radial-gradient(circle at 20px 30px,#fff 0 2px,#9fb3c8 2.6px,transparent 3.2px),radial-gradient(circle at 80px 120px,#fff 0 2px,#9fb3c8 2.6px,transparent 3.2px),radial-gradient(circle at 150px 60px,#fff 0 1.5px,#9fb3c8 2px,transparent 2.6px),radial-gradient(circle at 220px 160px,#fff 0 2px,#9fb3c8 2.6px,transparent 3.2px),radial-gradient(circle at 300px 90px,#fff 0 1.5px,#9fb3c8 2px,transparent 2.6px);
+  background-size:320px 200px;animation:snow 9s linear infinite}
+@keyframes snow{to{background-position:30px 200px,-20px 200px,15px 200px,-10px 200px,25px 200px}}
+/* 6 · haftanın özel tapusu */
+.k-ozel .art{filter:drop-shadow(0 0 0 transparent)}
+.lot.k-ozel{background:#efe2c8}
+.spcards .bcard{grid-column:span 1}
+.spd{margin:2px 0 0;font:400 13px/1.35 var(--ui);color:var(--muted)}
+.spart{height:150px;border:1.5px solid var(--ink);border-radius:8px;display:grid;place-items:center;margin-bottom:12px}
+.spart svg{width:150px;height:150px}
+.spst{font:600 11px var(--mono);color:var(--stamp);border:1.5px solid var(--stamp);border-radius:4px;padding:4px 7px;transform:rotate(-6deg);align-self:flex-start}
+/* 7 · Rıfkı Abi */
+.rifki{position:absolute;left:0;right:0;bottom:8px;z-index:6;display:flex;align-items:flex-end;gap:8px;animation:rkin .35s ease-out}
+.rifki .rk-face svg{width:58px;height:68px;display:block}
+.rifki .rk-bub{flex:1;position:relative;text-align:left;background:var(--surface);color:var(--ink);border:1.5px solid var(--ink);border-radius:10px;padding:9px 30px 9px 12px;box-shadow:0 3px 0 rgba(30,58,50,.18);cursor:pointer;font:inherit}
+.rifki .rk-bub b{display:block;font:600 10px var(--mono);letter-spacing:.16em;color:var(--stamp)}
+.rifki .rk-bub span{display:block;font:400 14px/1.4 var(--ui);margin-top:2px}
+.rifki .rk-x{position:absolute;right:6px;top:4px;width:36px;height:36px;border:none;background:none;color:var(--muted);font:600 18px var(--mono);cursor:pointer}
+@keyframes rkin{from{transform:translateY(16px);opacity:0}}
+/* boşta animasyonlar durur; ama şeffaf başlayan bu ikisi donarsa görünmez kalır */
+body.idle .rifki,body.idle .rifki *,body.idle .lot .teslim{animation-play-state:running!important}

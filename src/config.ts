@@ -47,7 +47,13 @@ export const CFG = {
   TASK_BOOST: 60 * 60e3,       // görev bonusu: tüm mülklere 2x süresi
   LOT_BOOST: 60 * 60e3, LOT_BOOST_MAX: 4 * 3600e3, // mülke özel 2x: reklam başına süre, en fazla birikim
   AD_SKIP: 30 * 60e3,          // reklamla hızlandırma: süreden düşülen
-  SKIP_LEFT: 5e3,              // reklam inşaatı tamamen bitirmez: son 5 sn kalır (bitiş anı oyuncunun gözü önünde)
+  SKIP_LEFT: 5e3,
+  PAIR: 0.1,                   // akıllı ikili komşu (kafe+ofis, ev+dükkân) başına bonus
+  SP_ADJ: 0.15,                // özel yapının her komşusuna bonus
+  STAR_BONUS: 0.1,             // 3 yıldızlı semte kalıcı bonus
+  FEST_BONUS: 0.2,             // bayram günlerinde kira bonusu
+  SP_PRICE_H: 2,               // haftanın özel tapusu: kaç saatlik kira geliri
+  TIP_EVERY: 180e3,            // Rıfkı Abi en fazla bu sıklıkla konuşur              // reklam inşaatı tamamen bitirmez: son 5 sn kalır (bitiş anı oyuncunun gözü önünde)
   OFFLINE_RATE: 0.3, OFFLINE_MAX: 3 * 3600e3,
   INTER_MIN: 15 * 60e3, INTER_MAX: 20 * 60e3,
   EVENT_MIN: 150e3, EVENT_MAX: 270e3,

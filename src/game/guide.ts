@@ -8,6 +8,7 @@ import { fmt, fmtTime } from '../format';
 import { LM, lmSvg } from '../landmarks';
 import { bld, svg } from '../draw';
 import { I } from '../icons';
+import { SPECIALS, specialSvg, weekSpecial } from '../specials';
 
 export interface Chapter { t: string; s: string; isNew?: boolean; art: () => string; body: string[]; facts: [string, string][]; tip?: string; }
 
@@ -54,13 +55,15 @@ export function chapters(): Chapter[] {
       art: () => svg(bld('ev', 4), 'art'),
       body: [
         `Bir binaya dokunup <b>kat çık</b>. Her bina ${MAXLV} kata kadar büyür ve her katta kirası katlanır. Tadilat sürerken bina kira üretmez.`,
-        `Aynı türden binaları <b>yan yana</b> (sağ, sol, üst, alt) kur: her komşu kirayı +${pct(CFG.ADJ)} artırır. Bahçeler ve teraslar birleşerek görünür.`,
+        `Aynı türden binaları <b>yan yana</b> (sağ, sol, üst, alt) kur: her komşu kirayı +${pct(CFG.ADJ)} artırır. <b>Akıllı ikililer</b> de kazandırır: Kafe + Ofis ve Ev + Dükkân yan yana olunca ikisine de +${pct(CFG.PAIR)}. Mülk panelindeki şema dört komşuyu gösterir.`,
       ],
       facts: [
         ['Kira çarpanı (1→5. kat)', LV_INC.slice(1).map(x => `${String(x).replace('.', ',')}x`).join(' · ')],
         ['Tadilat bedeli', `bina bedelinin ${UP_COST.slice(1).join(' · ')} katı`],
         ['Tadilat süresi', `inşaatın ${UP_TIME.slice(1).join(' · ')} katı`],
-        ['Komşuluk', `komşu başına +${pct(CFG.ADJ)} · en fazla +${pct(CFG.ADJ * 4)}`],
+        ['Aynı tür komşu', `komşu başına +${pct(CFG.ADJ)}`],
+        ['Akıllı ikili', `Kafe+Ofis, Ev+Dükkân · +${pct(CFG.PAIR)}`],
+        ['Özel yapı komşusu', `+${pct(CFG.SP_ADJ)}`],
       ],
       tip: 'Ortadaki arsalar dört komşuya dokunur; en değerli binayı ortaya koy.',
     },
@@ -85,6 +88,16 @@ export function chapters(): Chapter[] {
         ['2. il · 3. il', `${fmt(CFG.EXTRA_CITY_FEE_1)} · ${fmt(CFG.EXTRA_CITY_FEE_2)}`], ['Portföy bonusu', `il başına +${pct(CFG.PORTFOLIO_BONUS)}`],
       ],
       tip: 'İller arasında Semtler düğmesinden geçersin; her semt sen yokken de kira üretir.',
+    },
+    {
+      t: 'Semt hedefleri', s: `Her semtte 3 yıldız · 3 yıldıza +${pct(CFG.STAR_BONUS)}`, isNew: true,
+      art: () => '<span class="gdstamp sm">★★★</span>',
+      body: [
+        'Her semtin 3 hedefi var: aynı türden binaları yan yana dizmek, bir binayı belli bir kata çıkarmak, semti doldurmak. İleri semtlerde hedefler büyür.',
+        `Her hedef bir yıldız ve tapu ikramiyesi verir. 3 yıldızlı semt <b>altın mühür</b> alır ve kiraları kalıcı +${pct(CFG.STAR_BONUS)} artar. Hedefler Semtler düğmesinde, haritanın en üstünde.`,
+      ],
+      facts: [['Semt başına', '3 hedef'], ['Her yıldız', 'tapu ikramiyesi'], ['3 yıldız', `kalıcı +${pct(CFG.STAR_BONUS)} · altın mühür`], ['Kazanılan yıldız', 'kaybolmaz']],
+      tip: 'Hedefleri baştan planla: yan yana dizilen binalar hem yıldız hem komşuluk bonusu getirir.',
     },
     {
       t: '2x gelir', s: 'Mülke özel 2x · görev ödülü: tüm mülklere 2x',
@@ -115,6 +128,15 @@ export function chapters(): Chapter[] {
       facts: [['Etkinlik kartı', `${dk(CFG.EVENT_MIN)}–${dk(CFG.EVENT_MAX)}’da bir`], ['Süreli fırsat', `${dk(CFG.OFFER_MIN)}–${dk(CFG.OFFER_MAX)}’da bir`], ['Altın taksi', 'yaklaşık 1–2 dk’da bir'], ['Taksiden tarihi yapı', '%8 şans']],
     },
     {
+      t: 'Bayramlar ve mevsimler', s: `Bayram günleri kiralar +${pct(CFG.FEST_BONUS)}`, isNew: true,
+      art: () => '<span class="gdstamp sm">29</span>',
+      body: [
+        `Yılbaşı, 23 Nisan, 19 Mayıs, 30 Ağustos ve 29 Ekim’de şehir bayramlık giyinir: haritanın üstüne bayrak zinciri gelir, kiralar +${pct(CFG.FEST_BONUS)} artar ve günde bir kez <b>bayram ikramiyesi</b> verilir.`,
+        'Mevsimler de görünür: kışın kar yağar, yazın Çeşme’nin boş arsalarında plaj şemsiyeleri açılır.',
+      ],
+      facts: [['Bayram günleri', 'Yılbaşı · 23 Nisan · 19 Mayıs · 30 Ağustos · 29 Ekim'], ['Kira', `+${pct(CFG.FEST_BONUS)}`], ['Bayram ikramiyesi', 'günde bir (reklamla 2 katı)']],
+    },
+    {
       t: 'Tarihi yapılar', s: `Her biri +%5 · hepsi ek +%10`,
       art: () => svg(lmSvg(LM[0].id), 'art'),
       body: [
@@ -124,7 +146,16 @@ export function chapters(): Chapter[] {
       facts: [['Yapı başına', '+%5 kalıcı'], ['Hepsini toplayana', 'ek +%10'], ['Şu an', `${S.coll.length}/${LM.length}`]],
     },
     {
-      t: 'Haftalık lig', s: `${GROUP_SIZE} kişilik grup · ilk 5 yükselir`, isNew: true,
+      t: 'Haftanın özel tapusu', s: 'Her hafta bir nadir yapı', isNew: true,
+      art: () => svg(specialSvg(weekSpecial(S.week.key).id), 'art'),
+      body: [
+        `Her hafta bir nadir yapı satışa çıkar: ${SPECIALS.map(x => x.n).join(', ')}. Menü → Haftanın özel tapusu. Fiyatı yaklaşık ${CFG.SP_PRICE_H} saatlik kira gelirin kadardır.`,
+        `Aldığın yapı depoya girer; boş bir arsaya dokunup yerleştirirsin. Semtteki en iyi binanın 3 katı kira getirir ve dört komşusuna +${pct(CFG.SP_ADJ)} verir. Kat çıkılmaz; yıkarsan ya da Holding kurarsan depoya döner.`,
+      ],
+      facts: [['Sıklık', 'haftada bir'], ['Kira', 'en iyi binanın 3 katı'], ['Komşularına', `+${pct(CFG.SP_ADJ)}`], ['Holding’de', 'kaybolmaz']],
+    },
+    {
+      t: 'Haftalık lig', s: `${GROUP_SIZE} kişilik grup · ilk 5 yükselir`,
       art: () => '<span class="gdstamp sm">LİG</span>',
       body: [
         `Her pazartesi, kazancı sana yakın ${GROUP_SIZE} emlakçıyla bir gruba girersin. Puan, o hafta topladığın kiradır.`,

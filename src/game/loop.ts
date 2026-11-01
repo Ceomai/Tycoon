@@ -1,5 +1,5 @@
 /* OYUN DÖNGÜSÜ (4 Hz), başlangıç ili seçimi, boşta duraklatma, yeni oyun */
-import { CFG, N, CITIES, CITY_ORDER, CityId, dkey } from '../config';
+import { CFG, N, CITIES, CITY_ORDER, CityId, dkey, TYPES } from '../config';
 import { S, setS, newState, lotsOf } from '../state';
 import { rand, dayKey, weekKey } from '../format';
 import { now, producing, rate, pending } from '../economy';
@@ -19,8 +19,12 @@ import { clearSave } from '../storage';
 import { Ads } from '../services/ads';
 import { Cloud } from '../services/cloud';
 import { Analytics } from '../services/analytics';
+import { checkGoals } from './goals';
+import { maybeTip } from './rifki';
+import { festivalOn } from './festival';
+import { showFestGift } from './events';
 
-let lastT = performance.now();
+let lastT = performance.now(), lastGoals = 0;
 const anyProducing = () => S.own.some(k => lotsOf(S, k).some(producing));
 
 export function tick() {
@@ -34,6 +38,7 @@ export function tick() {
       const p = lots[i]; if (!p) continue;
       if (p.until && t >= p.until) {
         p.until = 0; if (p.up) { p.lvl++; p.up = false; } else p.lvl = 1;
+        if (k === S.cur) ui.teslim[i] = { at: pt + 1600, txt: `${TYPES[p.t].n} · kat ${p.lvl}` }; // tapu teslim mührü
         if (k === S.cur && ui.tiles[i]) { const el = ui.tiles[i]; ui.tileSig[i] = ''; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
         Snd.done(); buzz(12); ui.sheetSig = '';
       }
@@ -53,9 +58,12 @@ export function tick() {
   Cloud.maybePostScore();
   const free = !ui.sheet && !ui.modal && !ui.ad && pt - ui.lastClose > 2500 && S.city;
   if (free && S.collects >= 3 && ui.lastDay !== dayKey(new Date(t))) { ui.lastDay = dayKey(new Date(t)); ensureTasks(); checkDaily(); }
+  else if (free && festivalOn(t) && S.fest !== dayKey(new Date(t))) { S.fest = dayKey(new Date(t)); showFestGift(); }
   else if (free && S.playMs >= S.nextEvent) { S.nextEvent = S.playMs + rand(CFG.EVENT_MIN, CFG.EVENT_MAX); if (anyProducing()) showEvent(); }
   else if (free && !S.offer && S.playMs >= S.nextOffer) { S.nextOffer = S.playMs + rand(CFG.OFFER_MIN, CFG.OFFER_MAX); if (anyProducing()) showOffer(); }
   else if (free && S.playMs >= S.nextAd) { S.nextAd = S.playMs + rand(CFG.INTER_MIN, CFG.INTER_MAX); Ads.interstitial(); }
+  if (pt - lastGoals > 2000) { lastGoals = pt; checkGoals(); }
+  maybeTip(pt);
   if (S.collectMode === 'auto') autoCollect(pt);
   // kumbaralar dolunca TOPLA mührü hafifçe sallanır (dakikada en fazla bir kez)
   else if (S.playMs - ui.lastNudge > 60e3 && pending().fill >= .9) { ui.lastNudge = S.playMs; nudgeCollect(); }

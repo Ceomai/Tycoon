@@ -38,3 +38,10 @@ export function weekKey(d = new Date()): string {
   const y = t.getUTCFullYear();
   return y + '-H' + String(Math.ceil(((t.getTime() - Date.UTC(y, 0, 1)) / 864e5 + 1) / 7)).padStart(2, '0');
 }
+
+/** Türkçe bulunma eki: Kadıköy'de, Beşiktaş'ta, Çeşme'de. */
+export function loc(name: string): string {
+  const low = name.toLocaleLowerCase('tr-TR'), v = [...low].reverse().find(c => 'aeıioöuü'.includes(c)) || 'e';
+  const last = low[low.length - 1], hard = 'fstkçşhp'.includes(last);
+  return `${name}’${hard ? 't' : 'd'}${'aıou'.includes(v) ? 'a' : 'e'}`;
+}
