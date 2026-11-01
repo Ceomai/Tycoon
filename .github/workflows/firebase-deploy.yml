@@ -1,0 +1,55 @@
+name: Firebase yükle
+
+# Firestore kuralları/dizinleri ve Cloud Functions'ı Firebase'e yükler.
+# Gerekli sır: FIREBASE_SERVICE_ACCOUNT (Firebase konsolu → Proje ayarları → Hizmet hesapları → yeni özel anahtar, JSON'un tamamı)
+# - main'e kural/dizin değişikliği gelince: yalnızca Firestore
+# - Elle çalıştırma (Actions → Firebase yükle → Run workflow): firestore | functions | hepsi
+#   Functions için proje Blaze planında olmalı.
+on:
+  push:
+    branches: [main]
+    paths: [firestore.rules, firestore.indexes.json]
+  workflow_dispatch:
+    inputs:
+      hedef:
+        description: Ne yüklensin?
+        type: choice
+        options: [firestore, functions, hepsi]
+        default: firestore
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firebase-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Hedef
+        id: t
+        run: |
+          case "${{ github.event.inputs.hedef || 'firestore' }}" in
+            functions) echo "only=functions" >> "$GITHUB_OUTPUT" ;;
+            hepsi) echo "only=firestore,functions" >> "$GITHUB_OUTPUT" ;;
+            *) echo "only=firestore" >> "$GITHUB_OUTPUT" ;;
+          esac
+      - name: Fonksiyon paketleri
+        if: contains(steps.t.outputs.only, 'functions')
+        working-directory: functions
+        run: npm ci && npm run build
+      - name: Kimlik
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::FIREBASE_SERVICE_ACCOUNT sırrı eksik (Settings → Secrets and variables → Actions)"; exit 1; fi
+          echo "$SA" > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+      - name: Yükle
+        run: npx --yes firebase-tools@15.34.0 deploy --only "${{ steps.t.outputs.only }}" --project tapu-e7478 --non-interactive --force
