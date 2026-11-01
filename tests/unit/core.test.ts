@@ -113,3 +113,53 @@ describe('haftalık lig', () => {
     expect(new Date(weekEndsAt(mon)).toISOString()).toBe('2026-11-09T00:00:00.000Z');
   });
 });
+
+import { largestGroup, pairsCount, goalsOf } from '../../src/game/goals';
+import { festivalOn, season } from '../../src/game/festival';
+import { loc } from '../../src/format';
+import { neighborBonus, baseRate, specialBase } from '../../src/economy';
+import { weekSpecial } from '../../src/specials';
+describe('yeni özellikler', () => {
+  const b = (t: any, lvl = 1, sp?: string) => ({ t, lvl, buf: 0, until: 0, dur: 1, up: false, ...(sp ? { sp } : {}) });
+  beforeEach(() => setS(newState(T, 'x', 'ist')));
+  it('yan yana en büyük grup ve akıllı ikililer', () => {
+    const L = S.d['ist-0']; L[0] = b('ev'); L[1] = b('ev'); L[4] = b('ev'); L[2] = b('dukkan'); L[10] = b('ev');
+    expect(largestGroup('ist-0', 'ev')).toBe(3);
+    expect(pairsCount('ist-0')).toBe(1); // 1(ev) – 2(dükkân)
+    L[3] = b('ev'); // satır sonu sarmamalı: 3 ile 4 komşu değil
+    expect(pairsCount('ist-0')).toBe(2);
+  });
+  it('komşuluk bonusu: aynı tür +%20, akıllı ikili +%10, özel yapı +%15', () => {
+    const L = S.d['ist-0']; L[5] = b('kafe'); L[4] = b('kafe'); L[6] = b('ofis'); L[1] = b('ofis', 1, 'han');
+    expect(neighborBonus('ist-0', 5)).toBeCloseTo(0.2 + 0.1 + 0.15);
+  });
+  it('özel yapı semtteki en iyi binanın 3 katı', () => {
+    const L = S.d['ist-0']; L[0] = b('kafe', 2); L[10] = b('ofis', 1, 'han');
+    expect(specialBase('ist-0', 10)).toBeCloseTo(3 * 9 * 2.5);
+    expect(baseRate('ist-0', 10)).toBeGreaterThan(0);
+  });
+  it('3 yıldızlı semt kalıcı +%10', () => {
+    const L = S.d['ist-0']; L[0] = b('ev', 2);
+    const r0 = baseRate('ist-0', 0); S.stars = { 'ist-0': [0, 1, 2] };
+    expect(baseRate('ist-0', 0)).toBeCloseTo(r0 * 1.1);
+  });
+  it('semt hedefleri kademeye göre', () => {
+    expect(goalsOf('ist-0')[0].t).toContain('evi');
+    expect(goalsOf('izm-2')[1].t).toContain('ofisi');
+  });
+  it('bayram günleri sabit tarihli; mevsimler', () => {
+    expect(festivalOn(+new Date(2026, 9, 29, 12))?.n).toContain('Cumhuriyet');
+    expect(festivalOn(+new Date(2027, 3, 23, 9))?.k).toBe('milli');
+    expect(festivalOn(+new Date(2026, 11, 31, 20))?.k).toBe('yil');
+    expect(festivalOn(+new Date(2026, 10, 1))).toBeNull();
+    expect(season(+new Date(2027, 0, 10))).toBe('kis');
+    expect(season(+new Date(2027, 6, 10))).toBe('yaz');
+    expect(season(+new Date(2027, 3, 10))).toBe('');
+  });
+  it('Türkçe bulunma eki', () => {
+    expect(loc('Kadıköy')).toBe('Kadıköy’de'); expect(loc('Beşiktaş')).toBe('Beşiktaş’ta'); expect(loc('Bebek')).toBe('Bebek’te'); expect(loc('Çankaya')).toBe('Çankaya’da');
+  });
+  it('haftanın özel yapısı hafta numarasına göre döner', () => {
+    expect(weekSpecial('2026-H44').id).not.toBe(weekSpecial('2026-H45').id);
+  });
+});

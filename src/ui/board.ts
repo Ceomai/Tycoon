@@ -4,6 +4,8 @@ import { S, lotsOf } from '../state';
 import { fmt, fmtX, clock, rand } from '../format';
 import { now, totalRate, coinFill, fxMult, producing, buyableDistricts, pending } from '../economy';
 import { bld, site, emptyLot, svg } from '../draw';
+import { specialSvg, specialOf } from '../specials';
+import { festivalOn, festivalLeft, season } from '../game/festival';
 import { I } from '../icons';
 import { Snd, buzz } from '../sound';
 import { $, ui, reduceMotion } from './ctx';
@@ -16,11 +18,14 @@ import { persist } from '../game/persist';
 
 export function render() {
   const t = now(), k = S.cur, d = DMAP[k], boosted = S.boostUntil > t;
-  const bodyCls = 'd-' + d.v + (ui.idle ? ' idle' : '');
+  const fest = festivalOn(t), ssn = season(t);
+  const bodyCls = 'd-' + d.v + (ui.idle ? ' idle' : '') + (fest ? ' fest-' + fest.k : '') + (ssn ? ' ' + ssn : '');
   if (document.body.className !== bodyCls) document.body.className = bodyCls;
   const dn = S.city ? `${CITIES[d.city].n} · ${d.n}` : "İl seçimi"; const dEl = $('#dname'); if (dEl.textContent !== dn) dEl.textContent = dn;
   $('#cash').textContent = fmt(S.cash);
-  const rateHtml = `${fmt(totalRate(true), true)}/sn${boosted ? '<span class="x2">2x</span>' : ''}${S.premium ? '<span class="x2">PRO</span>' : ''}${S.shares ? `<span class="x2">${I.crown.replace('<svg', '<svg width="10" height="10"')} ${fmtX(1 + 0.1 * S.shares)}</span>` : ''}`;
+  const fb = $('#festBar'), fh = fest ? `<b>${fest.n}</b><span>Kiralar +%${Math.round(CFG.FEST_BONUS * 100)} · bugün bayram ikramiyesi · ${clock(festivalLeft(t))}</span>` : '';
+  if (fb.dataset.v !== fh) { fb.dataset.v = fh; fb.innerHTML = fh; fb.hidden = !fest; }
+  const rateHtml = `${fmt(totalRate(true), true)}/sn${boosted ? '<span class="x2">2x</span>' : ''}${S.premium ? '<span class="x2">PRO</span>' : ''}${fest ? `<span class="x2">+%${Math.round(CFG.FEST_BONUS * 100)}</span>` : ''}${S.shares ? `<span class="x2">${I.crown.replace('<svg', '<svg width="10" height="10"')} ${fmtX(1 + 0.1 * S.shares)}</span>` : ''}`;
   if (ui.rateHtml !== rateHtml) { ui.rateHtml = rateHtml; $('#rate').innerHTML = rateHtml; }
   const op = $('#offerPill'), o = S.offer;
   if (o && !o.done) { const h = `${o.title} <i><b style="width:${o.prog / o.goal * 100}%"></b></i> ${o.prog}/${o.goal} <span class="ot">${clock(o.until - t)}</span>`; if (op.dataset.v !== h) { op.dataset.v = h; op.innerHTML = h; } op.hidden = false; } else op.hidden = true;
@@ -45,7 +50,9 @@ export function render() {
       const lb = (p.bu || 0) > t ? 1 : 0;
       const prog = p.until ? Math.floor((1 - (p.until - t) / p.dur) * 20) : 0; // %5 adım: gereksiz yeniden çizim yok
       const hot = producing(p) && fxMult(k, i, p, t) > 1;
-      sig = [p.t, p.lvl, p.until ? 1 : 0, prog, coin, lb, hot ? 1 : 0, mergeSides(i), d.v].join('|');
+      const cd = p.until && p.until - t <= CFG.SKIP_LEFT ? Math.ceil((p.until - t) / 1000) : 0; // son 5 sn geri sayım
+      const ts = ui.teslim[i] && ui.teslim[i].at > performance.now() ? 1 : 0;
+      sig = [p.t, p.sp || '', p.lvl, p.until ? 1 : 0, prog, cd, ts, coin, lb, hot ? 1 : 0, mergeSides(i), d.v].join('|');
     }
     if (sig === ui.tileSig[i]) continue;
     ui.tileSig[i] = sig;
@@ -53,30 +60,35 @@ export function render() {
     const prog = p.until ? Math.min(1, 1 - (p.until - t) / p.dur) : 1;
     const hot = producing(p) && fxMult(k, i, p, t) > 1;
     el.className = `lot k-${p.t} ${p.until ? 'c' : 'b'}${hot ? ' hot' : ''}${p.until ? '' : mergeSides(i)}`;
-    const art = p.until ? site(p.t, p.up ? p.lvl : 0, p.up ? p.lvl + 1 : 1, prog) : bld(p.t, p.lvl);
+    const art = p.sp ? specialSvg(p.sp) : p.until ? site(p.t, p.up ? p.lvl : 0, p.up ? p.lvl + 1 : 1, prog) : bld(p.t, p.lvl);
+    if (p.sp) el.className = `lot k-ozel b${hot ? ' hot' : ''}`;
     let h = svg(art, 'art');
-    if (p.until) h += `<span class="ff">${I.ff}</span>`;
+    const left = p.until ? p.until - t : 0;
+    if (p.until && left <= CFG.SKIP_LEFT) { el.classList.add('final'); h += `<span class="cd"><small>TESLİME</small><b>0:0${Math.max(0, Math.ceil(left / 1000))}</b><i><u style="width:${Math.round(prog * 100)}%"></u></i></span>`; }
+    else if (p.until) h += `<span class="ff">${I.ff}</span>`;
+    const tsl = ui.teslim[i];
+    if (tsl && tsl.at > performance.now()) h += `<span class="teslim"><b>TESLİM</b><small>${tsl.txt}</small></span>`;
     // para baloncuğu yok: ince doluluk çubuğu (tek tuş modunda) ve mülke özel 2x etiketi
     if (producing(p) && S.collectMode !== 'auto') { const f = coinFill(k, i); h += `<span class="fill${f >= .999 ? ' full' : ''}"><i style="width:${Math.round(f * 100)}%"></i></span>`; }
     if ((p.bu || 0) > t) h += '<span class="lb2">2x</span>';
     el.innerHTML = h;
-    el.setAttribute('aria-label', `${TYPES[p.t].n}, seviye ${p.lvl}${p.until ? ', inşaatta' : ''}${(p.bu || 0) > t ? ', 2x kazanıyor' : ''}`);
+    el.setAttribute('aria-label', `${p.sp ? specialOf(p.sp).n : TYPES[p.t].n}, seviye ${p.lvl}${p.until ? ', inşaatta' : ''}${(p.bu || 0) > t ? ', 2x kazanıyor' : ''}`);
   }
   renderLinks(); renderBubble();
   if (ui.sheet) renderSheet();
 }
 /* aynı türden komşu arsalar tek parsel gibi görünür (komşuluk bonusu) */
 export function mergeSides(i: number): string {
-  const lots = lotsOf(S, S.cur), p = lots[i]; if (!p || p.lvl < 1 || p.until) return '';
-  const same = (j: number) => { const q = lots[j]; return !!q && q.lvl >= 1 && q.t === p.t; }, c = i % COLS; let m = '';
+  const lots = lotsOf(S, S.cur), p = lots[i]; if (!p || p.lvl < 1 || p.until || p.sp) return '';
+  const same = (j: number) => { const q = lots[j]; return !!q && !q.sp && q.lvl >= 1 && q.t === p.t; }, c = i % COLS; let m = '';
   if (i >= COLS && same(i - COLS)) m += ' mN'; if (i + COLS < N && same(i + COLS)) m += ' mS'; if (c > 0 && same(i - 1)) m += ' mW'; if (c < COLS - 1 && same(i + 1)) m += ' mE';
   return m;
 }
 export function renderLinks() {
   const lots = lotsOf(S, S.cur), parts: [string, number, string][] = [];
-  const ok = (j: number, t: string) => { const q = lots[j]; return !!q && q.lvl >= 1 && q.t === t; };
+  const ok = (j: number, t: string) => { const q = lots[j]; return !!q && !q.sp && q.lvl >= 1 && q.t === t; };
   for (let i = 0; i < N; i++) {
-    const p = lots[i]; if (!p || p.lvl < 1) continue; const c = i % COLS;
+    const p = lots[i]; if (!p || p.lvl < 1 || p.sp) continue; const c = i % COLS;
     if (c < COLS - 1 && ok(i + 1, p.t)) parts.push(['r', i, p.t]);
     if (i + COLS < N && ok(i + COLS, p.t)) parts.push(['b', i, p.t]);
     if (c < COLS - 1 && i + COLS < N && [i + 1, i + COLS, i + COLS + 1].every(j => ok(j, p.t))) parts.push(['m', i, p.t]);

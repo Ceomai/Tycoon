@@ -1,6 +1,6 @@
 import { BuildingType, CityId, DistrictKey, N, SCHEMA, dkey, CFG } from './config';
 
-export interface Plot { t: BuildingType; lvl: number; buf: number; until: number; dur: number; up: boolean; bu?: number; } // bu: bu mülke 2x bitişi
+export interface Plot { t: BuildingType; lvl: number; buf: number; until: number; dur: number; up: boolean; bu?: number; sp?: string; } // bu: bu mülke 2x bitişi · sp: özel yapı kimliği
 export type Lot = Plot | null;
 export interface Fx { k: 'row' | 'type'; d?: DistrictKey; r?: number; t?: BuildingType; x: number; until: number; }
 export interface Task { k: string; goal: number; prog: number; claimed: boolean; }
@@ -28,7 +28,12 @@ export interface State {
   clockFlag: number;               // saat geri alındığında artar (analitik için)
   league: { tier: number; seals: number; last: string };
   guideHint: boolean;              // kılavuz sekmesi bir kez tanıtıldı mı
-  collectMode: 'tap' | 'auto';     // kira toplama: ortadaki TOPLA mührü ya da otomatik // lig (kaynak sunucu; bu önbellek), last = gösterilen son hafta sonucu
+  collectMode: 'tap' | 'auto';     // kira toplama: ortadaki TOPLA mührü ya da otomatik
+  stars: Record<DistrictKey, number[]>; // semt hedefleri: kazanılan hedeflerin sırası
+  inv: string[];                   // depodaki özel yapılar (yerleştirilmeyi bekleyen)
+  ozel: { week: string; bought: boolean }; // haftanın özel tapusu
+  fest: string;                    // bayram ikramiyesinin alındığı gün
+  rifki: boolean;                  // Rıfkı Abi'nin ipuçları açık mı // lig (kaynak sunucu; bu önbellek), last = gösterilen son hafta sonucu
 }
 
 const emptyLots = (): Lot[] => Array(N).fill(null);
@@ -49,7 +54,7 @@ export function newState(now: number, weekKey: string, city: CityId | null = nul
     sound: true, notif: true, collects: 0, ads: 0, skipHint: 0, seen: { ev: true },
     daily: { last: '', streak: 0 }, tasks: null, shares: 0, coll: [],
     ref: { code: makeCode(), used: false, rewarded: 0 }, week: { key: weekKey, earned: 0 },
-    offer: null, premium: false, clockFlag: 0, league: { tier: 0, seals: 0, last: '' }, guideHint: false, collectMode: 'tap',
+    offer: null, premium: false, clockFlag: 0, league: { tier: 0, seals: 0, last: '' }, guideHint: false, collectMode: 'tap', stars: {}, inv: [], ozel: { week: '', bought: false }, fest: '', rifki: true,
   };
 }
 

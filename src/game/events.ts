@@ -12,6 +12,7 @@ import { addCash, addBoost } from './actions';
 import { track } from './tasks';
 import { lmLeft } from './collection';
 import { Ads } from '../services/ads';
+import { festivalOn } from './festival';
 
 interface Ev { ic?: string; art?: string; title: string; text: string; big?: boolean; rw: (m: number) => string; apply: (m: number) => void; }
 
@@ -64,4 +65,14 @@ export function catchUp(ms: number) {
       if (a === 'x1') { addCash(lump); bump(); closeModal(); Snd.collect(4); }
       if (a === 'x3') { closeModal(); Ads.rewarded('offline', `${fmt(lump * 3)} kira`, () => { addCash(lump * 3); bump(); }); }
     });
+}
+
+/** Bayram ikramiyesi: bayram günü ilk girişte bir kez (reklamla 2 katı). */
+export function showFestGift() {
+  const f = festivalOn(now()); if (!f) return;
+  const amt = Math.max(1500, totalRate(false) * 600);
+  openModal(`<div class="card"><div class="badge">${I.spark}</div><h3>Bayram ikramiyesi</h3><p>${f.n} kutlu olsun! Bugün tüm kiralar %20 fazla.</p>
+    <div class="big">${fmt(amt)}</div>
+    <div class="btns"><button class="btn gold" data-a="x2">${I.play} İzle, 2 katını al</button><button class="txt" data-a="x1">Al</button></div></div>`,
+    a => { closeModal(); if (a === 'x1') { addCash(amt); bump(); Snd.collect(5); } else Ads.rewarded('fest', `${fmt(amt * 2)} ikramiye`, () => { addCash(amt * 2); bump(); }); });
 }

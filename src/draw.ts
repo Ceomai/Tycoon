@@ -7,6 +7,7 @@
    ========================================================= */
 import { DMAP } from './config';
 import { S } from './state';
+import { season } from './game/festival';
 const D=14, DD=10, Y=90, TAN=DD/D, ANG=Math.atan(TAN)*180/Math.PI;
 const BW={ev:46,kafe:52,dukkan:52,ofis:36};
 const FH={ev:11,kafe:10,dukkan:10,ofis:6};
@@ -217,6 +218,10 @@ export function emptyLot(i){
   if(r(1)<.45){ const sx=58+r(2)*14, sy=44+r(3)*22;
     s+=`<rect class="pst" x="${r1(sx+6.2)}" y="${r1(sy)}" width="1.6" height="16"/><rect class="sgn" x="${r1(sx)}" y="${r1(sy-11)}" width="14" height="11" rx=".8"/>`
       +`<rect class="sgw" x="${r1(sx+1.6)}" y="${r1(sy-9.4)}" width="10.8" height="7.8"/><rect fill="#fff" x="${r1(sx+3.5)}" y="${r1(sy-7.2)}" width="7" height="1.4"/><rect fill="#fff" x="${r1(sx+3.5)}" y="${r1(sy-4.6)}" width="4.5" height="1.4"/>`; }
+  // yaz: Çeşme'nin boş arsalarında plaj şemsiyesi ve havlu
+  if(season(Date.now())==='yaz' && DMAP[S.cur] && DMAP[S.cur].v===5){ const ux=30+r(9)*40, uy=40+r(10)*30;
+    s+=`<rect fill="#fbfbf7" stroke="var(--ink)" stroke-width=".6" x="${r1(ux-8)}" y="${r1(uy+14)}" width="14" height="6" rx="1"/><path d="M${r1(ux)} ${r1(uy)}v${18}" stroke="var(--ink)" stroke-width="1.2"/>`
+      +`<path d="M${r1(ux-12)} ${r1(uy)}Q${r1(ux)} ${r1(uy-12)} ${r1(ux+12)} ${r1(uy)}Z" fill="#c23b2e" stroke="var(--ink)" stroke-width=".8"/><path d="M${r1(ux-4)} ${r1(uy-1)}Q${r1(ux)} ${r1(uy-11)} ${r1(ux+4)} ${r1(uy-1)}Z" fill="#fbfbf7"/>`; }
   return s;
 }
 export const svg=(inner?:any,cls?:any)=>`<svg class="${cls||''}" viewBox="0 0 100 100"${cls==='art'?' preserveAspectRatio="xMidYMax meet"':''} aria-hidden="true">${inner}</svg>`;

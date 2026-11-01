@@ -10,7 +10,7 @@ const saved=async p=>p.evaluate(()=>{const w=JSON.parse(localStorage.getItem('ta
 async function page(b,opts={},seed){
   const ctx=await b.newContext({viewport:opts.vp||{width:390,height:800}});
   const p=await ctx.newPage(); p.errs=[]; p.on('pageerror',e=>p.errs.push(e.message)); p.on('console',m=>{if(m.type()==='error')p.errs.push(m.text())});
-  await p.clock.install();
+  await p.clock.install(opts.time ? { time: opts.time } : undefined);
   if(seed) await p.addInitScript(`if(!sessionStorage.getItem('s')){sessionStorage.setItem('s',1);localStorage.setItem('tapu-save-v1',JSON.stringify((${seed})(Date.now())));}`);
   await p.goto(URL); await p.clock.runFor(500); return p;
 }
@@ -243,15 +243,15 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
    ok(await p.isVisible('#guideHint') && await p.evaluate(() => document.querySelector('#guideBtn').classList.contains('wig')), 'ilk kira toplanınca sekme bir kez tanıtılıyor');
    await p.clock.runFor(6500); ok(await p.isHidden('#guideHint'), 'tanıtım 6 sn sonra kayboluyor');
    s=await st(p); ok(s.guideHint===true, 'tanıtım bir daha gösterilmeyecek');
-   await tap(p,'#guideBtn'); ok((await p.$$('.gditem')).length===14, 'kılavuzda 14 madde');
+   await tap(p,'#guideBtn'); ok((await p.$$('.gditem')).length===17, 'kılavuzda 17 madde');
    await tap(p,'.gditem[data-i="2"]'); let t=await p.textContent('#sheetBody');
    ok(t.includes('Madde 03') && t.includes('Kira ve kumbara') && t.includes('1 dk 30 sn')||t.includes('90'), 'madde 03: kira ve kumbara, sayılar ayarlardan');
    await tap(p,'[data-a="next"]'); ok((await p.textContent('#sheetBody')).includes('Madde 04'), 'sonraki maddeye geçildi');
    await tap(p,'[data-a="prev"]'); await tap(p,'[data-a="prev"]'); ok((await p.textContent('#sheetBody')).includes('Madde 02'), 'önceki maddeye dönüldü');
    await tap(p,'[data-a="list"]'); ok(await p.isVisible('.gdlist'), 'listeye dönüldü');
    // her madde hatasız açılıyor
-   let bad=[]; for (let k=0;k<14;k++){ await tap(p,`.gditem[data-i="${k}"]`); const tx=await p.textContent('#sheetBody'); if(!tx.includes('Madde '+String(k+1).padStart(2,'0'))||/undefined|NaN/.test(tx)) bad.push(k+1); await tap(p,'[data-a="list"]'); }
-   ok(bad.length===0, '14 maddenin hepsi açılıyor, "undefined/NaN" yok '+bad.join(','));
+   let bad=[]; for (let k=0;k<17;k++){ await tap(p,`.gditem[data-i="${k}"]`); const tx=await p.textContent('#sheetBody'); if(!tx.includes('Madde '+String(k+1).padStart(2,'0'))||/undefined|NaN/.test(tx)) bad.push(k+1); await tap(p,'[data-a="list"]'); }
+   ok(bad.length===0, '17 maddenin hepsi açılıyor, "undefined/NaN" yok '+bad.join(','));
    await p.keyboard.press('Escape'); await p.waitForTimeout(400);
    await tap(p,'#menuBtn'); await tap(p,'[data-a="set"]'); await tap(p,'[data-a="guide"]'); ok(await p.isVisible('.gdlist'), 'ayarlardan da kılavuza ulaşılıyor');
    await p.screenshot({path:out+'J-kilavuz.png'});
@@ -268,6 +268,54 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
    const a0=(await st(p)).cash; await p.clock.runFor(20000); s=await st(p);
    ok(s.cash>a0 && Object.values(s.d).flat().every(q=>!q||q.buf<1),'kira hiçbir şeye basmadan kasaya aktı');
    await tap(p,'#collectBtn'); ok(!(await p.isVisible('#ad:not([hidden])')),'OTO mührü reklam açmıyor');
+   ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
+ }
+
+ log('L) yeni özellikler: teslim anı, semt hedefleri, karma komşuluk, özel tapu, bayram, Rıfkı Abi');
+ {
+   // teslim anı
+   p=await page(b,{},`t=>{const d=[0,1,2,3,4].map(()=>Array(20).fill(null)); d[0][6]={t:'ofis',lvl:0,buf:0,until:t+3000,dur:600000,up:false}; return {v:1,cash:1000,earned:5000,boostUntil:0,lastSeen:t,unlocked:1,cur:0,d,fx:[],disc:0,playMs:0,nextAd:9e9,nextEvent:9e9,nextOffer:9e9,nextTaxi:9e9,sound:false,collects:50,seen:{ev:true},ads:0,skipHint:1,guideHint:true,rifki:false,daily:{last:${today},streak:1}}}`);
+   await dismiss(p); await p.clock.runFor(300);
+   ok(await p.isVisible('.lot[data-i="6"] .cd') && /0:0\d/.test(await p.textContent('.lot[data-i="6"] .cd')),'son 5 saniyede geri sayım görünüyor');
+   await p.clock.runFor(3200); ok(await p.isVisible('.lot[data-i="6"] .teslim') && (await p.textContent('.lot[data-i="6"] .teslim')).includes('TESLİM'),'inşaat bitince TESLİM mührü vuruluyor');
+   await p.clock.runFor(2200); ok(!(await p.$('.lot[data-i="6"] .teslim')),'mühür kısa süre sonra kalkıyor');
+   ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
+
+   // semt hedefleri + karma komşuluk + özel tapu
+   p=await page(b,{},`t=>{const d=[0,1,2,3,4].map(()=>Array(20).fill(null)); const B=(x,l)=>({t:x,lvl:l,buf:0,until:0,dur:1,up:false}); d[0][0]=B('ev',1); d[0][1]=B('ev',1); d[0][4]=B('ev',1); d[0][5]=B('ev',1); d[0][2]=B('ev',5); d[0][8]=B('kafe',1); d[0][9]=B('ofis',1); return {v:1,cash:1e9,earned:1e9,boostUntil:0,lastSeen:t,unlocked:1,cur:0,d,fx:[],disc:0,playMs:0,nextAd:9e9,nextEvent:9e9,nextOffer:9e9,nextTaxi:9e9,sound:false,collects:50,seen:{ev:true,kafe:true,dukkan:true,ofis:true},ads:0,skipHint:1,guideHint:true,rifki:false,daily:{last:${today},streak:1}}}`);
+   await dismiss(p); await p.clock.runFor(2600); await dismiss(p);
+   let s2=await st(p); ok((s2.stars['ist-0']||[]).includes(0) && (s2.stars['ist-0']||[]).includes(1),'iki semt hedefi tamamlandı, 2 yıldız');
+   await tap(p,'#mapBtn'); ok(await p.isVisible('.goals') && (await p.textContent('.goals')).includes('2/3'),'haritada semt hedefleri kartı: 2/3');
+   await p.keyboard.press('Escape'); await p.waitForTimeout(400);
+   await tap(p,'.lot[data-i="8"]'); ok(await p.isVisible('.nbgrid .nb.pair') && (await p.textContent('#sheetBody')).includes('Akıllı ikili'),'mülk panelinde komşuluk şeması: akıllı ikili +%10');
+   await p.keyboard.press('Escape'); await p.waitForTimeout(400);
+   await tap(p,'#menuBtn'); await tap(p,'[data-a="ozel"]'); ok((await p.textContent('#sheetBody')).includes('Haftanın özel tapusu'),'özel tapu paneli açıldı');
+   await tap(p,'[data-a="buyozel"]'); s2=await st(p); ok(s2.inv.length===1 && s2.ozel.bought,'özel tapu satın alındı, depoda');
+   ok(await p.isDisabled('#sheetBody .btn[disabled]'),'haftada bir kez alınabiliyor');
+   await p.keyboard.press('Escape'); await p.waitForTimeout(400);
+   await tap(p,'.lot[data-i="15"]'); await tap(p,'[data-a="place"]'); s2=await st(p);
+   ok(s2.d['ist-0'][15] && s2.d['ist-0'][15].sp && s2.inv.length===0 && await p.isVisible('.lot[data-i="15"].k-ozel'),'özel yapı arsaya yerleştirildi');
+   await tap(p,'.lot[data-i="15"]'); ok(!(await p.$('[data-a="up"]')) && await p.isVisible('[data-a="lotboost"]'),'özel yapıda kat çıkma yok, mülke 2x var');
+   await tap(p,'[data-a="del"]'); await tap(p,'[data-a="del"]'); s2=await st(p); ok(s2.d['ist-0'][15]===null && s2.inv.length===1,'yıkılan özel yapı depoya döndü');
+   ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
+
+   // bayram (29 Ekim)
+   p=await page(b,{time:new Date('2026-10-29T12:00:00')},baseSeed(`{rifki:false,guideHint:true}`));
+   const titles=[]; for(let k=0;k<5&&await p.isVisible('#modal .card');k++){ titles.push(await p.textContent('#modal .card h3')); await tap(p,'#modal .card .txt'); await p.clock.runFor(3000); }
+   for(let k=0;k<3;k++){ await p.clock.runFor(1500); if(await p.isVisible('#modal .card')){ titles.push(await p.textContent('#modal .card h3')); await tap(p,'#modal .card .txt'); } }
+   ok(await p.isVisible('#festBar') && (await p.textContent('#festBar')).includes('Cumhuriyet'),'29 Ekim: bayram şeridi görünüyor');
+   ok(titles.some(x=>x.includes('Bayram ikramiyesi')),'bayram ikramiyesi kartı çıktı');
+   ok((await p.textContent('#rate')).includes('+%20'),'kira göstergesinde +%20');
+   ok(await p.evaluate(()=>document.body.classList.contains('fest-milli')),'harita bayrak zinciriyle süslendi');
+   ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
+
+   // Rıfkı Abi
+   p=await page(b,{},baseSeed(`{guideHint:true}`));
+   await dismiss(p); let seen=false; for(let k=0;k<12&&!seen;k++){ await p.clock.runFor(5000); await dismiss(p); seen=await p.isVisible('#rifki'); }
+   ok(seen && (await p.textContent('#rifki')).includes('RIFKI ABİ'),'Rıfkı Abi bir ipucu verdi');
+   await p.waitForTimeout(600); ok(await p.evaluate(()=>getComputedStyle(document.querySelector('#rifki')).opacity==='1' && document.body.classList.contains('idle')),'oyuncu boştayken bile balon tamamen görünür (animasyon donmuyor)');
+   await tap(p,'#rifki .rk-x'); ok(await p.isHidden('#rifki'),'× ile kapandı');
+   await tap(p,'#menuBtn'); await tap(p,'[data-a="set"]'); await tap(p,'[data-a="rifki"]'); s2=await st(p); ok(s2.rifki===false,'ayarlardan kapatıldı');
    ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
  }
 
