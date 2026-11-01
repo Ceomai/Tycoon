@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <rect width="1024" height="1024" fill="#c23b2e"/>
+  <g transform="rotate(-5 512 512)" fill="none" stroke="#fbfbf7">
+    <rect x="152" y="262" width="720" height="500" rx="36" stroke-width="44"/>
+    <rect x="222" y="332" width="580" height="360" rx="16" stroke-width="12"/>
+  </g>
+  <text x="512" y="612" transform="rotate(-5 512 512)" text-anchor="middle" font-family="IBM Plex Mono, Menlo, monospace" font-weight="600" font-size="300" fill="#fbfbf7">T</text>
+</svg>

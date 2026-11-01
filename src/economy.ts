@@ -1,0 +1,92 @@
+/* =========================================================
+   EKONOMİ — kira, maliyet, süre, komşuluk ve semt/il açılışları
+   ========================================================= */
+import { CFG, COLS, ROWS, N, TYPES, LV_INC, UP_COST, UP_TIME, DMAP, DistrictKey, CityId, BuildingType, TIER_M, TIER_FEE, dkey, CITIES, CITY_ORDER } from './config';
+import { S, Plot, Lot, lotsOf } from './state';
+import { Time } from './time';
+import { LM } from './landmarks';
+
+/** Oyun saati: sunucuyla düzeltilmiş cihaz saati. Saat geri alınırsa (5 dk tolerans) zaman,
+ *  cihaz saati son görülen ana yetişene kadar donar; böylece geri-ileri oynatmayla kazanç olmaz. */
+export const now = () => { const t = Time.now(); return S && t < S.maxSeen - 300e3 ? S.maxSeen : t; };
+const D = (k: DistrictKey) => DMAP[k];
+export const tierOf = (k: DistrictKey) => D(k).idx;
+export const incM = (k: DistrictKey) => TIER_M[tierOf(k)] * Math.pow(1.25, tierOf(k));
+export const costM = (k: DistrictKey) => TIER_M[tierOf(k)];
+export const cnt = (k: DistrictKey, t: BuildingType) => lotsOf(S, k).filter(p => p && p.t === t).length;
+export const withDisc = (p: number) => p * (1 - S.disc);
+export const buildCost = (k: DistrictKey, t: BuildingType) => TYPES[t].cost * costM(k) * Math.pow(1.12, cnt(k, t));
+export const buildTime = (k: DistrictKey, t: BuildingType) => TYPES[t].time * 1000 * (1 + 0.1 * cnt(k, t)) * (1 + 0.5 * tierOf(k));
+export const upCost = (k: DistrictKey, p: Plot) => TYPES[p.t].cost * costM(k) * UP_COST[p.lvl];
+export const upTime = (k: DistrictKey, p: Plot) => TYPES[p.t].time * 1000 * UP_TIME[p.lvl] * (1 + 0.5 * tierOf(k));
+export const producing = (p: Lot): p is Plot => !!(p && p.lvl >= 1 && !p.until);
+
+export function neighbors(i: number): number[] {
+  const r = Math.floor(i / COLS), c = i % COLS, a: number[] = [];
+  if (r > 0) a.push(i - COLS); if (r < ROWS - 1) a.push(i + COLS); if (c > 0) a.push(i - 1); if (c < COLS - 1) a.push(i + 1);
+  return a;
+}
+export function adj(k: DistrictKey, i: number, t?: BuildingType): number {
+  const lots = lotsOf(S, k); t = t || (lots[i] ? lots[i]!.t : undefined);
+  return neighbors(i).filter(j => { const q = lots[j]; return q && q.t === t && q.lvl >= 1; }).length;
+}
+export function fxMult(k: DistrictKey, i: number, p: Plot, t: number): number {
+  let m = 1;
+  for (const f of S.fx) {
+    if (f.until < t) continue;
+    if (f.k === 'row' && f.d === k && Math.floor(i / COLS) === f.r) m *= f.x;
+    if (f.k === 'type' && f.t === p.t) m *= f.x;
+  }
+  return m;
+}
+export const citiesOwned = () => new Set(S.own.map(k => D(k).city)).size;
+export function collBonus(): number { const n = (S.coll || []).length; return n * 0.05 + (n === LM.length ? 0.1 : 0); }
+export const portfolioBonus = () => CFG.PORTFOLIO_BONUS * Math.max(0, citiesOwned() - 1);
+export const permMult = () => (1 + 0.1 * (S.shares || 0)) * (1 + collBonus()) * (1 + portfolioBonus()) * (S.premium ? 2 : 1);
+
+export function baseRate(k: DistrictKey, i: number): number {
+  const p = lotsOf(S, k)[i]; if (!producing(p)) return 0;
+  return TYPES[p.t].inc * LV_INC[p.lvl] * incM(k) * (1 + CFG.ADJ * adj(k, i)) * permMult();
+}
+export function rate(k: DistrictKey, i: number, t = now()): number {
+  const b = baseRate(k, i); if (!b) return 0;
+  return b * fxMult(k, i, lotsOf(S, k)[i]!, t) * (S.boostUntil > t ? 2 : 1);
+}
+export function totalRate(live: boolean): number {
+  let s = 0; const t = now();
+  for (const k of S.own) for (let i = 0; i < N; i++) s += live ? rate(k, i, t) : baseRate(k, i);
+  return s;
+}
+export const capOf = (k: DistrictKey, i: number, t?: number) => rate(k, i, t) * CFG.CAP_SEC;
+export function coinFill(k: DistrictKey, i: number): number {
+  const p = lotsOf(S, k)[i]; if (!p || p.buf <= 0) return 0;
+  const c = capOf(k, i); if (!c) return p.buf >= 1 ? 1 : 0;
+  return Math.min(1, p.buf / c);
+}
+export function hasCoin(k: DistrictKey, i: number): boolean { const p = lotsOf(S, k)[i]; return !!p && p.buf >= Math.max(1, baseRate(k, i) * 6); }
+export const isFull = (k: DistrictKey) => lotsOf(S, k).every(p => p && p.lvl >= 1);
+export const filled = (k: DistrictKey) => lotsOf(S, k).filter(p => p && p.lvl >= 1).length;
+
+/* ---------- semt / il açılışı ----------
+   - İl içinde: bir önceki semt dolunca sıradaki semtin tapusu (kademe bedeli) alınır.
+   - Başka il: başlangıç ilinin ilk semti dolunca diğer illerin ilk semti (artan bedelle) alınır. */
+export type Unlock = { ok: boolean; fee: number; why: string };
+export function unlockInfo(k: DistrictKey): Unlock {
+  const d = D(k);
+  if (S.own.includes(k)) return { ok: false, fee: 0, why: 'owned' };
+  if (d.idx > 0) {
+    const prev = dkey(d.city, d.idx - 1);
+    if (!S.own.includes(prev)) return { ok: false, fee: TIER_FEE[d.idx], why: 'prev-not-owned' };
+    if (!isFull(prev)) return { ok: false, fee: TIER_FEE[d.idx], why: 'prev-not-full' };
+    return { ok: true, fee: TIER_FEE[d.idx], why: '' };
+  }
+  const start = S.city || 'ist';
+  const extra = citiesOwned();
+  const fee = extra <= 1 ? CFG.EXTRA_CITY_FEE_1 : CFG.EXTRA_CITY_FEE_2;
+  if (!isFull(dkey(start, 0))) return { ok: false, fee, why: 'start-not-full' };
+  return { ok: true, fee, why: '' };
+}
+/** Satın alınabilir (şartları sağlanmış) semtler: rozet ve bildirim için. */
+export const buyableDistricts = () => CITY_ORDER.flatMap(c => CITIES[c].districts.map((_, i) => dkey(c, i))).filter(k => unlockInfo(k).ok);
+export const cityOf = (k: DistrictKey): CityId => D(k).city;
+export const highestTier = () => Math.max(...S.own.map(tierOf));

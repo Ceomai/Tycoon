@@ -1,0 +1,10 @@
+node_modules/
+tests/out/
+www/
+dist-preview/
+functions/lib/
+functions/node_modules/
+.env
+.env.*
+!.env.example
+*.log

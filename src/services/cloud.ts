@@ -1,0 +1,162 @@
+/* =========================================================
+   BULUT — hesap, bulut kaydı, haftalık sıralama, davetler, sunucu saati
+   Arka uç seçimi:
+     1) Firebase ayarları (.env) varsa ve önizleme değilse → Firebase (firebase.ts, ayrı parça olarak yüklenir)
+     2) Claude artifact ortamındaysa → artifact'ın paylaşılan veritabanı (önizleme/test)
+     3) Hiçbiri yoksa → çevrimdışı: oyun tamamen yerel çalışır
+   Oyun koduna tek bir arayüz sunar; arka ucun ne olduğu bilinmez.
+   ========================================================= */
+import { CFG } from '../config';
+import { S } from '../state';
+import { weekKey } from '../format';
+import { now } from '../economy';
+import { Time } from '../time';
+import { I } from '../icons';
+import { fmt } from '../format';
+import { openModal, closeModal, toast } from '../ui/modal';
+import { writeSave, lockSaves } from '../storage';
+import { Snd } from '../sound';
+import { Analytics } from './analytics';
+
+export type RedeemResult = 'ok' | 'invalid' | 'used' | 'error';
+export interface LbRow { name: string; district: string; earned: number; me: boolean; }
+export interface Account { enabled: boolean; linked: boolean; provider: string; apple: boolean; }
+export interface RemoteSave { json: string; savedAt: number; earned: number; }
+export interface Hello { now?: number; code?: string; grants?: number; }
+
+/** Arka uçların uyguladığı arayüz. */
+export interface Backend {
+  uid: string | null;
+  init(): Promise<boolean>;
+  hello(localCode: string): Promise<Hello>;
+  account(): Account;
+  link(p: 'google' | 'apple'): Promise<'linked' | 'switched' | 'fail'>;
+  deleteAccount(): Promise<boolean>;
+  pushSave(json: string, savedAt: number, earned: number): Promise<void>;
+  pullSave(): Promise<RemoteSave | null>;
+  postScore(p: { week: string; earned: number; district: string; shares: number; total: number }): Promise<void>;
+  top(week: string): Promise<{ rows: LbRow[]; myRank: number | null }>;
+  redeemInvite(code: string): Promise<RedeemResult>;
+}
+
+let be: Backend | null = null;
+let isReady = false, lastPost = 0, posted = -1;
+/** Hiç arka uç ayarlı değil (geliştirme / yerel test): davet kodu yerelde kabul edilir. */
+let localOnly = false;
+const OFF: Account = { enabled: false, linked: false, provider: '', apple: false };
+
+async function pickBackend(): Promise<Backend | null> {
+  const env = import.meta.env;
+  if (!__PREVIEW__ && env.VITE_FIREBASE_API_KEY && env.VITE_FIREBASE_PROJECT_ID) {
+    const m = await import('./firebase');
+    return m.createFirebaseBackend();
+  }
+  if (typeof window !== 'undefined' && window.claude && window.claude.use) {
+    const m = await import('./artifactCloud');
+    return m.createArtifactBackend();
+  }
+  return null;
+}
+
+export const Cloud = {
+  ready: () => isReady,
+  uid: () => (be ? be.uid : null),
+  account: (): Account => (be && isReady ? be.account() : OFF),
+
+  /** Açılışta bir kez: oturum aç, sunucu saatini al, davet kodunu ve bekleyen ödülleri sor, bulut kaydını karşılaştır. */
+  async init(): Promise<void> {
+    try {
+      be = await pickBackend();
+      localOnly = !be;
+      if (!be || !(await be.init())) { be = null; return; }
+      isReady = true;
+      if (be.uid) Analytics.setUser(be.uid);
+      await this.hello();
+      await this.reconcile();
+    } catch (e) { Analytics.error(e, 'cloud_init'); }
+  },
+
+  async hello() {
+    if (!be) return;
+    const sent = Date.now();
+    try {
+      const h = await be.hello(S.ref.code);
+      if (h.now) Time.setServer(h.now, sent, Date.now());
+      if (h.code && h.code !== S.ref.code) S.ref.code = h.code;
+      if (h.grants && h.grants > 0) grantInvites(h.grants);
+    } catch (e) { Analytics.error(e, 'cloud_hello'); }
+  },
+
+  /** Bulut kaydı yerelden belirgin şekilde ilerideyse oyuncuya sorulur; yeni oyunda sessizce alınır. */
+  async reconcile() {
+    if (!be) return;
+    let r: RemoteSave | null = null;
+    try { r = await be.pullSave(); } catch { return; }
+    if (!r || !r.json) { void this.pushSave(); return; }
+    const freshLocal = !S.city || S.earned < 1000;
+    if (r.savedAt <= S.savedAt + 60e3 || r.earned <= S.earned) { if (r.savedAt < S.savedAt) void this.pushSave(); return; }
+    if (freshLocal) { await adopt(r.json); return; }
+    openModal(`<div class="card"><div class="badge">${I.users}</div><h3>Buluttaki kayıt</h3>
+      <p>Hesabında daha ileri bir şehir var.<br>Bulut: <b>${fmt(r.earned)}</b> · Bu cihaz: <b>${fmt(S.earned)}</b></p>
+      <div class="btns"><button class="btn gold" data-a="cloud">Buluttakini yükle</button><button class="txt" data-a="local">Bu cihazdakiyle devam et</button></div></div>`,
+      a => { closeModal(); if (a === 'cloud') void adopt(r!.json); else void this.pushSave(); });
+  },
+
+  async pushSave() {
+    if (!be || !isReady || !S.city) return;
+    try { await be.pushSave(JSON.stringify(S), S.savedAt || now(), Math.floor(S.earned)); } catch (e) { Analytics.error(e, 'cloud_save'); }
+  },
+
+  /** Haftalık skor: değiştiyse en fazla SCORE_POST_MS'de bir gönderilir (sunucu ayrıca doğrular). */
+  maybePostScore(force = false) {
+    if (!be || !isReady || !S.city) return;
+    const e = Math.floor(S.week.earned), t = Date.now();
+    if (e === posted || (!force && t - lastPost < CFG.SCORE_POST_MS)) return;
+    posted = e; lastPost = t;
+    void be.postScore({ week: S.week.key || weekKey(new Date(now())), earned: e, district: S.cur, shares: S.shares || 0, total: Math.floor(S.earned) })
+      .catch(err => { posted = -1; Analytics.error(err, 'cloud_score'); });
+  },
+
+  async top(): Promise<{ rows: LbRow[]; myRank: number | null } | null> {
+    if (!be || !isReady) return null;
+    this.maybePostScore(true);
+    return be.top(weekKey(new Date(now())));
+  },
+
+  async redeemInvite(code: string): Promise<RedeemResult> {
+    if (localOnly) return 'ok';
+    if (!be || !isReady) return 'error';
+    try { return await be.redeemInvite(code); } catch { return 'error'; }
+  },
+
+  async link(p: 'google' | 'apple'): Promise<boolean> {
+    if (!be || !isReady) return false;
+    const r = await be.link(p);
+    if (r === 'switched') { await this.reconcile(); await this.hello(); }
+    else if (r === 'linked') void this.pushSave();
+    if (r !== 'fail') Analytics.log('account_link', { provider: p });
+    return r !== 'fail';
+  },
+
+  async deleteAccount(): Promise<boolean> {
+    if (!be || !isReady) return true; // bulutta veri yok: yerel silme yeterli
+    const ok = await be.deleteAccount();
+    if (ok) { isReady = false; posted = -1; }
+    return ok;
+  },
+};
+
+function grantInvites(n: number) {
+  S.ref.rewarded += n;
+  S.boostUntil = Math.min(Math.max(S.boostUntil, now()) + 2 * 3600e3 * n, now() + CFG.BOOST_MAX);
+  toast(`${n} arkadaşın katıldı: ${2 * n} saat 2x`); Snd.unlock();
+}
+
+async function adopt(json: string) {
+  try {
+    const obj = JSON.parse(json);
+    await writeSave(obj);
+    lockSaves();
+    location.reload();
+  } catch (e) { Analytics.error(e, 'cloud_adopt'); toast('Bulut kaydı açılamadı'); }
+}

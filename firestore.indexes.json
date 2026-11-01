@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "lb",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "week", "order": "ASCENDING" },
+        { "fieldPath": "earned", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

@@ -1,0 +1,44 @@
+/* Kartlar (tebligat), sıra kuyruğu, bildirim şeridi ve para uçuşu efekti */
+import { $, ui, reduceMotion } from './ctx';
+import { S } from '../state';
+import { Snd } from '../sound';
+import { closeSheet } from './sheets';
+
+let modalHandler: ((a: string) => void) | null = null;
+
+export function openModal(html: string, handler: (a: string) => void) {
+  if (ui.modal || ui.ad) { ui.mq.push([html, handler]); return; }
+  closeSheet(); ui.modal = true; modalHandler = handler;
+  const m = $('#modal'); m.innerHTML = html; m.hidden = false; $('#scrim').classList.add('on'); Snd.unlock();
+}
+export function closeModal() {
+  S.nextAd = Math.max(S.nextAd, S.playMs + 60e3);
+  ui.modal = false; modalHandler = null; $('#modal').hidden = true; $('#modal').innerHTML = ''; $('#scrim').classList.remove('on');
+  ui.lastClose = performance.now(); flushQueue();
+}
+export function flushQueue() {
+  if (ui.mq.length && !ui.modal && !ui.ad) setTimeout(() => { if (ui.mq.length && !ui.modal && !ui.ad) openModal(...ui.mq.shift()!); }, 350);
+}
+export function onModalClick(e: Event) {
+  const b = (e.target as HTMLElement).closest('[data-a]') as HTMLElement | null;
+  if (b && modalHandler) modalHandler(b.dataset.a!);
+}
+
+export function bump() {
+  const c = $('#cash'); c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump');
+  clearTimeout((bump as any).t); (bump as any).t = setTimeout(() => c.classList.remove('bump'), 140);
+}
+export function toast(msg: string) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(ui.toastT); ui.toastT = setTimeout(() => t.classList.remove('on'), 2200);
+}
+export function flyCoin(fromEl: Element) {
+  if (reduceMotion || !(fromEl as any).animate) { bump(); return; }
+  const r = fromEl.getBoundingClientRect(), to = $('#cash').getBoundingClientRect();
+  const c = document.createElement('div'); c.className = 'fly';
+  c.style.left = (r.left + r.width / 2 - 11) + 'px'; c.style.top = (r.top + r.height / 2 - 11) + 'px';
+  document.body.appendChild(c);
+  const dx = to.left + to.width / 2 - (r.left + r.width / 2), dy = to.top + to.height / 2 - (r.top + r.height / 2);
+  c.animate([{ transform: 'translate(0,0) scale(1)' }, { transform: `translate(${dx * .25}px,${dy * .15 - 36}px) scale(1.15)`, offset: .3 }, { transform: `translate(${dx}px,${dy}px) scale(.5)`, opacity: .7 }],
+    { duration: 620, easing: 'cubic-bezier(.45,0,.7,1)' }).onfinish = () => { c.remove(); bump(); };
+}
