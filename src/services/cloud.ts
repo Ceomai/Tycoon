@@ -44,6 +44,12 @@ export interface Backend {
 
 let be: Backend | null = null;
 let isReady = false, lastPost = 0, posted = -1;
+/* maliyet: lig tablosu 5 dk önbellekte; aynı kayıt iki kez yazılmaz; bulut kaydı 12 saatte bir (ya da yeni kurulumda) indirilir */
+const LEAGUE_TTL = 5 * 60e3, PULL_EVERY = 12 * 3600e3, CHECK_KEY = 'tapu-cloud-check';
+let lgCache: { at: number; week: string; v: LeagueView } | null = null;
+let lastPushed = -1;
+const lastCheck = () => { try { return Number(localStorage.getItem(CHECK_KEY) || 0); } catch { return 0; } };
+const markCheck = () => { try { localStorage.setItem(CHECK_KEY, String(Date.now())); } catch { /* yok */ } };
 /** Hiç arka uç ayarlı değil (geliştirme / yerel test): davet kodu yerelde kabul edilir. */
 let localOnly = false;
 const OFF: Account = { enabled: false, linked: false, provider: '', apple: false };
@@ -92,12 +98,13 @@ export const Cloud = {
   },
 
   /** Bulut kaydı yerelden belirgin şekilde ilerideyse oyuncuya sorulur; yeni oyunda sessizce alınır. */
-  async reconcile() {
+  async reconcile(force = false) {
     if (!be) return;
-    let r: RemoteSave | null = null;
-    try { r = await be.pullSave(); } catch { return; }
-    if (!r || !r.json) { void this.pushSave(); return; }
     const freshLocal = !S.city || S.earned < 1000;
+    if (!force && !freshLocal && Date.now() - lastCheck() < PULL_EVERY) { void this.pushSave(); return; }
+    let r: RemoteSave | null = null;
+    try { r = await be.pullSave(); markCheck(); } catch { return; }
+    if (!r || !r.json) { void this.pushSave(); return; }
     if (r.savedAt <= S.savedAt + 60e3 || r.earned <= S.earned) { if (r.savedAt < S.savedAt) void this.pushSave(); return; }
     if (freshLocal) { await adopt(r.json); return; }
     openModal(`<div class="card"><div class="badge">${I.users}</div><h3>Buluttaki kayıt</h3>
@@ -107,8 +114,9 @@ export const Cloud = {
   },
 
   async pushSave() {
-    if (!be || !isReady || !S.city) return;
-    try { await be.pushSave(JSON.stringify(S), S.savedAt || now(), Math.floor(S.earned)); } catch (e) { Analytics.error(e, 'cloud_save'); }
+    if (!be || !isReady || !S.city || S.savedAt === lastPushed) return; // değişmemiş kayıt tekrar yazılmaz
+    const at = S.savedAt;
+    try { await be.pushSave(JSON.stringify(S), at || now(), Math.floor(S.earned)); lastPushed = at; } catch (e) { Analytics.error(e, 'cloud_save'); }
   },
 
   /** Haftalık skor: değiştiyse en fazla SCORE_POST_MS'de bir gönderilir (sunucu ayrıca doğrular, lig grubuna yerleştirir). */
@@ -124,8 +132,11 @@ export const Cloud = {
   /** Lig tablosu: önce güncel skor gönderilir (ilk gönderim gruba yerleştirir), sonra grup okunur. */
   async league(): Promise<LeagueView | null> {
     if (!be || !isReady) return null;
+    const week = weekKey(new Date(now()));
+    if (lgCache && lgCache.week === week && Date.now() - lgCache.at < LEAGUE_TTL) return lgCache.v;
     await this.maybePostScore(true);
-    const v = await be.league(weekKey(new Date(now())));
+    const v = await be.league(week);
+    if (v) lgCache = { at: Date.now(), week, v };
     if (v) { if (v.tier < 0) v.tier = S.league.tier; else S.league.tier = v.tier; }
     return v;
   },
@@ -139,7 +150,7 @@ export const Cloud = {
   async link(p: 'google' | 'apple'): Promise<boolean> {
     if (!be || !isReady) return false;
     const r = await be.link(p);
-    if (r === 'switched') { await this.reconcile(); await this.hello(); }
+    if (r === 'switched') { lgCache = null; lastPushed = -1; await this.reconcile(true); await this.hello(); }
     else if (r === 'linked') void this.pushSave();
     if (r !== 'fail') Analytics.log('account_link', { provider: p });
     return r !== 'fail';
@@ -148,7 +159,7 @@ export const Cloud = {
   async deleteAccount(): Promise<boolean> {
     if (!be || !isReady) return true; // bulutta veri yok: yerel silme yeterli
     const ok = await be.deleteAccount();
-    if (ok) { isReady = false; posted = -1; }
+    if (ok) { isReady = false; posted = -1; lgCache = null; lastPushed = -1; }
     return ok;
   },
 };

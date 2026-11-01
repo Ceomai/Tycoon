@@ -186,7 +186,7 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
      const snap = (id, d) => ({ id, exists: !!d, data: () => d && JSON.parse(JSON.stringify(d)) });
      const db = {
        doc: path => ({ get: async () => snap(path.split('/').pop(), store[path]), set: async v => { store[path] = JSON.parse(JSON.stringify(v)); }, delete: async () => { delete store[path]; } }),
-       collection: name => ({ where: (f, op, v) => ({ get: async () => ({ docs: Object.keys(store).filter(k => k.startsWith(name + '/') && store[k][f] === v).map(k => snap(k.split('/').pop(), store[k])) }) }) }),
+       collection: name => ({ where: (f, op, v) => ({ get: async () => (window.__queries = (window.__queries || 0) + 1, { docs: Object.keys(store).filter(k => k.startsWith(name + '/') && store[k][f] === v).map(k => snap(k.split('/').pop(), store[k])) }) }) }),
      };
      const user = { id: async () => 'me', profiles: async ids => Object.fromEntries(ids.map(id => [id, { name: id === 'me' ? 'Ben' : (store['lb/' + id] || {}).n || '' }])) };
      window.claude = { use: async n => (n === 'db' ? db : n === 'user' ? user : null) };
@@ -208,6 +208,9 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
    await tap(p, '[data-a="leagues"]'); ok((await p.$$('.lgtier')).length === 5 && (await p.textContent('.lgtier.here')).includes('Kat Ligi'), 'lig basamakları: 5 lig, "buradasın" Kat Ligi\'nde');
    await p.screenshot({ path: out + 'I-basamak.png' });
    await tap(p, '[data-a="back"]'); ok(await p.isVisible('.lglist'), 'tabloya geri dönüldü');
+   const q0 = await p.evaluate(() => window.__queries);
+   await p.keyboard.press('Escape'); await p.waitForTimeout(400); await tap(p, '#menuBtn'); await tap(p, '[data-a="lb"]'); await p.waitForTimeout(500);
+   ok(await p.isVisible('.lglist') && (await p.evaluate(() => window.__queries)) === q0, 'lig tablosu 5 dk önbellekte: tekrar açınca veritabanı sorgulanmıyor');
    await p.keyboard.press('Escape'); await p.waitForTimeout(400);
    const c0 = await p.evaluate(() => window.__tapuState().cash);
    await p.evaluate(() => window.__tapuTest.showLeagueResult({ week: '2026-H43', from: 1, to: 2, rank: 3, size: 30, seal: false }));

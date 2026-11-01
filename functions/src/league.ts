@@ -20,35 +20,42 @@ export function leagueOutcome(rank: number, size: number, tier: number): { to: n
 
 const db = () => getFirestore();
 
-/** Oyuncunun katıldığı son haftanın sonucunu (hafta bittiyse) bir kez hesaplar. */
-export async function settle(uid: string, currentWeek: string): Promise<LeagueResult | null> {
+/** Oyuncunun katıldığı son haftanın sonucunu (hafta bittiyse) bir kez hesaplar.
+ *  Maliyet: grubun sıralamasını ilk hesaplayan oyuncu grup belgesine yazar (final);
+ *  gruptaki diğerleri 30 skor yerine yalnızca grup belgesini okur. `L` verilirse kullanıcı yeniden okunmaz. */
+export async function settle(uid: string, currentWeek: string, L?: any): Promise<{ result: LeagueResult | null; tier: number }> {
   const userRef = db().doc(`users/${uid}`);
-  const L = (await userRef.get()).get('league') as any;
-  if (!L || !L.week || !L.group || L.week === currentWeek || L.settled === L.week) return null;
-  const snap = await db().collection('lb').where('group', '==', L.group).orderBy('earned', 'desc').limit(GROUP_SIZE * 2).get();
-  const ids = snap.docs.map(d => d.get('uid'));
-  const rank = ids.indexOf(uid) + 1;
-  if (!rank) { await userRef.set({ league: { ...L, settled: L.week } }, { merge: true }); return null; }
-  const o = leagueOutcome(rank, ids.length, L.tier || 0);
-  const res: LeagueResult = { week: L.week, from: L.tier || 0, to: o.to, rank, size: ids.length, seal: o.seal };
+  if (L === undefined) L = (await userRef.get()).get('league');
+  if (!L || !L.week || !L.group || L.week === currentWeek || L.settled === L.week) return { result: null, tier: (L && L.tier) || 0 };
+  const gref = db().doc(`groups/${L.group}`);
+  let order = (await gref.get()).get('final') as string[] | undefined;
+  if (!order) {
+    const snap = await db().collection('lb').where('group', '==', L.group).orderBy('earned', 'desc').limit(GROUP_SIZE * 2).get();
+    order = snap.docs.map(d => d.get('uid') as string);
+    await gref.set({ final: order }, { merge: true }); // hafta bitti: sıralama artık değişmez
+  }
+  const rank = order.indexOf(uid) + 1;
+  const tier = L.tier || 0;
+  if (!rank) { await userRef.set({ league: { ...L, settled: L.week } }, { merge: true }); return { result: null, tier }; }
+  const o = leagueOutcome(rank, order.length, tier);
+  const res: LeagueResult = { week: L.week, from: tier, to: o.to, rank, size: order.length, seal: o.seal };
   const done = await db().runTransaction(async tx => {
     const cur = (await tx.get(userRef)).get('league') as any;
     if (!cur || cur.settled === L.week || cur.week !== L.week) return false; // başka istek hesapladı
     tx.set(userRef, { league: { ...cur, tier: o.to, settled: L.week }, lastLeague: res }, { merge: true });
     return true;
   });
-  return done ? res : null;
+  return { result: done ? res : null, tier: o.to };
 }
 
-/** Bu haftanın grubuna yerleştirir (yoksa); { tier, group, lastWeek } döner. */
-export async function ensureGroup(uid: string, week: string): Promise<{ tier: number; group: string; lastWeek: number }> {
-  await settle(uid, week);
+/** Bu haftanın grubuna yerleştirir (yoksa); { tier, group, lastWeek } döner. `L` = kullanıcının okunmuş lig alanı. */
+export async function ensureGroup(uid: string, week: string, L: any): Promise<{ tier: number; group: string; lastWeek: number }> {
+  L = L || {};
+  if (L.week === week && L.group) return { tier: L.tier || 0, group: L.group, lastWeek: 0 }; // haftada bir kez aşağısı çalışır
+  const { tier } = await settle(uid, week, L);
   const userRef = db().doc(`users/${uid}`);
-  const L = ((await userRef.get()).get('league') as any) || { tier: 0 };
   let lastWeek = 0;
   if (L.week && L.week !== week) { const prev = await db().doc(`lb/${L.week}_${uid}`).get(); lastWeek = prev.exists ? prev.get('earned') || 0 : 0; }
-  if (L.week === week && L.group) return { tier: L.tier || 0, group: L.group, lastWeek };
-  const tier = L.tier || 0;
   const bucket = Math.max(0, Math.min(20, Math.floor(Math.log10(Math.max(1, lastWeek))))); // benzer kazançtakiler eşleşir
   const shard = Math.floor(Math.random() * SHARDS);
   const group = await db().runTransaction(async tx => {
