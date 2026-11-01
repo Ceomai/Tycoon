@@ -133,13 +133,21 @@ export function setupGrid() {
     if (!g) return; const i = tileAt(e.clientX, e.clientY);
     if (i != null && hasCoin(S.cur, i)) { collect(S.cur, i); g.got = true; }
   });
+  // Dokunuş parmak kalkınca "beklemeye" alınır ve tarayıcının ardından gönderdiği click ile açılır.
+  // Paneli doğrudan pointerup'ta açmak Android'de sorun çıkarıyordu: aynı dokunuşun click'i yeni açılan
+  // arka plana (scrim) düşüp paneli anında kapatıyordu. click gelmezse 350 ms sonra yine açılır.
+  let pending: number | null = null, pendingT: any = 0;
+  const fire = () => { clearTimeout(pendingT); const i = pending; pending = null; if (i != null) tapTile(i); };
   window.addEventListener('pointerup', (e: PointerEvent) => {
     if (!g) return; const i = tileAt(e.clientX, e.clientY), moved = Math.hypot(e.clientX - g.x, e.clientY - g.y);
-    if (!g.got && i != null && i === g.start && moved < 14) tapTile(i);
+    if (!g.got && i != null && i === g.start && moved < 14) { pending = i; clearTimeout(pendingT); pendingT = setTimeout(fire, 350); }
     g = null; render();
   });
   window.addEventListener('pointercancel', () => { g = null; });
-  grid.addEventListener('click', (e: MouseEvent) => { if (e.detail === 0) { const tl = (e.target as HTMLElement).closest('.lot') as HTMLElement | null; if (tl) tapTile(+tl.dataset.i!); } });
+  grid.addEventListener('click', (e: MouseEvent) => {
+    if (pending != null) { fire(); return; }
+    if (e.detail === 0) { const tl = (e.target as HTMLElement).closest('.lot') as HTMLElement | null; if (tl) tapTile(+tl.dataset.i!); } // klavye
+  });
 }
 export function drawGuilloche() {
   let g = ''; for (let k = 0; k < 6; k++) { let d = ''; for (let x = 0; x <= 360; x += 4) d += (x ? 'L' : 'M') + x + ' ' + (8 + Math.sin(x / 360 * Math.PI * 8 + k * .9) * 6).toFixed(1); g += `<path d="${d}" fill="none" stroke="var(--guil)" stroke-width=".7" opacity=".85"/>`; }

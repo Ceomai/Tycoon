@@ -145,6 +145,35 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
  await tap(p,'[data-a="go"][data-k="ist-0"]'); s=await st(p); ok(s.cur==='ist-0','iller arasında geçiş yapıldı');
  ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
 
+ log('H) Android dokunmatik (Pixel 7, gerçek dokunuş olayları)');
+ {
+   const { devices } = require('playwright');
+   const ctx = await b.newContext({ ...devices['Pixel 7'] }); const p = await ctx.newPage(); p.errs = [];
+   p.on('pageerror', e => p.errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') p.errs.push(m.text()); });
+   await p.goto(URL); await p.waitForTimeout(800);
+   const cdp = await ctx.newCDPSession(p);
+   const touch = async (sel, hold = 110, jitter = 3, fy = 0.5) => {
+     const r = await p.locator(sel).first().boundingBox(); const x = r.x + r.width / 2, y = r.y + r.height * fy;
+     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] }); await p.waitForTimeout(hold / 2);
+     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + jitter, y: y + jitter }] }); await p.waitForTimeout(hold / 2);
+     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await p.waitForTimeout(450);
+   };
+   const S = () => p.evaluate(() => JSON.parse(JSON.stringify(window.__tapuState())));
+   await touch('.cityopt[data-a="ank"]'); let s = await S(); ok(s.city === 'ank', 'dokunuşla il seçildi');
+   await touch('.lot[data-i="6"]'); ok(await p.isVisible('#sheet.on'), 'arsaya dokununca panel açık kalıyor');
+   await touch('[data-a="build"][data-t="ev"]'); s = await S(); ok(s.d['ank-0'][6] && s.d['ank-0'][6].t === 'ev', 'dokunuşla inşaat başladı');
+   await touch('#scrim'); ok(!(await p.isVisible('#sheet.on')), 'boşluğa dokununca panel kapandı');
+   await p.evaluate(() => { const st = window.__tapuState(); const l = st.d['ank-0'][6]; l.until = 0; l.lvl = 1; l.buf = 1e6; });
+   await p.waitForTimeout(600); const c0 = (await S()).cash;
+   await touch('.lot[data-i="6"]'); s = await S(); ok(s.cash > c0 && !(await p.isVisible('#sheet.on')), 'paraya dokununca toplandı, panel açılmadı');
+   await touch('#mapBtn'); ok(await p.isVisible('#sheet.on'), 'harita düğmesi açtı');
+   await touch('#scrim', 110, 3, 0.1); ok(!(await p.isVisible('#sheet.on')), 'büyük panel de üstteki boşluğa dokununca kapandı');
+   await touch('#menuBtn'); await touch('[data-a="set"]'); ok((await p.textContent('#sheetBody')).includes('Nasıl oynanır'), 'menüden ayarlara geçildi');
+   await touch('#scrim', 110, 3, 0.1); await touch('#boostBtn'); ok(await p.isVisible('#ad:not([hidden])'), '2x düğmesi reklamı açtı');
+   ok(p.errs.length === 0, 'konsol hatası yok ' + p.errs.join('|'));
+   await ctx.close();
+ }
+
  log('E) ekran boyutları');
  for(const vp of [{width:320,height:568},{width:360,height:640},{width:412,height:915},{width:768,height:1024},{width:1280,height:720}]){
    p=await page(b,{vp});

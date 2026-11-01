@@ -8,7 +8,7 @@ let modalHandler: ((a: string) => void) | null = null;
 
 export function openModal(html: string, handler: (a: string) => void) {
   if (ui.modal || ui.ad) { ui.mq.push([html, handler]); return; }
-  closeSheet(); ui.modal = true; modalHandler = handler;
+  closeSheet(); ui.modal = true; modalHandler = handler; ui.openedAt = performance.now();
   const m = $('#modal'); m.innerHTML = html; m.hidden = false; $('#scrim').classList.add('on'); Snd.unlock();
 }
 export function closeModal() {
@@ -19,7 +19,10 @@ export function closeModal() {
 export function flushQueue() {
   if (ui.mq.length && !ui.modal && !ui.ad) setTimeout(() => { if (ui.mq.length && !ui.modal && !ui.ad) openModal(...ui.mq.shift()!); }, 350);
 }
+/** Açılıştan hemen sonraki tıklama, kartı açan dokunuşun devamıdır (Android hayalet tıklama). */
+export const justOpened = () => performance.now() - ui.openedAt < 350;
 export function onModalClick(e: Event) {
+  if (justOpened()) return;
   const b = (e.target as HTMLElement).closest('[data-a]') as HTMLElement | null;
   if (b && modalHandler) modalHandler(b.dataset.a!);
 }

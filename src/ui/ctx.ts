@@ -20,4 +20,6 @@ export const ui = {
   size: 60, sw: 60, sh: 60, gap: 14,
   lastInput: 0, idle: false,
   lastCloudSave: 0,
+  /** Panel/kart açıldığı an: Android'de dokunuşun ardından gelen hayalet tıklamayı yok saymak için */
+  openedAt: 0,
 };
