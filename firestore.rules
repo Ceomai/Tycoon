@@ -1,8 +1,8 @@
 rules_version = '2';
 // Tapu güvenlik kuralları
 // - saves/{uid}: yalnızca sahibi okur/yazar (bulut kaydı, ~1 MB sınırı)
-// - lb/{uid}: herkes (oturum açmış) okur, kimse doğrudan yazamaz → yalnızca submitScore fonksiyonu
-// - users, codes, invites, rewards: yalnızca sunucu (Admin SDK kuralları atlar)
+// - lb/{hafta}_{uid}: lig skorları; oturum açmış herkes okur, kimse doğrudan yazamaz → yalnızca submitScore fonksiyonu
+// - users, codes, invites, groups, rewards: yalnızca sunucu (Admin SDK kuralları atlar)
 service cloud.firestore {
   match /databases/{db}/documents {
     match /saves/{uid} {
@@ -12,7 +12,7 @@ service cloud.firestore {
         && request.resource.data.j is string && request.resource.data.j.size() < 950000
         && request.resource.data.savedAt is number && request.resource.data.earned is number;
     }
-    match /lb/{uid} {
+    match /lb/{id} {
       allow read: if request.auth != null;
       allow write: if false;
     }
