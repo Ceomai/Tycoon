@@ -18,6 +18,7 @@ Kod tarafı hazır. Aşağıdakiler senin hesaplarınla yapılması gereken adı
    - Apple: Apple Developer'da "Sign in with Apple" yetkisi; Xcode → Signing & Capabilities → Sign in with Apple.
    - iOS: `GoogleService-Info.plist` içindeki `REVERSED_CLIENT_ID` Xcode → Info → URL Types'a eklenir.
 5. [ ] Firestore → veritabanı oluştur (üretim modu, `europe-west1`).
+   - [ ] Firestore → **TTL (Time-to-live)** → koleksiyon `lb`, alan `expireAt`: eski haftaların lig skorları 6 hafta sonra kendiliğinden silinir.
 6. [ ] Plan: **Blaze** (Cloud Functions için gerekli). **Bütçe uyarısı kur:** Google Cloud Console → Faturalandırma → Bütçeler ve uyarılar → aylık tutar (ör. 200 $) ve %50/%90/%100 e-posta uyarısı.
    - Ölçek notları: fonksiyonlar en fazla 200 kopya × 80 eşzamanlı istek; bulut kaydı 5 dakikada bir + uygulama kapanırken; sorgulanmayan zaman/metin alanları dizinlenmez (`firestore.indexes.json` → `fieldOverrides`), böylece yüksek yazma hızında darboğaz oluşmaz.
 7. [ ] Dağıt:

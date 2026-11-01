@@ -17,12 +17,14 @@ import { openModal, closeModal, toast } from '../ui/modal';
 import { writeSave, lockSaves } from '../storage';
 import { Snd } from '../sound';
 import { Analytics } from './analytics';
+import { showLeagueResult, type LeagueResult } from '../game/league';
 
 export type RedeemResult = 'ok' | 'invalid' | 'used' | 'error';
 export interface LbRow { name: string; district: string; earned: number; me: boolean; }
 export interface Account { enabled: boolean; linked: boolean; provider: string; apple: boolean; }
 export interface RemoteSave { json: string; savedAt: number; earned: number; }
-export interface Hello { now?: number; code?: string; grants?: number; }
+export interface Hello { now?: number; code?: string; grants?: number; league?: { tier: number; result: LeagueResult | null }; }
+export interface LeagueView { tier: number; group: string; rows: LbRow[]; myRank: number | null; size: number; }
 
 /** Arka uçların uyguladığı arayüz. */
 export interface Backend {
@@ -35,7 +37,8 @@ export interface Backend {
   pushSave(json: string, savedAt: number, earned: number): Promise<void>;
   pullSave(): Promise<RemoteSave | null>;
   postScore(p: { week: string; earned: number; district: string; shares: number; total: number }): Promise<void>;
-  top(week: string): Promise<{ rows: LbRow[]; myRank: number | null }>;
+  /** Bu haftaki lig grubum (30 kişi); henüz gruba girmediysem null. */
+  league(week: string): Promise<LeagueView | null>;
   redeemInvite(code: string): Promise<RedeemResult>;
 }
 
@@ -84,6 +87,7 @@ export const Cloud = {
       if (h.now) Time.setServer(h.now, sent, Date.now());
       if (h.code && h.code !== S.ref.code) S.ref.code = h.code;
       if (h.grants && h.grants > 0) grantInvites(h.grants);
+      if (h.league) { S.league.tier = h.league.tier; if (h.league.result) showLeagueResult(h.league.result); }
     } catch (e) { Analytics.error(e, 'cloud_hello'); }
   },
 
@@ -107,20 +111,23 @@ export const Cloud = {
     try { await be.pushSave(JSON.stringify(S), S.savedAt || now(), Math.floor(S.earned)); } catch (e) { Analytics.error(e, 'cloud_save'); }
   },
 
-  /** Haftalık skor: değiştiyse en fazla SCORE_POST_MS'de bir gönderilir (sunucu ayrıca doğrular). */
-  maybePostScore(force = false) {
-    if (!be || !isReady || !S.city) return;
+  /** Haftalık skor: değiştiyse en fazla SCORE_POST_MS'de bir gönderilir (sunucu ayrıca doğrular, lig grubuna yerleştirir). */
+  maybePostScore(force = false): Promise<void> {
+    if (!be || !isReady || !S.city) return Promise.resolve();
     const e = Math.floor(S.week.earned), t = Date.now();
-    if (e === posted || (!force && t - lastPost < CFG.SCORE_POST_MS)) return;
+    if (e === posted || (!force && t - lastPost < CFG.SCORE_POST_MS)) return Promise.resolve();
     posted = e; lastPost = t;
-    void be.postScore({ week: S.week.key || weekKey(new Date(now())), earned: e, district: S.cur, shares: S.shares || 0, total: Math.floor(S.earned) })
+    return be.postScore({ week: S.week.key || weekKey(new Date(now())), earned: e, district: S.cur, shares: S.shares || 0, total: Math.floor(S.earned) })
       .catch(err => { posted = -1; Analytics.error(err, 'cloud_score'); });
   },
 
-  async top(): Promise<{ rows: LbRow[]; myRank: number | null } | null> {
+  /** Lig tablosu: önce güncel skor gönderilir (ilk gönderim gruba yerleştirir), sonra grup okunur. */
+  async league(): Promise<LeagueView | null> {
     if (!be || !isReady) return null;
-    this.maybePostScore(true);
-    return be.top(weekKey(new Date(now())));
+    await this.maybePostScore(true);
+    const v = await be.league(weekKey(new Date(now())));
+    if (v) { if (v.tier < 0) v.tier = S.league.tier; else S.league.tier = v.tier; }
+    return v;
   },
 
   async redeemInvite(code: string): Promise<RedeemResult> {

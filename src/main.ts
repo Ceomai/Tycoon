@@ -45,6 +45,7 @@ import { Cloud } from './services/cloud';
 import { Purchases } from './services/purchases';
 import { Ads } from './services/ads';
 import { Notify } from './services/notify';
+import { showLeagueResult } from './game/league';
 
 let hiddenAt = 0;
 
@@ -107,7 +108,7 @@ async function boot() {
   const raw = await loadRaw();
   setS((raw ? migrate(raw, t0, weekKey(new Date(t0))) : null) || newState(t0, weekKey(new Date(t0))));
 
-  if (__PREVIEW__) (window as any).__tapuState = () => S; // uçtan uca testler için (yalnızca önizleme paketi)
+  if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult }; } // uçtan uca testler için (yalnızca önizleme paketi)
   setupGrid(); Street.init(); ensureTasks(); drawGuilloche(); bindUi(); fit();
   ui.lastInput = performance.now();
   render();

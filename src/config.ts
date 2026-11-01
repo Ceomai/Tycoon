@@ -64,3 +64,14 @@ export const SAVE_KEY = 'tapu-save-v2';
 export const LEGACY_SAVE_KEY = 'tapu-save-v1';
 export const SCHEMA = 2;
 export const PRIVACY_URL = (import.meta.env.VITE_PRIVACY_URL as string) || 'https://example.com/tapu/gizlilik';
+
+/* ---------- haftalık lig ---------- */
+export const LEAGUES = [
+  { id: 'arsa', n: 'Arsa Ligi', short: 'ARSA' },
+  { id: 'kat', n: 'Kat Ligi', short: 'KAT' },
+  { id: 'apartman', n: 'Apartman Ligi', short: 'APARTMAN' },
+  { id: 'plaza', n: 'Plaza Ligi', short: 'PLAZA' },
+  { id: 'gokdelen', n: 'Gökdelen Ligi', short: 'GÖKDELEN' },
+] as const;
+export const LEAGUE_TOP = LEAGUES.length - 1;
+export const GROUP_SIZE = 30;

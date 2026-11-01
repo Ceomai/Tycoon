@@ -5,7 +5,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "week",
+          "fieldPath": "group",
           "order": "ASCENDING"
         },
         {
@@ -49,6 +49,21 @@
     {
       "collectionGroup": "rewards",
       "fieldPath": "at",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "lb",
+      "fieldPath": "expireAt",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "lb",
+      "fieldPath": "district",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "lb",
+      "fieldPath": "shares",
       "indexes": []
     }
   ]
