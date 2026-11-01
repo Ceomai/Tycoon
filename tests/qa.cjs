@@ -225,11 +225,38 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
    await ctx.close();
  }
 
+ log('J) kılavuz');
+ {
+   p=await page(b,{},baseSeed(`{collects:0}`));
+   await dismiss(p);
+   ok(await p.isVisible('#guideBtn'), 'ana ekranda kılavuz sekmesi var');
+   ok(await p.isHidden('#guideHint'), 'tanıtım balonu henüz yok');
+   await tap(p,'.lot[data-i="0"]'); await p.clock.runFor(3000);
+   ok(await p.isVisible('#guideHint') && await p.evaluate(() => document.querySelector('#guideBtn').classList.contains('wig')), 'ilk kira toplanınca sekme bir kez tanıtılıyor');
+   await p.clock.runFor(6500); ok(await p.isHidden('#guideHint'), 'tanıtım 6 sn sonra kayboluyor');
+   s=await st(p); ok(s.guideHint===true, 'tanıtım bir daha gösterilmeyecek');
+   await tap(p,'#guideBtn'); ok((await p.$$('.gditem')).length===14, 'kılavuzda 14 madde');
+   await tap(p,'.gditem[data-i="2"]'); let t=await p.textContent('#sheetBody');
+   ok(t.includes('Madde 03') && t.includes('Kira ve kumbara') && t.includes('1 dk 30 sn')||t.includes('90'), 'madde 03: kira ve kumbara, sayılar ayarlardan');
+   await tap(p,'[data-a="next"]'); ok((await p.textContent('#sheetBody')).includes('Madde 04'), 'sonraki maddeye geçildi');
+   await tap(p,'[data-a="prev"]'); await tap(p,'[data-a="prev"]'); ok((await p.textContent('#sheetBody')).includes('Madde 02'), 'önceki maddeye dönüldü');
+   await tap(p,'[data-a="list"]'); ok(await p.isVisible('.gdlist'), 'listeye dönüldü');
+   // her madde hatasız açılıyor
+   let bad=[]; for (let k=0;k<14;k++){ await tap(p,`.gditem[data-i="${k}"]`); const tx=await p.textContent('#sheetBody'); if(!tx.includes('Madde '+String(k+1).padStart(2,'0'))||/undefined|NaN/.test(tx)) bad.push(k+1); await tap(p,'[data-a="list"]'); }
+   ok(bad.length===0, '14 maddenin hepsi açılıyor, "undefined/NaN" yok '+bad.join(','));
+   await p.keyboard.press('Escape'); await p.waitForTimeout(400);
+   await tap(p,'#menuBtn'); await tap(p,'[data-a="set"]'); await tap(p,'[data-a="guide"]'); ok(await p.isVisible('.gdlist'), 'ayarlardan da kılavuza ulaşılıyor');
+   await p.screenshot({path:out+'J-kilavuz.png'});
+   ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
+ }
+
  log('E) ekran boyutları');
  for(const vp of [{width:320,height:568},{width:360,height:640},{width:412,height:915},{width:768,height:1024},{width:1280,height:720}]){
    p=await page(b,{vp});
    const m=await p.evaluate(()=>{ const g=document.querySelector('.plate').getBoundingClientRect(), d=document.querySelector('.dock').getBoundingClientRect(), top=document.querySelector('.top').getBoundingClientRect(); return {sw:document.documentElement.scrollWidth, w:innerWidth, h:innerHeight, gb:g.bottom, gt:g.top, topb:top.bottom, db:d.bottom, lot:document.querySelector('.lot').getBoundingClientRect().width}; });
    ok(m.sw<=m.w && m.db<=m.h+1 && m.gt>=m.topb-1, `${vp.width}x${vp.height}: taşma yok, arsa ${Math.round(m.lot)}px`);
+   const gt=await p.evaluate(()=>{ const g=document.querySelector('#guideBtn').getBoundingClientRect(); const hit=[...document.querySelectorAll('.lot')].some(l=>{const r=l.getBoundingClientRect(); return !(r.right<=g.left||r.left>=g.right||r.bottom<=g.top||r.top>=g.bottom);}); return {hit, inView:g.right<=innerWidth+1&&g.left>=0&&g.width>0}; });
+   ok(!gt.hit && gt.inView, `${vp.width}x${vp.height}: kılavuz sekmesi görünür ve hiçbir arsanın üstüne binmiyor`);
    if(vp.width===320) await p.screenshot({path:out+'E320.png'});
    await p.context().close();
  }

@@ -57,6 +57,12 @@ export function tick() {
   else if (free && !S.offer && S.playMs >= S.nextOffer) { S.nextOffer = S.playMs + rand(CFG.OFFER_MIN, CFG.OFFER_MAX); if (anyProducing()) showOffer(); }
   else if (free && S.playMs >= S.nextAd) { S.nextAd = S.playMs + rand(CFG.INTER_MIN, CFG.INTER_MAX); Ads.interstitial(); }
   if (!S.boostUntil && S.playMs - ui.lastNudge > 240e3 && S.collects > 5) { ui.lastNudge = S.playMs; nudgeBoost(); }
+  // kılavuz sekmesini bir kez tanıt (ilk kira toplandıktan sonra)
+  if (free && !S.guideHint && S.collects >= 1) {
+    S.guideHint = true; persist();
+    const h = $('#guideHint'), g = $('#guideBtn'); h.hidden = false; g.classList.add('wig');
+    setTimeout(() => { h.hidden = true; g.classList.remove('wig'); }, 6000);
+  }
   render();
 }
 
