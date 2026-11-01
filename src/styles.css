@@ -562,3 +562,33 @@ body.idle *,body.idle *::before,body.idle *::after{animation-play-state:paused!i
 .gdprev small{color:var(--muted)}
 .gdnext{border:none;background:var(--ink);color:var(--surface);align-items:flex-end;text-align:right}
 .gdnext small{color:var(--line)}
+
+/* ---------- toplama mührü, doluluk çubuğu, mülke özel 2x (tasarım R1–R5) ---------- */
+.boost.collect .core{background:var(--stamp);color:#fff;border-color:color-mix(in srgb,var(--stamp) 70%,#fff)}
+.boost.collect .bx{font:700 18px/1 var(--cond);letter-spacing:.08em}
+.boost.collect .bsub{font:600 11px/1 var(--mono);margin-top:3px;letter-spacing:0}
+.boost.collect.full .rfg{animation:ringpulse 1.2s ease-in-out infinite}
+@keyframes ringpulse{50%{stroke-width:8}}
+.boost.collect.auto .core{background:var(--bg);color:var(--ink);border-color:var(--ink)}
+.boost.collect.auto .bx{font:600 22px/1 var(--mono);letter-spacing:0}
+.boost.collect.auto .bsub{font-size:10px}
+.boost.collect.auto .rbg{stroke:var(--ink);stroke-dasharray:4 5}
+.boost.collect.auto .rfg{stroke:transparent}
+.lot .fill{position:absolute;left:12%;right:12%;bottom:6%;height:5px;border-radius:3px;background:var(--surface);box-shadow:0 0 0 1px var(--ink);overflow:hidden;pointer-events:none;z-index:2}
+.lot .fill i{display:block;height:100%;background:var(--ink);transition:width .4s}
+.lot .fill.full i{background:var(--stamp)}
+.lot .lb2{position:absolute;top:4px;right:4px;z-index:3;background:var(--stamp);color:#fff;font:600 10px/1 var(--mono);padding:3px 5px;border-radius:4px;pointer-events:none}
+.cmode{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.cm{display:flex;gap:12px;align-items:center;text-align:left;padding:12px;border:1.5px solid var(--line);border-radius:10px;background:none;color:var(--ink);cursor:pointer}
+.cm.on{border:2px solid var(--ink);background:var(--me)}
+.cm .rd{width:20px;height:20px;flex:none;box-sizing:border-box;border-radius:50%;border:2px solid var(--muted);position:relative}
+.cm.on .rd{border-color:var(--ink)}
+.cm.on .rd::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--ink)}
+.cm .di{display:flex;flex-direction:column;gap:3px}
+.cm .di b{font:700 18px/1 var(--cond);letter-spacing:.05em;text-transform:uppercase}
+.cm .di small{font:400 13px/1.4 var(--ui);color:var(--muted)}
+.btn.lotb{flex-direction:column;gap:3px;line-height:1.1}
+.btn.lotb small{display:block;font:600 11px var(--mono);letter-spacing:0;text-transform:none;opacity:.9}
+.lot:focus{outline:none}
+.lot:focus-visible{outline:2px solid var(--haz);outline-offset:2px}
+.btn.lotb .lbl{display:flex;align-items:center;gap:8px}

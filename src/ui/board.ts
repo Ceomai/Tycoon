@@ -2,14 +2,14 @@
 import { CFG, COLS, ROWS, N, TYPES, DMAP, CITIES } from '../config';
 import { S, lotsOf } from '../state';
 import { fmt, fmtX, clock, rand } from '../format';
-import { now, totalRate, hasCoin, coinFill, fxMult, producing, buyableDistricts } from '../economy';
+import { now, totalRate, coinFill, fxMult, producing, buyableDistricts, pending } from '../economy';
 import { bld, site, emptyLot, svg } from '../draw';
 import { I } from '../icons';
 import { Snd, buzz } from '../sound';
 import { $, ui, reduceMotion } from './ctx';
 import { flyCoin, toast, openModal, closeModal } from './modal';
 import { openSheet, renderSheet } from './sheets';
-import { collect, addCash } from '../game/actions';
+import { addCash } from '../game/actions';
 import { track, tasksClaimable } from '../game/tasks';
 import { canHolding, lmLeft, landmarkCard } from '../game/collection';
 import { persist } from '../game/persist';
@@ -26,22 +26,26 @@ export function render() {
   if (o && !o.done) { const h = `${o.title} <i><b style="width:${o.prog / o.goal * 100}%"></b></i> ${o.prog}/${o.goal} <span class="ot">${clock(o.until - t)}</span>`; if (op.dataset.v !== h) { op.dataset.v = h; op.innerHTML = h; } op.hidden = false; } else op.hidden = true;
   $('#taskDot').hidden = !tasksClaimable();
   $('#menuDot').hidden = !canHolding();
-  const bl = Math.max(0, S.boostUntil - t);
-  $('#ringFg').style.strokeDashoffset = String(245 * (1 - bl / CFG.BOOST_MAX));
-  const sub = bl > 0 ? clock(bl) : `${I.play}30 dk`;
-  const bs = $('#bsub'); if (bs.dataset.v !== sub) { bs.dataset.v = sub; bs.innerHTML = sub; }
-  const otherCoins = S.own.some(o2 => o2 !== k && lotsOf(S, o2).some((_, i) => hasCoin(o2, i)));
-  $('#mapDot').hidden = !(buyableDistricts().length || otherCoins);
+  // orta mühür: TOPLA (bekleyen kira + kumbara doluluğu) ya da OTO (saniyelik kira)
+  const auto = S.collectMode === 'auto', pd = auto ? { amount: 0, fill: 1 } : pending();
+  const cb = $('#collectBtn'), cls = 'boost collect' + (auto ? ' auto' : pd.fill >= .999 ? ' full' : '') + (cb.classList.contains('nudge') ? ' nudge' : '');
+  if (cb.className !== cls) cb.className = cls;
+  $('#ringFg').style.strokeDashoffset = String(245 * (1 - pd.fill));
+  const main = auto ? 'OTO' : 'TOPLA', sub = auto ? `${fmt(totalRate(true), true)}/sn` : fmt(pd.amount);
+  const cm = $('#cmain'); if (cm.textContent !== main) { cm.textContent = main; cb.setAttribute('aria-label', auto ? 'Kiralar otomatik toplanıyor' : 'Tüm kiraları topla'); }
+  const cs = $('#csub'); if (cs.textContent !== sub) cs.textContent = sub;
+  $('#mapDot').hidden = !buyableDistricts().length;
   const lots = lotsOf(S, k), first = !S.own.some(o2 => lotsOf(S, o2).some(p => p)), hintI = first ? 5 : -1;
   for (let i = 0; i < N; i++) {
     const el = ui.tiles[i], p = lots[i];
     let sig: string;
     if (!p) sig = 'e' + (i === hintI ? 1 : 0);
     else {
-      const coin = hasCoin(k, i) ? Math.round(coinFill(k, i) * 5) : -1;
+      const coin = S.collectMode === 'auto' || !producing(p) ? -1 : Math.round(coinFill(k, i) * 10);
+      const lb = (p.bu || 0) > t ? 1 : 0;
       const prog = p.until ? Math.floor((1 - (p.until - t) / p.dur) * 20) : 0; // %5 adım: gereksiz yeniden çizim yok
       const hot = producing(p) && fxMult(k, i, p, t) > 1;
-      sig = [p.t, p.lvl, p.until ? 1 : 0, prog, coin, hot ? 1 : 0, mergeSides(i), d.v].join('|');
+      sig = [p.t, p.lvl, p.until ? 1 : 0, prog, coin, lb, hot ? 1 : 0, mergeSides(i), d.v].join('|');
     }
     if (sig === ui.tileSig[i]) continue;
     ui.tileSig[i] = sig;
@@ -52,9 +56,11 @@ export function render() {
     const art = p.until ? site(p.t, p.up ? p.lvl : 0, p.up ? p.lvl + 1 : 1, prog) : bld(p.t, p.lvl);
     let h = svg(art, 'art');
     if (p.until) h += `<span class="ff">${I.ff}</span>`;
-    if (hasCoin(k, i)) { const f = coinFill(k, i); h += `<span class="coin${f >= .999 ? ' full' : ''}" style="--cs-scale:${(.65 + .35 * f).toFixed(2)}"></span>`; }
+    // para baloncuğu yok: ince doluluk çubuğu (tek tuş modunda) ve mülke özel 2x etiketi
+    if (producing(p) && S.collectMode !== 'auto') { const f = coinFill(k, i); h += `<span class="fill${f >= .999 ? ' full' : ''}"><i style="width:${Math.round(f * 100)}%"></i></span>`; }
+    if ((p.bu || 0) > t) h += '<span class="lb2">2x</span>';
     el.innerHTML = h;
-    el.setAttribute('aria-label', `${TYPES[p.t].n}, seviye ${p.lvl}${p.until ? ', inşaatta' : ''}${hasCoin(k, i) ? ', kira hazır' : ''}`);
+    el.setAttribute('aria-label', `${TYPES[p.t].n}, seviye ${p.lvl}${p.until ? ', inşaatta' : ''}${(p.bu || 0) > t ? ', 2x kazanıyor' : ''}`);
   }
   renderLinks(); renderBubble();
   if (ui.sheet) renderSheet();
@@ -94,7 +100,7 @@ function renderBubble() {
   const any = S.own.some(k => lotsOf(S, k).some(p => p)), prod = S.own.some(k => lotsOf(S, k).some(producing));
   if (!any) m = 'Bir arsaya dokun, ilk binanı kur';
   else if (!prod && !S.skipHint) m = 'Bina yükseliyor · ▶▶ ile hızlandır';
-  else if (S.collects < 3 && lotsOf(S, S.cur).some((_, i) => hasCoin(S.cur, i))) m = 'Paraya dokun ya da üstünden kaydır';
+  else if (S.collects < 3 && S.collectMode === 'tap' && pending().amount >= 1) m = 'Kirayı toplamak için ortadaki TOPLA mührüne bas';
   if (m) { if (b.textContent !== m) b.textContent = m; b.removeAttribute('data-off'); } else b.setAttribute('data-off', '');
 }
 
@@ -115,23 +121,16 @@ function tileAt(x: number, y: number): number | null {
   return tl ? +tl.dataset.i! : null;
 }
 function tapTile(i: number) {
-  const k = S.cur;
-  if (hasCoin(k, i)) return collect(k, i);
-  if (performance.now() - (ui.lastCollect[i] || 0) < 700) return;
-  openSheet({ k: 'plot', key: k, i });
+  openSheet({ k: 'plot', key: S.cur, i });
 }
 export function setupGrid() {
   const grid = $('#grid'); grid.innerHTML = '';
   for (let i = 0; i < N; i++) { const b = document.createElement('button'); b.className = 'lot'; b.dataset.i = String(i); grid.appendChild(b); ui.tiles[i] = b; }
   let g: { start: number | null; x: number; y: number; got: boolean } | null = null;
+  // binaya dokunmak her zaman mülk panelini açar (kira ortadaki mühürle toplanır)
   grid.addEventListener('pointerdown', (e: PointerEvent) => {
     Snd.init();
     const i = tileAt(e.clientX, e.clientY); g = { start: i, x: e.clientX, y: e.clientY, got: false };
-    if (i != null && hasCoin(S.cur, i)) { collect(S.cur, i); g.got = true; }
-  });
-  grid.addEventListener('pointermove', (e: PointerEvent) => {
-    if (!g) return; const i = tileAt(e.clientX, e.clientY);
-    if (i != null && hasCoin(S.cur, i)) { collect(S.cur, i); g.got = true; }
   });
   // Dokunuş parmak kalkınca "beklemeye" alınır ve tarayıcının ardından gönderdiği click ile açılır.
   // Paneli doğrudan pointerup'ta açmak Android'de sorun çıkarıyordu: aynı dokunuşun click'i yeni açılan

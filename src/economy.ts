@@ -50,7 +50,8 @@ export function baseRate(k: DistrictKey, i: number): number {
 }
 export function rate(k: DistrictKey, i: number, t = now()): number {
   const b = baseRate(k, i); if (!b) return 0;
-  return b * fxMult(k, i, lotsOf(S, k)[i]!, t) * (S.boostUntil > t ? 2 : 1);
+  const p = lotsOf(S, k)[i]!;
+  return b * fxMult(k, i, p, t) * (S.boostUntil > t ? 2 : 1) * ((p.bu || 0) > t ? 2 : 1); // tüm mülklere 2x × bu mülke 2x
 }
 export function totalRate(live: boolean): number {
   let s = 0; const t = now();
@@ -64,6 +65,12 @@ export function coinFill(k: DistrictKey, i: number): number {
   return Math.min(1, p.buf / c);
 }
 export function hasCoin(k: DistrictKey, i: number): boolean { const p = lotsOf(S, k)[i]; return !!p && p.buf >= Math.max(1, baseRate(k, i) * 6); }
+/** Bekleyen toplam kira ve kumbaraların doluluğu (ortadaki TOPLA mührü için). */
+export function pending(): { amount: number; fill: number } {
+  let a = 0, cap = 0; const t = now();
+  for (const k of S.own) lotsOf(S, k).forEach((p, i) => { if (!producing(p)) return; a += p!.buf; cap += capOf(k, i, t); });
+  return { amount: a, fill: cap ? Math.min(1, a / cap) : 0 };
+}
 export const isFull = (k: DistrictKey) => lotsOf(S, k).every(p => p && p.lvl >= 1);
 export const filled = (k: DistrictKey) => lotsOf(S, k).filter(p => p && p.lvl >= 1).length;
 

@@ -5,7 +5,7 @@ import { now, totalRate, producing } from '../economy';
 import { I } from '../icons';
 import { Snd, buzz } from '../sound';
 import { openModal, closeModal, bump } from '../ui/modal';
-import { addCash, addBoost } from './actions';
+import { addCash } from './actions';
 import { Ads } from '../services/ads';
 import { persist } from './persist';
 
@@ -20,15 +20,15 @@ export function showOffer() {
   const list = OFFERS.filter(o => o.need()); if (!list.length) return;
   const o = list[Math.floor(Math.random() * list.length)], rw = offerReward();
   openModal(`<div class="card"><div class="badge">${I.clock}</div><h3>${o.title}</h3><p>${o.text}</p>
-    <div class="big">${fmt(rw)}</div><p><b>+30 dk 2x gelir</b></p>
+    <div class="big">${fmt(rw)}</div>
     <div class="btns"><button class="btn gold" data-a="ok">Kabul et</button><button class="txt" data-a="no">Şimdi değil</button></div></div>`,
     a => { closeModal(); if (a === 'ok') { S.offer = { k: o.k, goal: o.goal, prog: 0, until: now() + o.min * 60e3, title: o.title, rw, done: false }; if (o.k === 'taxi') S.nextTaxi = S.playMs + 8e3; persist(); } });
 }
 export function offerComplete() {
   const o = S.offer!; Snd.unlock(); buzz(30);
-  const claim = (m: number) => { addCash(o.rw * m); addBoost(30 * 60e3); bump(); S.offer = null; persist(); };
+  const claim = (m: number) => { addCash(o.rw * m); bump(); S.offer = null; persist(); };
   openModal(`<div class="card"><div class="badge">${I.check}</div><h3>${o.title} tamam</h3><p>Süre bitmeden başardın.</p>
-    <div class="big">${fmt(o.rw)}</div><p><b>+30 dk 2x gelir</b></p>
+    <div class="big">${fmt(o.rw)}</div>
     <div class="btns"><button class="btn gold" data-a="x2">${I.play} İzle, 2 katını al</button><button class="txt" data-a="x1">Al</button></div></div>`,
     a => { closeModal(); if (a === 'x1') claim(1); else Ads.rewarded('offer', `${fmt(o.rw * 2)} ödül`, () => claim(2)); });
 }

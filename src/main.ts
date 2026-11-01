@@ -36,7 +36,8 @@ import { openSheet, closeSheet, onSheetAction } from './ui/sheets';
 import { render, fit, setupGrid, drawGuilloche, Street } from './ui/board';
 import { ensureTasks } from './game/tasks';
 import { catchUp } from './game/events';
-import { watchBoost } from './game/actions';
+import { collectAll } from './game/actions';
+import { toast } from './ui/modal';
 import { persist, persistSync } from './game/persist';
 import { tick, pickCity } from './game/loop';
 import { Analytics } from './services/analytics';
@@ -70,7 +71,10 @@ function onShow() {
 function bindUi() {
   document.addEventListener('pointerdown', () => { Snd.init(); ui.lastInput = performance.now(); }, { capture: true });
   document.addEventListener('keydown', e => { ui.lastInput = performance.now(); if (e.key === 'Escape' && ui.sheet) closeSheet(); });
-  $('#boostBtn').addEventListener('click', watchBoost);
+  $('#collectBtn').addEventListener('click', () => {
+    if (S.collectMode === 'auto') toast('Kiralar otomatik toplanıyor · Ayarlar’dan değiştirebilirsin');
+    else collectAll($('#collectBtn .core'));
+  });
   $('#menuBtn').addEventListener('click', () => openSheet({ k: 'menu' }));
   $('#taskBtn').addEventListener('click', () => openSheet({ k: 'tasks' }));
   $('#collBtn').addEventListener('click', () => openSheet({ k: 'coll' }));

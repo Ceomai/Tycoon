@@ -2,7 +2,7 @@
 import { CFG, N, CITIES, CITY_ORDER, CityId, dkey } from '../config';
 import { S, setS, newState, lotsOf } from '../state';
 import { rand, dayKey, weekKey } from '../format';
-import { now, producing, rate } from '../economy';
+import { now, producing, rate, pending } from '../economy';
 import { Time } from '../time';
 import { Snd, buzz } from '../sound';
 import { $, ui } from '../ui/ctx';
@@ -13,7 +13,7 @@ import { ensureTasks } from './tasks';
 import { checkDaily } from './daily';
 import { showEvent } from './events';
 import { showOffer } from './offers';
-import { nudgeBoost } from './actions';
+import { nudgeCollect, autoCollect } from './actions';
 import { persist, dirty, clearDirty } from './persist';
 import { clearSave } from '../storage';
 import { Ads } from '../services/ads';
@@ -41,7 +41,7 @@ export function tick() {
     }
   }
   if (S.fx.length) S.fx = S.fx.filter(f => f.until > t);
-  if (S.boostUntil && S.boostUntil <= t) { S.boostUntil = 0; toast('2x gelir bitti'); }
+  if (S.boostUntil && S.boostUntil <= t) { S.boostUntil = 0; toast('Tüm mülklere 2x bitti'); }
   if (!ui.ad) S.playMs += dt;
   S.lastSeen = t;
   if (S.offer && !S.offer.done && S.offer.until <= t) { toast(S.offer.title + ': süre doldu'); S.offer = null; }
@@ -56,7 +56,9 @@ export function tick() {
   else if (free && S.playMs >= S.nextEvent) { S.nextEvent = S.playMs + rand(CFG.EVENT_MIN, CFG.EVENT_MAX); if (anyProducing()) showEvent(); }
   else if (free && !S.offer && S.playMs >= S.nextOffer) { S.nextOffer = S.playMs + rand(CFG.OFFER_MIN, CFG.OFFER_MAX); if (anyProducing()) showOffer(); }
   else if (free && S.playMs >= S.nextAd) { S.nextAd = S.playMs + rand(CFG.INTER_MIN, CFG.INTER_MAX); Ads.interstitial(); }
-  if (!S.boostUntil && S.playMs - ui.lastNudge > 240e3 && S.collects > 5) { ui.lastNudge = S.playMs; nudgeBoost(); }
+  if (S.collectMode === 'auto') autoCollect(pt);
+  // kumbaralar dolunca TOPLA mührü hafifçe sallanır (dakikada en fazla bir kez)
+  else if (S.playMs - ui.lastNudge > 60e3 && pending().fill >= .9) { ui.lastNudge = S.playMs; nudgeCollect(); }
   // kılavuz sekmesini bir kez tanıt (ilk kira toplandıktan sonra)
   if (free && !S.guideHint && S.collects >= 1) {
     S.guideHint = true; persist();

@@ -18,6 +18,8 @@ import { writeSave, lockSaves } from '../storage';
 import { Snd } from '../sound';
 import { Analytics } from './analytics';
 import { showLeagueResult, type LeagueResult } from '../game/league';
+import { addCash } from '../game/actions';
+import { inviteGift } from '../game/referral';
 
 export type RedeemResult = 'ok' | 'invalid' | 'used' | 'error';
 export interface LbRow { name: string; district: string; earned: number; me: boolean; }
@@ -166,8 +168,8 @@ export const Cloud = {
 
 function grantInvites(n: number) {
   S.ref.rewarded += n;
-  S.boostUntil = Math.min(Math.max(S.boostUntil, now()) + 2 * 3600e3 * n, now() + CFG.BOOST_MAX);
-  toast(`${n} arkadaşın katıldı: ${2 * n} saat 2x`); Snd.unlock();
+  const gift = inviteGift() * n; addCash(gift);
+  toast(`${n} arkadaşın katıldı: ${fmt(gift)} tapu hediyesi`); Snd.unlock();
 }
 
 async function adopt(json: string) {

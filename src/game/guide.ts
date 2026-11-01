@@ -27,7 +27,7 @@ export function chapters(): Chapter[] {
         'Boş bir arsaya dokun, <b>Ev</b> seç. İnşaat bitince ev kira üretmeye başlar. Para birikince yeni binalar dik, kat çık, semti doldur.',
       ],
       facts: [['Başlangıç kasası', fmt(150)], ['İlk bina', `Ev · ${fmt(T.ev.cost)}`], ['İlk inşaat', sec(T.ev.time)], ['Bir semtte', '20 arsa']],
-      tip: 'Kırmızı para çıkan binalara dokun; kira hemen kasana geçer.',
+      tip: 'Kira binaların kumbarasında birikir; ortadaki TOPLA mührüne basınca hepsi kasana geçer.',
     },
     {
       t: 'Binalar', s: 'Ev, Kafe, Dükkân, Ofis · ne zaman açılır',
@@ -40,14 +40,14 @@ export function chapters(): Chapter[] {
       tip: 'Değerler ilk semt içindir; ileri semtlerde bedeller ve kiralar katlanır (madde 06).',
     },
     {
-      t: 'Kira ve kumbara', s: `Kumbara ${sec(CFG.CAP_SEC)}’de dolar, sonra birikmez`,
+      t: 'Kira ve kumbara', s: `TOPLA mührü ya da otomatik · kumbara ${sec(CFG.CAP_SEC)}’de dolar`,
       art: () => svg(bld('ev', 2), 'art') + '<span class="gdcoin">₺</span>',
       body: [
-        'Kurduğun her bina saniye saniye kira üretir. Kira, binanın üstündeki <b>kumbarada</b> birikir.',
-        'Kumbaraya dokun ya da parmağını binaların üstünden <b>kaydır</b>; hepsi tek hamlede kasana akar. Kumbara dolunca kira birikmeyi bırakır, bu yüzden sık uğramak kazandırır.',
+        'Kurduğun her bina saniye saniye kira üretir. Kira, binanın <b>kumbarasında</b> birikir; binanın altındaki ince çubuk ne kadar dolduğunu gösterir.',
+        'Ortadaki <b>TOPLA</b> mührüne bas: bütün semtlerdeki kira tek seferde kasana geçer. Mührün halkası kumbaraların doluluğunu gösterir; kumbara dolunca kira birikmeyi bırakır. İstersen Ayarlar’dan <b>Otomatik</b>’e geç: oyun açıkken kira kendiliğinden kasana akar.',
       ],
-      facts: [['Kumbaranın dolma süresi', sec(CFG.CAP_SEC)], ['Toplamak için', 'Dokun ya da kaydır'], ['Kumbara dolunca', 'Kira durur'], ['2x gelir açıkken', '2 kat hızlı dolar']],
-      tip: 'Uzun süre uğrayamayacaksan önce 2x gelir aç: kumbaralar iki kat hızlı dolar, yokken kazancın da artar.',
+      facts: [['Kumbaranın dolma süresi', sec(CFG.CAP_SEC)], ['Toplamak için', 'TOPLA mührü'], ['Otomatik mod', 'Ayarlar → Kira toplama'], ['Kumbara dolunca', 'Kira durur']],
+      tip: 'Binaya dokunmak her zaman mülk panelini açar; kira toplamak için binalara tek tek dokunman gerekmez.',
     },
     {
       t: 'Kat çıkmak ve komşuluk', s: `${MAXLV} kat · aynı tür komşu başına +${pct(CFG.ADJ)}`,
@@ -87,22 +87,23 @@ export function chapters(): Chapter[] {
       tip: 'İller arasında Semtler düğmesinden geçersin; her semt sen yokken de kira üretir.',
     },
     {
-      t: '2x gelir', s: `Reklam başı ${dk(CFG.BOOST_STEP)} · en fazla ${dk(CFG.BOOST_MAX)}`,
+      t: '2x gelir', s: 'Mülke özel 2x · görev ödülü: tüm mülklere 2x',
       art: () => '<span class="gdstamp">2x</span>',
       body: [
-        'Alttaki mühür düğmesine dokunup kısa bir reklam izle: tüm kiraların bir süre <b>iki katı</b> gelir. Halka kalan süreyi gösterir.',
-        'Reklamsız paket alırsan geçiş reklamları kalkar, ödüller reklamsız gelir ve kiraların kalıcı olarak 2 katına çıkar.',
+        `Bir binaya dokun, panelde <b>“İzle · bu mülke 2x”</b>e bas: kısa bir reklamla yalnızca o bina ${dk(CFG.LOT_BOOST)} boyunca iki kat kira getirir. Binanın üstünde küçük “2x” etiketi görünür.`,
+        `<b>Tüm mülklere 2x</b> ise yalnızca günün 3 görevini bitirince verilir (${dk(CFG.TASK_BOOST)}). Reklamsız paket tüm kiraları kalıcı olarak 2 kat yapar.`,
       ],
-      facts: [['Reklam başına', dk(CFG.BOOST_STEP)], ['En fazla birikim', dk(CFG.BOOST_MAX)], ['Reklamsız paket', 'kalıcı 2x + reklamsız']],
+      facts: [['Bu mülke 2x (reklam)', `+${dk(CFG.LOT_BOOST)} · en fazla ${dk(CFG.LOT_BOOST_MAX)}`], ['Tüm mülklere 2x', `günün 3 görevi · ${dk(CFG.TASK_BOOST)}`], ['İkisi birlikte', '4 kat kira'], ['Reklamsız paket', 'kalıcı 2x + reklamsız']],
+      tip: 'Reklamı en çok kira getiren binana izlet; aynı süre orada çok daha fazla para eder.',
     },
     {
       t: 'Kira günü ve görevler', s: '7 günlük seri · her gün 3 görev',
       art: () => icon(I.cal || I.play),
       body: [
-        'Her gün ilk girişte <b>kira günü</b> ödülü alırsın; seri büyüdükçe ödül artar, 7. gün büyük ödül ve 1 saat 2x verir. 1–2 gün kaçırırsan seriyi reklamla kurtarabilirsin.',
-        'Her gün 3 yeni <b>görev</b> gelir (kira topla, kat çık, bina kur…). Üçünü bitirince bonus ve 30 dk 2x kazanırsın.',
+        'Her gün ilk girişte <b>kira günü</b> ödülü alırsın; seri büyüdükçe ödül artar, 7. gün büyük nakit ödül verir. 1–2 gün kaçırırsan seriyi reklamla kurtarabilirsin.',
+        `Her gün 3 yeni <b>görev</b> gelir (kira topla, kat çık, bir mülke 2x ver…). Üçünü bitirince bonus ve <b>tüm mülklere 2x</b> (${dk(CFG.TASK_BOOST)}) kazanırsın; bu ödül başka hiçbir yerden verilmez.`,
       ],
-      facts: [['Seri', '7 gün · sonra yeniden'], ['7. gün', 'büyük ödül + 1 saat 2x'], ['Görev bonusu', '+30 dk 2x']],
+      facts: [['Seri', '7 gün · sonra yeniden'], ['7. gün', 'büyük nakit ödül'], ['Görev bonusu', `tüm mülklere 2x · ${dk(CFG.TASK_BOOST)}`]],
     },
     {
       t: 'Etkinlikler ve altın taksi', s: 'Kartlar, süreli fırsatlar, taksi avı',
@@ -127,7 +128,7 @@ export function chapters(): Chapter[] {
       art: () => '<span class="gdstamp sm">LİG</span>',
       body: [
         `Her pazartesi, kazancı sana yakın ${GROUP_SIZE} emlakçıyla bir gruba girersin. Puan, o hafta topladığın kiradır.`,
-        `Ligler: ${LEAGUES.map(l => l.n).join(' → ')}. Hafta sonunda ilk 5 bir üst lige çıkar (ikramiye + 3 saat 2x), son 5 bir alt lige iner. Arsa Ligi'nde düşme yok; Gökdelen'de ilk 3 zirve mührü alır.`,
+        `Ligler: ${LEAGUES.map(l => l.n).join(' → ')}. Hafta sonunda ilk 5 bir üst lige çıkar (büyük tapu ikramiyesi), son 5 bir alt lige iner. Arsa Ligi'nde düşme yok; Gökdelen'de ilk 3 zirve mührü alır.`,
       ],
       facts: [['Grup', `${GROUP_SIZE} kişi`], ['Yükselen · düşen', 'ilk 5 · son 5'], ['Hafta biter', 'pazartesi 03:00 (TSİ)'], ['Gerekir', 'internet bağlantısı']],
     },
@@ -145,7 +146,7 @@ export function chapters(): Chapter[] {
       art: () => icon(I.moon || I.play),
       body: [
         `Oyundan çıktığında da kiraların ${pct(CFG.OFFLINE_RATE)} verimle işler. Döndüğünde biriken tutarı alırsın; istersen reklam izleyip 3 katını alabilirsin.`,
-        'Çıkmadan önce açtığın 2x gelir süresi yokken de geçerlidir.',
+        'Görev ödülü “tüm mülklere 2x” süresi yokken de geçerlidir.',
       ],
       facts: [['Verim', pct(CFG.OFFLINE_RATE)], ['En fazla', dk(CFG.OFFLINE_MAX)], ['Reklamla', '3 katı'], ['Bildirim', 'kasa dolunca haber verir']],
     },

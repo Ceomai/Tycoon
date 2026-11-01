@@ -9,7 +9,7 @@ import { I, small } from '../icons';
 import { Snd } from '../sound';
 import { $, ui, SheetState } from './ctx';
 import { toast } from './modal';
-import { build, upgrade, skip, demolish, watchBoost, buyDistrict, switchDistrict } from '../game/actions';
+import { build, upgrade, skip, demolish, lotBoost, buyDistrict, switchDistrict } from '../game/actions';
 import { ensureTasks, taskText, taskReward, bonusReward, claimTask, claimBonus } from '../game/tasks';
 import { streakStrip } from '../game/daily';
 import { canHolding, sharesPreview, doHolding } from '../game/collection';
@@ -29,7 +29,6 @@ export function openSheet(s: SheetState) { ui.openedAt = performance.now(); ui.s
 export function closeSheet() { if (!ui.sheet) return; ui.sheet = null; ui.lastClose = performance.now(); $('#sheet').classList.remove('on'); if (!ui.modal) $('#scrim').classList.remove('on'); }
 const lvBar = (l: number) => `<div class="lv">${[1, 2, 3, 4, 5].map(k => `<i class="${k <= l ? 'on' : ''}"></i>`).join('')}</div>`;
 const discBox = () => S.disc ? `<div class="disc">${small(I.tag, 16)} %${Math.round(S.disc * 100)} müteahhit indirimi</div>` : '';
-const boostBtn = (soft = false) => `<button class="btn ${soft ? 'soft' : 'gold'}" data-a="boost">${soft ? small(I.play, 12) : I.play} ${soft ? 'Reklam izle, 2x kazan' : 'İzle, 2x kazan'}</button>`;
 
 export function renderSheet() {
   const s = ui.sheet; if (!s) return;
@@ -46,7 +45,7 @@ export function renderSheet() {
           const c = withDisc(buildCost(k, b)), a = adj(k, i, b);
           return `<button class="bcard bpbg k-${b}" data-a="build" data-t="${b}" ${S.cash >= c ? '' : 'disabled'}>${svg(bld(b, 1))}
             <span class="bn">${T.n}</span><span class="bm">${fmt(T.inc * incM(k) * (1 + CFG.ADJ * a) * permMult(), true)}/sn · ${fmtTime(buildTime(k, b))}</span><span class="bp">${fmt(c)}</span>${a ? `<span class="chain" title="Komşu bonusu">+%${a * 20}</span>` : ''}</button>`;
-        }).join('')}</div>${short ? `<div class="btns">${boostBtn(true)}</div>` : ''}`;
+        }).join('')}</div>${short ? '<p class="note">Kira toplamak için ortadaki TOPLA mührüne bas.</p>' : ''}`;
       }
     } else if (p.until) {
       sig = 'c|' + p.t + p.lvl + (p.up ? 1 : 0) + (p.until - t <= CFG.AD_SKIP ? 1 : 0);
@@ -59,9 +58,10 @@ export function renderSheet() {
       }
     } else {
       const canUp = p.lvl < MAXLV, uc = canUp ? withDisc(upCost(k, p)) : 0, afford = canUp && S.cash >= uc, a = adj(k, i);
-      sig = 'b|' + p.t + p.lvl + (afford ? 1 : 0) + a + (S.boostUntil > t ? 1 : 0) + fxMult(k, i, p, t) + S.disc + (s.del ? 1 : 0);
+      const lbLeft = Math.max(0, (p.bu || 0) - t);
+      sig = 'b|' + p.t + p.lvl + (afford ? 1 : 0) + a + (S.boostUntil > t ? 1 : 0) + Math.ceil(lbLeft / 60e3) + fxMult(k, i, p, t) + S.disc + (s.del ? 1 : 0);
       if (sig !== ui.sheetSig) {
-        const next = canUp ? TYPES[p.t].inc * LV_INC[p.lvl + 1] * incM(k) * (1 + CFG.ADJ * a) * permMult() * fxMult(k, i, p, t) * (S.boostUntil > t ? 2 : 1) : 0;
+        const next = canUp ? TYPES[p.t].inc * LV_INC[p.lvl + 1] * incM(k) * (1 + CFG.ADJ * a) * permMult() * fxMult(k, i, p, t) * (S.boostUntil > t ? 2 : 1) * (lbLeft > 0 ? 2 : 1) : 0;
         html = `<div class="sh-head k-${p.t}"><div class="sh-art bpbg">${svg(bld(p.t, p.lvl))}</div>
           <div class="sh-t"><h3>${TYPES[p.t].n}</h3><p>${DMAP[k].n} · Sv ${p.lvl}/${MAXLV}</p>${lvBar(p.lvl)}</div>
           <button class="iconbtn${s.del ? ' warn' : ''}" data-a="del" aria-label="${s.del ? 'Yıkmayı onayla' : 'Binayı yık'}">${I.trash}</button></div>
@@ -69,11 +69,12 @@ export function renderSheet() {
           <div class="ledger">
             <div><span>Kira</span><i></i><b>${fmt(rate(k, i), true)}/sn</b></div>
             <div><span>Komşu bonusu</span><i></i><b>${a ? '+%' + a * 20 : 'yok'}</b></div>
-            ${S.boostUntil > t ? '<div><span>2x gelir</span><i></i><b class="red">aktif</b></div>' : ''}
+            ${lbLeft > 0 ? `<div><span>Bu mülke 2x</span><i></i><b class="red">${fmtTime(lbLeft)} kaldı</b></div>` : ''}
+            ${S.boostUntil > t ? `<div><span>Tüm mülklere 2x</span><i></i><b class="red">${fmtTime(S.boostUntil - t)} kaldı</b></div>` : ''}
             ${canUp ? `<div><span>Sv ${p.lvl + 1} olunca</span><i></i><b>${fmt(next, true)}/sn</b></div>` : ''}
           </div>${canUp ? discBox() : ''}
           <div class="btns">${canUp ? `<button class="btn" data-a="up" ${afford ? '' : 'disabled'}>Kat çık · ${fmt(uc)} <small>${fmtTime(upTime(k, p))}</small></button>` : '<button class="btn" disabled>Son seviye</button>'}
-          ${canUp && !afford ? boostBtn() : ''}</div>`;
+          <button class="btn gold lotb" data-a="lotboost" ${lbLeft > CFG.LOT_BOOST_MAX - CFG.LOT_BOOST / 2 ? 'disabled' : ''}><span class="lbl">${I.play} İzle · bu mülke 2x</span><small>+1 saat${lbLeft ? ' · en fazla 4 saat' : ''}</small></button></div>`;
       }
     }
   }
@@ -94,23 +95,27 @@ export function renderSheet() {
           return `<div class="drow" style="opacity:.5"><span class="di"><b>${d.n}</b><small>${why}</small></span>${I.lock}</div>`;
         }).join('');
         return `<div class="cityhead"><span>${CITIES[c].n}</span><small>${ownedHere ? `${ownedHere}/5 semt` : CITIES[c].tagline}</small></div><div class="dlist">${rows}</div>`;
-      }).join('') + `<p class="note">Başlangıç ilinin ilk semtini doldurunca diğer illerin ilk semtini alabilirsin. Her yeni il tüm kiralara kalıcı +%${Math.round(CFG.PORTFOLIO_BONUS * 100)} katar.</p>`
-        + (anyShort ? `<div class="btns">${boostBtn()}</div>` : '');
+      }).join('') + `<p class="note">Başlangıç ilinin ilk semtini doldurunca diğer illerin ilk semtini alabilirsin. Her yeni il tüm kiralara kalıcı +%${Math.round(CFG.PORTFOLIO_BONUS * 100)} katar.</p>`;
     }
   }
   else if (s.k === 'set') {
     const acct = Cloud.account();
-    sig = 's|' + S.sound + S.notif + S.premium + (s.reset ? 1 : 0) + (s.del ? 1 : 0) + JSON.stringify(acct) + Ads.privacyRequired();
+    sig = 's|' + S.collectMode + S.sound + S.notif + S.premium + (s.reset ? 1 : 0) + (s.del ? 1 : 0) + JSON.stringify(acct) + Ads.privacyRequired();
     if (sig !== ui.sheetSig) {
       html = `<p class="sec">Nasıl oynanır</p>
         <ul class="rules">
           <li><b>Arsaya dokun</b>, inşaatı başlat. Bina kat kat yükselir.</li>
-          <li><b>Para</b> çıkınca dokun ya da parmağını üstünden kaydır.</li>
-          <li>Para büyüyüp dolunca kira birikmeyi bırakır. <b>Sık uğra.</b></li>
+          <li>Kira binaların kumbarasında birikir; ortadaki <b>TOPLA</b> mührüyle hepsini tek seferde al (ya da aşağıdan otomatiğe geç).</li>
+          <li>Kumbara dolunca kira birikmeyi bırakır. <b>Sık uğra.</b></li>
           <li>Aynı türü <b>yan yana</b> kur; bahçeler, teraslar birleşir ve daha çok kazandırır.</li>
           <li>Semti doldur, <b>yeni semtin tapusunu</b> al. Başka illerde de arsa alabilirsin.</li>
         </ul>
         <div class="btns" style="margin:-6px 0 14px"><button class="btn soft" data-a="guide">Kılavuzun tamamı</button></div>
+        <p class="sec" style="margin-top:4px">Kira toplama</p>
+        <div class="cmode">
+          <button class="cm${S.collectMode === 'tap' ? ' on' : ''}" data-a="cm-tap"><span class="rd"></span><span class="di"><b>Tek tuşla topla</b><small>Ortadaki TOPLA mührüne bas, bütün semtlerdeki kira tek seferde kasana geçsin.</small></span></button>
+          <button class="cm${S.collectMode === 'auto' ? ' on' : ''}" data-a="cm-auto"><span class="rd"></span><span class="di"><b>Otomatik</b><small>Oyun açıkken kira kendiliğinden kasana akar.</small></span></button>
+        </div>
         <div class="srow"><span>Ses</span><button class="sw${S.sound ? ' on' : ''}" data-a="sound" aria-label="Ses"></button></div>
         <div class="srow"><span>Bildirimler</span><button class="sw${S.notif ? ' on' : ''}" data-a="notif" aria-label="Bildirimler"></button></div>
         <div class="srow"><span>Reklamlar</span><span>${S.premium ? 'Kapalı (reklamsız paket)' : Ads.native() ? 'Açık' : 'Test modu'}</span></div>
@@ -150,7 +155,7 @@ export function renderSheet() {
         <p class="sec" style="margin-top:20px">Günlük görevler</p>
         ${T.list.map((q, i) => `<div class="task"><div class="tt"><b>${taskText(q)}</b><small>${q.k === 'earn' ? fmt(q.prog) + ' / ' + fmt(q.goal) : q.prog + ' / ' + q.goal} · Ödül ${fmt(taskReward())}</small><div class="tbar"><i style="width:${Math.min(100, q.prog / q.goal * 100)}%"></i></div></div>
           <button class="chip${q.claimed ? ' got' : ''}" data-a="claim" data-i="${i}" ${q.claimed || q.prog < q.goal ? 'disabled' : ''}>${q.claimed ? 'Alındı' : 'Al'}</button></div>`).join('')}
-        <div class="task"><div class="tt"><b>Üçünü de bitir</b><small>${fmt(bonusReward())} + 30 dk 2x gelir</small></div><button class="chip${T.bonus ? ' got' : ''}" data-a="bonus" ${T.bonus || !T.list.every(q => q.claimed) ? 'disabled' : ''}>${T.bonus ? 'Alındı' : 'Al'}</button></div>
+        <div class="task"><div class="tt"><b>Üçünü de bitir</b><small>${fmt(bonusReward())} + tüm mülklere 2x · 1 saat</small></div><button class="chip${T.bonus ? ' got' : ''}" data-a="bonus" ${T.bonus || !T.list.every(q => q.claimed) ? 'disabled' : ''}>${T.bonus ? 'Alındı' : 'Al'}</button></div>
         ${S.offer && !S.offer.done ? `<p class="sec" style="margin-top:20px">Süreli fırsat</p><div class="task"><div class="tt"><b>${S.offer.title}</b><small>${S.offer.prog} / ${S.offer.goal} · Ödül ${fmt(S.offer.rw)} + 30 dk 2x</small><div class="tbar"><i style="width:${S.offer.prog / S.offer.goal * 100}%"></i></div></div></div>` : ''}`;
     }
   }
@@ -188,10 +193,9 @@ export function renderSheet() {
         });
         list = `<div class="lglist">${parts.join('')}</div>`;
       }
-      const chips = `<div class="lgchips">${tier < LEAGUE_TOP ? '<div class="up"><small>İlk 5 · yükselir</small><b>3 saat 2x + tapu ikramiyesi</b></div>' : '<div class="up"><small>İlk 3</small><b>Haftanın zirve mührü</b></div>'}${tier > 0 ? '<div class="down"><small>Son 5 · düşer</small><b>Bir alt ligde yeni grup</b></div>' : '<div class="down"><small>Arsa Ligi</small><b>Düşme yok</b></div>'}</div>`;
+      const chips = `<div class="lgchips">${tier < LEAGUE_TOP ? '<div class="up"><small>İlk 5 · yükselir</small><b>Büyük tapu ikramiyesi</b></div>' : '<div class="up"><small>İlk 3</small><b>Haftanın zirve mührü</b></div>'}${tier > 0 ? '<div class="down"><small>Son 5 · düşer</small><b>Bir alt ligde yeni grup</b></div>' : '<div class="down"><small>Arsa Ligi</small><b>Düşme yok</b></div>'}</div>`;
       html = `${head}${list}${chips}
-        <div class="btns"><button class="btn gold" data-a="boost">${I.play} İzle, 30 dk 2x · yarışa yetiş</button>
-        <button class="btn soft" data-a="leagues">Ligler ve kurallar</button><button class="txt" data-a="ref">${I.users} Arkadaşını davet et</button></div>`;
+        <div class="btns"><button class="btn soft" data-a="leagues">Ligler ve kurallar</button><button class="txt" data-a="ref">${I.users} Arkadaşını davet et</button></div>`;
     }
   }
   else if (s.k === 'guide') {
@@ -237,7 +241,7 @@ export function renderSheet() {
     if (sig !== ui.sheetSig) {
       html = `<p class="sec">Davet kodun</p><div class="codebox"><b>${S.ref.code}</b><button class="chip" data-a="copy">Kopyala</button></div>
         <div class="btns" style="margin-top:0"><button class="btn gold" data-a="sharetext">${I.share} Davet mesajı gönder</button></div>
-        <p class="note">Arkadaşın senin kodunu girince ona hoş geldin hediyesi, sana 2 saat 2x gelir.</p>
+        <p class="note">Arkadaşın senin kodunu girince ikinize de tapu hediyesi (nakit) verilir.</p>
         <p class="sec" style="margin-top:20px">Arkadaşının kodu</p>
         ${S.ref.used ? `<p class="note" style="margin-top:0">Kullandığın kod: <b>${esc(S.ref.used)}</b></p>` : `<div class="row2"><input id="refInput" class="inp" maxlength="6" placeholder="TP0000" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Arkadaşının davet kodu"><button class="chip" data-a="usecode">Kullan</button></div>`}`;
     }
@@ -246,7 +250,7 @@ export function renderSheet() {
     sig = 'st|' + S.premium + Purchases.price();
     if (sig !== ui.sheetSig) {
       html = `<div class="sh-head"><div class="badge" style="margin:0">${I.crown}</div><div class="sh-t"><h3>Reklamsız paket</h3><p>Tek seferlik satın alım</p></div></div>
-        <ul class="prem"><li>${I.noads}Geçiş reklamı yok</li><li>${I.bolt}Ödüllü reklam ödülleri izlemeden, anında</li><li>${I.crown}Kalıcı 2x gelir (2x ile birlikte 4x)</li></ul>
+        <ul class="prem"><li>${I.noads}Geçiş reklamı yok</li><li>${I.bolt}Ödüllü reklam ödülleri izlemeden, anında</li><li>${I.crown}Tüm kiralar kalıcı olarak 2 kat</li></ul>
         ${S.premium ? '<div class="btns"><button class="btn" disabled>Aktif</button></div>' : `<div class="price">${Purchases.price()}</div><div class="btns"><button class="btn gold" data-a="buy">Satın al</button><button class="txt" data-a="restore">Satın alımı geri yükle</button></div>`}`;
     }
   }
@@ -279,11 +283,11 @@ const later = (s: SheetState, key: string) => setTimeout(() => { if (ui.sheet ==
 export async function onSheetAction(a: string, btn: HTMLElement) {
   const s = ui.sheet; if (!s) return;
   if (a === 'close') return closeSheet();
-  if (a === 'boost') { closeSheet(); return watchBoost(); }
   if (s.k === 'plot') {
     if (a === 'build') return build(s.key!, s.i!, btn.dataset.t as BuildingType);
     if (a === 'up') upgrade(s.key!, s.i!);
     if (a === 'skip') skip(s.key!, s.i!);
+    if (a === 'lotboost') lotBoost(s.key!, s.i!);
     if (a === 'del') { if (s.del) return demolish(s.key!, s.i!); s.del = true; later(s, 'del'); }
   }
   if (s.k === 'map') {
@@ -293,7 +297,7 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
   }
   if (s.k === 'menu') { if (a === 'share') return openShare(); return openSheet({ k: a }); }
   if (s.k === 'tasks') { if (a === 'daily') { closeSheet(); ui.lastDay = ''; return; } if (a === 'claim') claimTask(+btn.dataset.i!); if (a === 'bonus') claimBonus(); }
-  if (s.k === 'lb') { if (a === 'ref') return openSheet({ k: 'ref' }); if (a === 'leagues') return openSheet({ k: 'leagues' }); if (a === 'boost') { closeSheet(); return watchBoost(); } }
+  if (s.k === 'lb') { if (a === 'ref') return openSheet({ k: 'ref' }); if (a === 'leagues') return openSheet({ k: 'leagues' }); }
   if (s.k === 'leagues' && a === 'back') return openSheet({ k: 'lb' });
   if (s.k === 'guide' && a === 'open') return openSheet({ k: 'guideItem', i: +btn.dataset.i! });
   if (s.k === 'guideItem') {
@@ -306,6 +310,7 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
   if (s.k === 'holding' && a === 'hold') { if (s.conf) return doHolding(); s.conf = true; later(s, 'conf'); }
   if (s.k === 'set') {
     if (a === 'sound') { S.sound = !S.sound; persist(); Snd.tap(); }
+    if (a === 'cm-tap' || a === 'cm-auto') { S.collectMode = a === 'cm-auto' ? 'auto' : 'tap'; ui.tileSig = []; persist(); Snd.tap(); toast(S.collectMode === 'auto' ? 'Kiralar otomatik toplanacak' : 'Kiraları TOPLA mührüyle toplayacaksın'); }
     if (a === 'notif') { S.notif = !S.notif; if (S.notif) Notify.ask(); persist(); }
     if (a === 'link-google' || a === 'link-apple') { const ok = await Cloud.link(a === 'link-google' ? 'google' : 'apple'); toast(ok ? 'Hesabın bağlandı. İlerlemen artık her cihazda.' : 'Bağlanamadı, tekrar dene'); }
     if (a === 'ads-privacy') await Ads.showPrivacyOptions();

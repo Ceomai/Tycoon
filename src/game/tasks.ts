@@ -1,5 +1,6 @@
 /* GÜNLÜK GÖREVLER — her gün 3 görev, hepsi bitince bonus. Süreli fırsatın ilerlemesi de buradan sayılır. */
 import { S } from '../state';
+import { CFG } from '../config';
 import { fmt, dayKey } from '../format';
 import { now, totalRate } from '../economy';
 import { Snd } from '../sound';
@@ -9,7 +10,8 @@ import { persist } from './persist';
 import { offerComplete } from './offers';
 
 export const TASKS: Record<string, { t: (n: number) => string; n: () => number }> = {
-  collect: { t: n => `${n} kez kira topla`, n: () => 15 },
+  collect: { t: n => `Kiraları ${n} kez topla`, n: () => 8 },
+  lotboost: { t: () => 'Bir mülke 2x ver', n: () => 1 },
   build: { t: n => `${n} yeni bina kur`, n: () => 2 },
   upgrade: { t: n => `${n} kez kat çık`, n: () => 2 },
   ad: { t: () => 'Bir ödüllü reklam izle', n: () => 1 },
@@ -43,6 +45,6 @@ export function claimTask(i: number) {
 }
 export function claimBonus() {
   const T = S.tasks; if (!T || T.bonus || !T.list.every(q => q.claimed)) return;
-  T.bonus = true; addCash(bonusReward()); addBoost(30 * 60e3); bump(); Snd.reward(); toast('Günlük bonus: +30 dk 2x'); persist();
+  T.bonus = true; addCash(bonusReward()); addBoost(CFG.TASK_BOOST); bump(); Snd.reward(); toast('Günün büyük ödülü: tüm mülklere 2x · 1 saat'); persist();
 }
 export function tasksClaimable() { ensureTasks(); const T = S.tasks!; return T.list.some(q => !q.claimed && q.prog >= q.goal) || (!T.bonus && T.list.every(q => q.claimed)); }
