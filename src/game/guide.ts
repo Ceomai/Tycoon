@@ -65,13 +65,13 @@ export function chapters(): Chapter[] {
       tip: 'Ortadaki arsalar dört komşuya dokunur; en değerli binayı ortaya koy.',
     },
     {
-      t: 'İnşaat ve hızlandırma', s: `Reklamla ${dk(CFG.AD_SKIP)}’ya kadar anında`,
+      t: 'İnşaat ve hızlandırma', s: `Reklamla ${dk(CFG.AD_SKIP)} kısalt · son 5 sn senin`,
       art: () => icon(I.tower || I.play),
       body: [
         'İnşaat ve tadilat süreyle ilerler. Panelden kalan süreyi görürsün.',
-        `Beklemek istemezsen kısa bir reklam izle: ${dk(CFG.AD_SKIP)}’dan kısa işler anında biter, daha uzunsa süreden ${dk(CFG.AD_SKIP)} düşer.`,
+        `Beklemek istemezsen kısa bir reklam izle: ${dk(CFG.AD_SKIP)}’dan kısa işler <b>5 saniyeye</b> iner, bitiş anını izlersin; daha uzunsa süreden ${dk(CFG.AD_SKIP)} düşer.`,
       ],
-      facts: [['Reklamla hızlandırma', `${dk(CFG.AD_SKIP)}`], ['Tadilatta', 'kira üretilmez'], ['Yıkmak', 'iki kez dokun (onaylı)']],
+      facts: [['Reklamla hızlandırma', `${dk(CFG.AD_SKIP)} kısalır`], ['Kısa işlerde', '5 sn kalır'], ['Tadilatta', 'kira üretilmez'], ['Yıkmak', 'iki kez dokun (onaylı)']],
     },
     {
       t: 'Semtler ve iller', s: `Tapu bedelleri · başka ilden arsa · +${pct(CFG.PORTFOLIO_BONUS)}`,
