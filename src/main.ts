@@ -111,4 +111,9 @@ async function boot() {
   Analytics.log('app_open', { city: S.city || 'none', own: S.own.length });
 }
 
+/* Web sürümü (GitHub Pages): çevrimdışı çalışsın ve ana ekrana eklenebilsin diye service worker */
+if (!__PREVIEW__ && !Capacitor.isNativePlatform() && 'serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => { /* yok */ }); });
+}
+
 void boot().catch(e => { Analytics.error(e, 'boot'); console.error(e); });

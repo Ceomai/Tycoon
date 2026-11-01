@@ -23,11 +23,19 @@ import { Cloud } from './cloud';
 
 const env = import.meta.env;
 const isIOS = () => Capacitor.getPlatform() === 'ios';
-const ids = () => ({
-  rewarded: (isIOS() ? env.VITE_ADMOB_REWARDED_IOS : env.VITE_ADMOB_REWARDED_ANDROID) || '',
-  interstitial: (isIOS() ? env.VITE_ADMOB_INTERSTITIAL_IOS : env.VITE_ADMOB_INTERSTITIAL_ANDROID) || '',
-});
 const testing = () => env.VITE_ADMOB_TESTING !== 'false';
+// Google'ın herkese açık test birimleri: kimlik girilmemiş test sürümünde (ör. CI APK'sı) reklam akışı yine çalışır
+const TEST_IDS = {
+  android: { rewarded: 'ca-app-pub-3940256099942544/5224354917', interstitial: 'ca-app-pub-3940256099942544/1033173712' },
+  ios: { rewarded: 'ca-app-pub-3940256099942544/1712485313', interstitial: 'ca-app-pub-3940256099942544/4411468910' },
+};
+const ids = () => {
+  const t = testing() ? TEST_IDS[isIOS() ? 'ios' : 'android'] : { rewarded: '', interstitial: '' };
+  return {
+    rewarded: (isIOS() ? env.VITE_ADMOB_REWARDED_IOS : env.VITE_ADMOB_REWARDED_ANDROID) || t.rewarded,
+    interstitial: (isIOS() ? env.VITE_ADMOB_INTERSTITIAL_IOS : env.VITE_ADMOB_INTERSTITIAL_ANDROID) || t.interstitial,
+  };
+};
 
 let ready = false, canRequest = false, privacyRequired = false, rewardedLoaded = false, interstitialLoaded = false;
 

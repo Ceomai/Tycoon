@@ -6,6 +6,15 @@ Oyun bilerek yavaş ilerler; ödüllü reklamlar oyuncuya hız kazandırır.
 **Teknoloji:** Vite + TypeScript, Capacitor 8 (Android/iOS), Firebase (Auth, Firestore, Functions, Analytics, Crashlytics, Remote Config), AdMob (UMP onayı, iOS ATT, SSV), RevenueCat.
 Yayına çıkış adımları: [`docs/RELEASE.md`](docs/RELEASE.md). Gizlilik metni taslağı: [`docs/privacy-policy.md`](docs/privacy-policy.md).
 
+## Hemen dene
+| | Bağlantı |
+|---|---|
+| Web (her cihaz, tarayıcıda; ana ekrana eklenince uygulama gibi açılır, internetsiz çalışır) | https://ceomai.github.io/tycoon/ |
+| Android test APK'sı (her güncellemede yenilenir) | https://github.com/Ceomai/tycoon/releases/latest/download/tapu-test.apk |
+
+İkisi de `main` dalına her gönderimde GitHub Actions ile otomatik yenilenir (`.github/workflows/`).
+Test APK'sında Google'ın test reklamları çıkar; Firebase ayarı eklenmediyse bulut kaydı ve sıralama kapalıdır, oyun telefonda çalışır.
+
 ## Klasörler
 | Yol | İçerik |
 |---|---|
