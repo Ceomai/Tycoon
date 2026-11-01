@@ -46,14 +46,18 @@ function secondsIntoWeek(d = new Date()): number {
 }
 const randomCode = () => 'TP' + Array.from({ length: 4 }, () => ALPHA[Math.floor(Math.random() * ALPHA.length)]).join('');
 
-/* ---------- hello ---------- */
+/* ---------- hello ----------
+   Maliyet: normalde 2 okuma (kullanıcı + davet sayımı). Kod üretimi ilk açılışta, ödül işlemi yalnızca yeni davet varsa,
+   lig sonucu haftada bir kez çalışır. */
 export const hello = onCall(async req => {
   const uid = uidOf(req);
   const asked = String((req.data && req.data.code) || '').toUpperCase();
   const userRef = db.doc(`users/${uid}`);
-  const code = await db.runTransaction(async tx => {
-    const u = await tx.get(userRef);
-    if (u.exists && u.get('code')) return u.get('code') as string;
+  const u = await userRef.get();
+  let code = u.get('code') as string | undefined;
+  if (!code) code = await db.runTransaction(async tx => {
+    const cu = await tx.get(userRef);
+    if (cu.exists && cu.get('code')) return cu.get('code') as string;
     // önce istemcinin ürettiği kodu dene; doluysa yenisini üret
     const tries = CODE_RE.test(asked) ? [asked] : [];
     for (let k = 0; k < 8; k++) tries.push(randomCode());
@@ -71,15 +75,14 @@ export const hello = onCall(async req => {
   // kodumu kullanan yeni arkadaşlar → ödül (her biri bir kez)
   const used = (await db.collection('invites').where('inviter', '==', uid).count().get()).data().count;
   let grants = 0;
-  await db.runTransaction(async tx => {
-    const u = await tx.get(userRef);
-    const given = (u.get('granted') as number) || 0;
+  if (used > ((u.get('granted') as number) || 0)) await db.runTransaction(async tx => {
+    const cu = await tx.get(userRef);
+    const given = (cu.get('granted') as number) || 0;
     if (used > given) { grants = Math.min(used - given, 20); tx.update(userRef, { granted: given + grants }); }
   });
   // lig: geçen hafta bittiyse sonucu hesapla (bir kez)
-  const result = await settle(uid, weekKey()).catch(() => null);
-  const L = ((await userRef.get()).get('league') as any) || {};
-  return { now: Date.now(), code, grants, league: { tier: L.tier || 0, result } };
+  const lg = await settle(uid, weekKey(), u.get('league') ?? null).catch(() => ({ result: null, tier: (u.get('league') || {}).tier || 0 }));
+  return { now: Date.now(), code, grants, league: { tier: lg.tier, result: lg.result } };
 });
 
 /* ---------- redeemInvite ---------- */
@@ -112,7 +115,9 @@ export const submitScore = onCall(async req => {
   if (!Number.isFinite(earned) || earned < 0) throw new HttpsError('invalid-argument', 'earned');
   const district = DISTRICT_RE.test(String(d.district)) ? String(d.district) : 'ist-0';
   const shares = Math.max(0, Math.min(1e6, Math.floor(Number(d.shares) || 0)));
-  const lg = await ensureGroup(uid, week);
+  // Maliyet: kullanıcı bir kez okunur (lig + davet kodu); skor işlemi 2 okuma + 1 yazma
+  const u = await db.doc(`users/${uid}`).get();
+  const lg = await ensureGroup(uid, week, u.get('league'));
   const ref = db.doc(`lb/${week}_${uid}`); // hafta başına bir belge; 6 hafta sonra TTL ile silinir (expireAt)
   const nowMs = Date.now();
   return db.runTransaction(async tx => {
@@ -132,10 +137,12 @@ export const submitScore = onCall(async req => {
     let flagged = false;
     if (earned > cap) { earned = Math.floor(cap); flagged = true; }
     if (p && earned < p.earned) earned = p.earned; // sıralama geriye gitmez
-    const user = await getAuth().getUser(uid).catch(() => null);
-    const code = (await tx.get(db.doc(`users/${uid}`))).get('code') || '';
-    const first = (user?.displayName || '').trim().split(/\s+/)[0];
-    const name = first ? first.slice(0, 14) : 'Emlakçı ' + String(code).slice(2);
+    let name = p && p.name;
+    if (!name) { // haftanın ilk gönderimi: Google/Apple adı varsa ilk ad, yoksa davet kodundan
+      const user = await getAuth().getUser(uid).catch(() => null);
+      const first = (user?.displayName || '').trim().split(/\s+/)[0];
+      name = first ? first.slice(0, 14) : 'Emlakçı ' + String(u.get('code') || '').slice(2);
+    }
     tx.set(ref, { uid, week, tier: lg.tier, group: lg.group, earned, district, shares, name, atMs: nowMs, lastWeek,
       flagged: flagged || !!(p && p.flagged), expireAt: Timestamp.fromMillis(nowMs + 42 * 864e5) });
     return { ok: true, earned, flagged, tier: lg.tier, group: lg.group };
