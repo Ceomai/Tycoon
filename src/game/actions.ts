@@ -1,4 +1,4 @@
-/* Oyuncu eylemleri: topla, kur, kat çık, yık, hızlandır, 2x, semt al */
+/* Oyuncu eylemleri: topla (tek tuş / otomatik), kur, kat çık, yık, hızlandır, mülke 2x, semt al */
 import { CFG, MAXLV, ORDER, TYPES, BuildingType, DistrictKey, DMAP, CITIES } from '../config';
 import { S, lotsOf } from '../state';
 import { now, withDisc, buildCost, buildTime, upCost, upTime, producing, unlockInfo } from '../economy';
@@ -62,9 +62,34 @@ export function skip(k: DistrictKey, i: number) {
     q.until = (q.until - now() <= CFG.AD_SKIP) ? now() : q.until - CFG.AD_SKIP; S.skipHint = 1; ui.sheetSig = '';
   });
 }
-export function watchBoost() {
-  if (S.boostUntil - now() > CFG.BOOST_MAX - CFG.BOOST_STEP / 2) { toast('2x gelir dolu. En fazla 4 saat birikir.'); return; }
-  Ads.rewarded('boost', '30 dakika 2x gelir', () => { addBoost(CFG.BOOST_STEP); toast('2x gelir açık'); });
+/** Tek tuşla topla: bütün semtlerdeki kumbaralar kasaya. */
+export function collectAll(from?: Element | null) {
+  let a = 0;
+  for (const k of S.own) for (const p of lotsOf(S, k)) if (p && p.buf > 0) { a += p.buf; p.buf = 0; }
+  if (a < 1) { toast('Toplanacak kira yok, biraz bekle'); Snd.no(); return; }
+  addCash(a); S.collects++; track('collect');
+  Snd.collect(3); buzz(10);
+  if (from) flyCoin(from); else bump();
+  ui.tileSig = []; persist();
+}
+let autoAcc = 0, autoT = 0;
+/** Otomatik toplama: her döngüde kumbaralar sessizce kasaya akar; görev ilerlemesi 10 sn'de bir sayılır. */
+export function autoCollect(pt: number) {
+  let a = 0;
+  for (const k of S.own) for (const p of lotsOf(S, k)) if (p && p.buf > 0) { a += p.buf; p.buf = 0; }
+  if (a > 0) { addCash(a); autoAcc += a; }
+  if (pt - autoT > 10e3) { autoT = pt; if (autoAcc > 0) { autoAcc = 0; S.collects++; track('collect'); } }
+}
+/** Bu mülke 2x: ödüllü reklam başına +1 saat, en fazla 4 saat. */
+export function lotBoost(k: DistrictKey, i: number) {
+  const p = lotsOf(S, k)[i]; if (!producing(p)) return;
+  if ((p!.bu || 0) - now() > CFG.LOT_BOOST_MAX - CFG.LOT_BOOST / 2) { toast('Bu mülkün 2x süresi dolu. En fazla 4 saat birikir.'); return; }
+  Ads.rewarded('lotboost', `${TYPES[p!.t].n}: 1 saat 2x`, () => {
+    const q = lotsOf(S, k)[i]; if (!q) return;
+    q.bu = Math.min(Math.max(q.bu || 0, now()) + CFG.LOT_BOOST, now() + CFG.LOT_BOOST_MAX);
+    track('lotboost'); toast(`${TYPES[q.t].n} 2x kazanıyor`);
+    Analytics.log('lot_boost', { type: q.t, district: k });
+  });
 }
 export function buyDistrict(k: DistrictKey) {
   const u = unlockInfo(k); if (!u.ok) return;
@@ -83,4 +108,4 @@ export function grantReward(fn?: () => void) {
   Snd.reward(); buzz(25); S.nextAd = Math.max(S.nextAd, S.playMs + 5 * 60e3); track('ad');
   persist(); ui.sheetSig = ''; ui.tileSig = []; render();
 }
-export const nudgeBoost = () => { const b = $('#boostBtn'); b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); };
+export const nudgeCollect = () => { const b = $('#collectBtn'); b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); };

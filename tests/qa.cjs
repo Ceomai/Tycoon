@@ -33,8 +33,11 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
  s=await st(p); ok(s.cash===50 && s.d['izm-0'][5]&&s.d['izm-0'][5].t==='ev','ev inşaatı başladı, kasa 150→50');
  await p.clock.runFor(11000); { const sv=await saved(p); ok(sv&&sv.city==='izm'&&sv.d['izm-0'][5],'kayıt sağlamalı biçimde yazıldı'); }
  await p.clock.runFor(10000); s=await st(p); ok(s.d['izm-0'][5].lvl===1,'inşaat 20 sn sonra bitti');
- await p.clock.runFor(15000); ok(await p.isVisible('.lot[data-i="5"] .coin'),'kira parası çıktı');
- const before=(await st(p)).cash; await tap(p,'.lot[data-i="5"]'); s=await st(p); ok(s.cash>before,'dokununca kira toplandı');
+ await p.clock.runFor(15000); ok(await p.isVisible('.lot[data-i="5"] .fill') && !(await p.$('.coin')),'binada para baloncuğu yok, doluluk çubuğu var');
+ ok((await p.textContent('#collectBtn')).includes('TOPLA'),'ortada TOPLA mührü, bekleyen kira yazıyor');
+ const before=(await st(p)).cash; await tap(p,'#collectBtn'); s=await st(p); ok(s.cash>before && s.d['izm-0'][5].buf<2,'TOPLA mührüyle tüm kira toplandı');
+ await tap(p,'.lot[data-i="5"]'); ok(await p.isVisible('#sheet.on [data-a="lotboost"]'),'binaya dokununca mülk paneli açılıyor (toplama değil)');
+ await p.keyboard.press('Escape'); await p.waitForTimeout(400);
  await p.clock.runFor(60000); // etkinlik zamanı (90 sn oyun süresi)
  ok(await p.isVisible('#modal .card'),'etkinlik kartı çıktı'); 
  if(await p.isVisible('#modal .card')){ await tap(p,'#modal .card .txt'); await p.clock.runFor(300); ok(!(await p.isVisible('#modal .card')),'kart kapandı'); }
@@ -55,11 +58,14 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
 
  log('C) ödüllü reklamlar, tadilat, yıkım');
  p=await page(b,{},`t=>{const d=[0,1,2,3,4].map(()=>Array(20).fill(null)); d[0][0]={t:'ev',lvl:1,buf:0,until:0,dur:1,up:false}; d[0][1]={t:'kafe',lvl:0,buf:0,until:t+600000,dur:600000,up:false}; d[0][2]={t:'ofis',lvl:3,buf:0,until:t+5*3600e3,dur:5*3600e3,up:true}; return {v:1,cash:1e6,earned:1e6,boostUntil:0,lastSeen:t,unlocked:1,cur:0,d,fx:[],disc:0,playMs:0,nextAd:9e9,nextEvent:9e9,sound:false,collects:50,seen:{ev:true,kafe:true,dukkan:true,ofis:true},ads:0,skipHint:1}}`);
- await tap(p,'#boostBtn'); await p.clock.runFor(300); ok(await p.isVisible('#ad:not([hidden])'),'2x reklamı açıldı');
+ await tap(p,'#collectBtn'); ok(!(await p.isVisible('#ad:not([hidden])')),'ortadaki mühür reklam açmıyor');
+ await tap(p,'.lot[data-i="0"]'); await p.clock.runFor(300); await tap(p,'[data-a="lotboost"]'); await p.clock.runFor(300); ok(await p.isVisible('#ad:not([hidden])'),'mülke 2x reklamı açıldı');
  ok(await p.isDisabled('#adX'),'süre bitmeden kapatılamıyor');
- await p.clock.runFor(5200); await tap(p,'#adX'); s=await st(p); ok(s.boostUntil-s._now>25*60e3,'2x gelir 30 dk eklendi');
- for(let k=0;k<9;k++){ await tap(p,'#boostBtn'); await p.clock.runFor(5400); if(await p.isVisible('#adX:not([disabled])')) await tap(p,'#adX'); await p.clock.runFor(300);} 
- s=await st(p); ok(s.boostUntil-s._now<=4*3600e3+1000,'2x en fazla 4 saat birikiyor');
+ await p.clock.runFor(5200); await tap(p,'#adX'); s=await st(p); ok(s.d['ist-0'][0].bu-s._now>55*60e3 && !(s.boostUntil>s._now),'yalnızca bu mülke 1 saat 2x (tüm mülklere değil)');
+ ok(await p.isVisible('.lot[data-i="0"] .lb2'),'binada 2x etiketi görünüyor');
+ for(let k=0;k<5;k++){ if(await p.isEnabled('[data-a="lotboost"]').catch(()=>false)){ await tap(p,'[data-a="lotboost"]'); await p.clock.runFor(5400); if(await p.isVisible('#adX:not([disabled])')) await tap(p,'#adX'); await p.clock.runFor(300);} }
+ s=await st(p); ok(s.d['ist-0'][0].bu-s._now<=4*3600e3+1000,'mülke 2x en fazla 4 saat birikiyor');
+ await p.keyboard.press('Escape'); await p.waitForTimeout(400);
  await tap(p,'.lot[data-i="1"]'); await p.clock.runFor(300); await tap(p,'[data-a="skip"]'); await p.clock.runFor(5300); await tap(p,'#adX'); await p.clock.runFor(400);
  s=await st(p); ok(s.d['ist-0'][1].lvl===1,'10 dk inşaat reklamla anında bitti');
  await p.keyboard.press('Escape'); await p.waitForTimeout(380);
@@ -107,16 +113,16 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
  ok(!(await p.isHidden('#taskDot')),'görev noktası yanıyor');
  ok(await p.isVisible('#offerPill'),'süreli fırsat bandı görünüyor');
  await tap(p,'#taskBtn'); let cT=(await st(p)).cash; await tap(p,'[data-a="claim"][data-i="0"]'); s=await st(p); ok(s.tasks.list[0].claimed&&s.cash>cT,'görev ödülü alındı');
- await tap(p,'[data-a="bonus"]'); s=await st(p); ok(s.tasks.bonus&&s.boostUntil>s._now,'üç görev bonusu + 2x');
+ await tap(p,'[data-a="bonus"]'); s=await st(p); ok(s.tasks.bonus&&s.boostUntil-s._now>55*60e3,'üç görev bonusu: tüm mülklere 2x · 1 saat');
  await p.keyboard.press('Escape'); await p.waitForTimeout(380);
- await tap(p,'.lot[data-i="0"]'); await p.clock.runFor(400); { const dbg=await st(p); const h=await p.textContent('#modal .card h3').catch(()=>'YOK'); if(!h.includes('tamam')) log('   dbg',h,JSON.stringify(dbg.offer),dbg.collects,await p.isVisible('#sheet.on')); ok(h.includes('tamam'),'fırsat tamamlandı kartı çıktı'); }
+ await tap(p,'#collectBtn'); await p.clock.runFor(400); { const dbg=await st(p); const h=await p.textContent('#modal .card h3').catch(()=>'YOK'); if(!h.includes('tamam')) log('   dbg',h,JSON.stringify(dbg.offer),dbg.collects,await p.isVisible('#sheet.on')); ok(h.includes('tamam'),'fırsat tamamlandı kartı çıktı'); }
  await tap(p,'#modal [data-a="x1"]'); s=await st(p); ok(s.offer===null,'fırsat ödülü alındı');
  let taxi=false; for(let k=0;k<10&&!taxi;k++){ await p.clock.runFor(1000); taxi=await p.isVisible('.car.taxi'); }
  ok(taxi,'altın taksi geçiyor');
  if(taxi){ const cX=(await st(p)).cash; await p.dispatchEvent('.car.taxi','pointerdown'); s=await st(p); ok(s.cash>cX,'altın taksi yakalandı, para geldi'); }
- await dismiss(p); await tap(p,'#menuBtn'); await tap(p,'[data-a="ref"]'); await p.fill('#refInput','tpxyz9'); await tap(p,'[data-a="usecode"]'); s=await st(p); ok(s.ref.used==='TPXYZ9'&&s.boostUntil-s._now>3600e3,'davet kodu kullanıldı, 2 saat 2x');
- await p.keyboard.press('Escape'); await p.waitForTimeout(380); await tap(p,'#menuBtn'); await tap(p,'[data-a="store"]'); await tap(p,'[data-a="buy"]'); await tap(p,'#modal [data-a="ok"]'); s=await st(p); ok(s.premium===true,'reklamsız paket alındı (test)');
- const b0=s.boostUntil; await tap(p,'#boostBtn'); ok(!(await p.isVisible('#ad:not([hidden])')),'premiumda reklam ekranı açılmıyor'); s=await st(p); ok(s.boostUntil>b0,'premiumda 2x anında eklendi');
+ await dismiss(p); await tap(p,'#menuBtn'); await tap(p,'[data-a="ref"]'); await p.fill('#refInput','tpxyz9'); await tap(p,'[data-a="usecode"]'); s=await st(p); ok(s.ref.used==='TPXYZ9',"davet kodu kullanıldı"); ok(s.cash>=2000,'davet hediyesi nakit verildi');
+ const cRef=s.cash; await p.keyboard.press('Escape'); await p.waitForTimeout(380); await tap(p,'#menuBtn'); await tap(p,'[data-a="store"]'); await tap(p,'[data-a="buy"]'); await tap(p,'#modal [data-a="ok"]'); s=await st(p); ok(s.premium===true,'reklamsız paket alındı (test)');
+ await p.keyboard.press('Escape'); await p.waitForTimeout(400); await tap(p,'.lot[data-i="1"]'); await tap(p,'[data-a="lotboost"]'); ok(!(await p.isVisible('#ad:not([hidden])')),'premiumda reklam ekranı açılmıyor'); s=await st(p); ok(s.d['ist-0'][1].bu>s._now,'premiumda mülke 2x anında eklendi');
  ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
  p=await page(b,{},baseSeed(`{unlocked:5,earned:1e10}`));
  await tap(p,'#menuBtn'); await tap(p,'[data-a="holding"]'); await tap(p,'[data-a="hold"]'); await tap(p,'[data-a="hold"]'); s=await st(p);
@@ -165,11 +171,11 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
    await touch('#scrim'); ok(!(await p.isVisible('#sheet.on')), 'boşluğa dokununca panel kapandı');
    await p.evaluate(() => { const st = window.__tapuState(); const l = st.d['ank-0'][6]; l.until = 0; l.lvl = 1; l.buf = 1e6; });
    await p.waitForTimeout(600); const c0 = (await S()).cash;
-   await touch('.lot[data-i="6"]'); s = await S(); ok(s.cash > c0 && !(await p.isVisible('#sheet.on')), 'paraya dokununca toplandı, panel açılmadı');
+   await touch('#collectBtn'); s = await S(); ok(s.cash > c0, 'TOPLA mührüne dokununca kira toplandı');
    await touch('#mapBtn'); ok(await p.isVisible('#sheet.on'), 'harita düğmesi açtı');
    await touch('#scrim', 110, 3, 0.1); ok(!(await p.isVisible('#sheet.on')), 'büyük panel de üstteki boşluğa dokununca kapandı');
    await touch('#menuBtn'); await touch('[data-a="set"]'); ok((await p.textContent('#sheetBody')).includes('Nasıl oynanır'), 'menüden ayarlara geçildi');
-   await touch('#scrim', 110, 3, 0.1); await touch('#boostBtn'); ok(await p.isVisible('#ad:not([hidden])'), '2x düğmesi reklamı açtı');
+   await touch('#scrim', 110, 3, 0.1); await p.evaluate(() => { const st = window.__tapuState(); st.d['ank-0'][6].buf = 5e5; }); const cc = (await S()).cash; await touch('#collectBtn'); ok((await S()).cash > cc, 'TOPLA mührü dokunuşla çalışıyor');
    ok(p.errs.length === 0, 'konsol hatası yok ' + p.errs.join('|'));
    await ctx.close();
  }
@@ -218,7 +224,7 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
    ok((await p.textContent('#modal .card')).includes('Apartman Ligine yükseldin'), 'terfi kartı: "Apartman Ligine yükseldin"');
    await p.screenshot({ path: out + 'I-terfi.png' });
    await tap(p, '#modal [data-a="ok"]'); let st = await p.evaluate(() => JSON.parse(JSON.stringify(window.__tapuState())));
-   ok(st.cash > c0 && st.boostUntil > Date.now() + 2.5 * 3600e3 && st.league.tier === 2, 'ikramiye + 3 saat 2x verildi, lig Apartman oldu');
+   ok(st.cash > c0 && !(st.boostUntil > Date.now()) && st.league.tier === 2, 'büyük ikramiye verildi (2x yok), lig Apartman oldu');
    await p.evaluate(() => window.__tapuTest.showLeagueResult({ week: '2026-H43', from: 1, to: 2, rank: 3, size: 30, seal: false }));
    await p.waitForTimeout(300); ok(!(await p.isVisible('#modal .card')), 'aynı haftanın kartı ikinci kez çıkmıyor');
    ok(p.errs.length === 0, 'konsol hatası yok ' + p.errs.join('|'));
@@ -231,7 +237,7 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
    await dismiss(p);
    ok(await p.isVisible('#guideBtn'), 'ana ekranda kılavuz sekmesi var');
    ok(await p.isHidden('#guideHint'), 'tanıtım balonu henüz yok');
-   await tap(p,'.lot[data-i="0"]'); await p.clock.runFor(3000);
+   await tap(p,'#collectBtn'); await p.clock.runFor(3000);
    ok(await p.isVisible('#guideHint') && await p.evaluate(() => document.querySelector('#guideBtn').classList.contains('wig')), 'ilk kira toplanınca sekme bir kez tanıtılıyor');
    await p.clock.runFor(6500); ok(await p.isHidden('#guideHint'), 'tanıtım 6 sn sonra kayboluyor');
    s=await st(p); ok(s.guideHint===true, 'tanıtım bir daha gösterilmeyecek');
@@ -247,6 +253,19 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
    await p.keyboard.press('Escape'); await p.waitForTimeout(400);
    await tap(p,'#menuBtn'); await tap(p,'[data-a="set"]'); await tap(p,'[data-a="guide"]'); ok(await p.isVisible('.gdlist'), 'ayarlardan da kılavuza ulaşılıyor');
    await p.screenshot({path:out+'J-kilavuz.png'});
+   ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
+ }
+
+ log('K) otomatik toplama');
+ {
+   p=await page(b,{},baseSeed(`{}`));
+   await dismiss(p);
+   await tap(p,'#menuBtn'); await tap(p,'[data-a="set"]'); await tap(p,'[data-a="cm-auto"]'); s=await st(p); ok(s.collectMode==='auto','ayarlardan otomatiğe geçildi');
+   await p.keyboard.press('Escape'); await p.waitForTimeout(400);
+   ok((await p.textContent('#collectBtn')).includes('OTO') && !(await p.$('.lot .fill')),'ortada OTO, binalarda doluluk çubuğu yok');
+   const a0=(await st(p)).cash; await p.clock.runFor(20000); s=await st(p);
+   ok(s.cash>a0 && Object.values(s.d).flat().every(q=>!q||q.buf<1),'kira hiçbir şeye basmadan kasaya aktı');
+   await tap(p,'#collectBtn'); ok(!(await p.isVisible('#ad:not([hidden])')),'OTO mührü reklam açmıyor');
    ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
  }
 

@@ -6,7 +6,7 @@ import { fmt } from '../format';
 import { totalRate } from '../economy';
 import { Snd } from '../sound';
 import { openModal, closeModal, bump } from '../ui/modal';
-import { addBoost, addCash } from './actions';
+import { addCash } from './actions';
 import { persist } from './persist';
 import { Ads } from '../services/ads';
 import { Analytics } from '../services/analytics';
@@ -39,7 +39,7 @@ export function fmtLeft(ms: number): string {
   return d ? `${d}g ${h % 24}s` : `${h}s ${Math.max(0, Math.floor(ms / 60e3) % 60)}dk`;
 }
 
-const prize = (r: LeagueResult) => Math.max(5000, totalRate(false) * 900 * (r.to + 1));
+const prize = (r: LeagueResult) => Math.max(10000, totalRate(false) * 1800 * (r.to + 1));
 
 /** Hafta sonucu kartı (tasarım: L2 · terfi kartı). Her hafta için bir kez gösterilir. */
 export function showLeagueResult(r: LeagueResult) {
@@ -52,10 +52,9 @@ export function showLeagueResult(r: LeagueResult) {
   const note = down ? 'Bu hafta daha sık uğra, hemen geri dönersin.' : r.seal ? 'Gökdelen Ligi zirvesindesin: haftanın mührü senin.' : 'Yeni grubun seni bekliyor.';
   const rows = [
     cash ? ['Tapu ikramiyesi', fmt(cash)] : null,
-    up ? ['2x gelir', '3 saat'] : null,
     up || r.seal ? [`${r.seal ? 'Zirve' : leagueName(r.to)} mührü`, 'Profilde'] : null,
   ].filter(Boolean) as string[][];
-  const grant = (m: number) => { if (cash) addCash(cash * m); if (up) addBoost(3 * 3600e3); bump(); Snd.reward(); persist(); };
+  const grant = (m: number) => { if (cash) addCash(cash * m); bump(); Snd.reward(); persist(); };
   Analytics.log('league_result', { from: r.from, to: r.to, rank: r.rank, size: r.size });
   openModal(`<div class="card lgcard">
     <div class="lgstamp"><span>${stamp}</span><b>${leagueShort(r.to)}</b></div>
