@@ -65,7 +65,7 @@ Simülasyona göre aktif oynayan biri reklamsız Kafe'yi ~5, Dükkân'ı ~13. da
 | Holding (prestij) | Herhangi bir ilin 5. semtinden sonra sıfırla (başlangıç ili korunur); hisse = √(tur kazancı / 1e8), her hisse +%10 kalıcı kira. | – |
 | Şehrini paylaş | 1080×1920 story görseli (şehir + kasa + davet kodu); paylaş ya da kaydet. | `@capacitor/share` + `@capacitor/filesystem` |
 | Davet kodu | Arkadaşın kodunu girene 2 saat 2x + para; davet edene her katılan için 2 saat 2x. Kod tekilliği ve tek kullanım sunucuda. | Cloud Functions `hello`, `redeemInvite` |
-| Haftalık sıralama | İlk 25 + kendi sıran. İstemci yazamaz; skor sunucuda zamana göre sınırlanır. | Firestore `lb` + `submitScore` |
+| Haftalık lig | Arsa → Kat → Apartman → Plaza → Gökdelen. Her pazartesi benzer kazançtaki 30 oyuncuyla grup; ilk 5 yükselir (3 saat 2x + ikramiye), son 5 düşer; Gökdelen'de ilk 3 zirve mührü. Sonuç yeni haftanın ilk girişinde gelir. İstemci yazamaz; skor sunucuda zamana göre sınırlanır. | Firestore `lb`, `groups` + `submitScore`, `hello` (`functions/src/league.ts`) |
 | Reklamsız paket | Geçiş reklamı yok, ödüller izlemeden, kalıcı 2x. Yetki RevenueCat'ten okunur (makbuz sunucuda doğrulanır). | RevenueCat |
 
 ## Reklam stratejisi

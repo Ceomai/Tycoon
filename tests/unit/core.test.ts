@@ -85,3 +85,31 @@ describe('semt ve il açılışı', () => {
     expect(totalRate(false)).toBeCloseTo(base * 1.1, 5);
   });
 });
+
+import { leagueOutcome, leagueZones, weekEndsAt } from '../../src/game/league';
+describe('haftalık lig', () => {
+  it('30 kişilik grupta ilk 5 yükselir, son 5 düşer', () => {
+    expect(leagueOutcome(1, 30, 1).to).toBe(2);
+    expect(leagueOutcome(5, 30, 1).to).toBe(2);
+    expect(leagueOutcome(6, 30, 1).to).toBe(1);
+    expect(leagueOutcome(25, 30, 1).to).toBe(1);
+    expect(leagueOutcome(26, 30, 1).to).toBe(0);
+  });
+  it('Arsa Ligi\'nde düşme, Gökdelen\'de yükselme yok; Gökdelen ilk 3 mühür alır', () => {
+    expect(leagueOutcome(30, 30, 0).to).toBe(0);
+    expect(leagueOutcome(1, 30, 4)).toEqual({ to: 4, seal: true });
+    expect(leagueOutcome(4, 30, 4).seal).toBe(false);
+  });
+  it('küçük gruplarda daha az kişi yükselir, 15 altı kimse düşmez', () => {
+    expect(leagueZones(6, 2)).toEqual({ up: 2, down: 0 });
+    expect(leagueZones(12, 2)).toEqual({ up: 5, down: 0 });
+    expect(leagueZones(20, 2)).toEqual({ up: 5, down: 5 });
+    expect(leagueOutcome(12, 12, 2).to).toBe(2);
+  });
+  it('hafta pazartesi 00:00 UTC biter', () => {
+    const sun = Date.UTC(2026, 10, 1, 22); // pazar
+    expect(new Date(weekEndsAt(sun)).toISOString()).toBe('2026-11-02T00:00:00.000Z');
+    const mon = Date.UTC(2026, 10, 2, 0, 30);
+    expect(new Date(weekEndsAt(mon)).toISOString()).toBe('2026-11-09T00:00:00.000Z');
+  });
+});

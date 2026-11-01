@@ -21,6 +21,8 @@ import { Purchases } from '../services/purchases';
 import { Notify } from '../services/notify';
 import { Ads } from '../services/ads';
 import { resetGame } from '../game/loop';
+import { leagueZones, leagueName, leagueShort, weekEndsAt, fmtLeft } from '../game/league';
+import { LEAGUES, LEAGUE_TOP } from '../config';
 
 export function openSheet(s: SheetState) { ui.openedAt = performance.now(); ui.sheet = s; ui.sheetSig = ''; renderSheet(); $('#sheet').classList.add('on'); $('#scrim').classList.add('on'); Snd.tap(); }
 export function closeSheet() { if (!ui.sheet) return; ui.sheet = null; ui.lastClose = performance.now(); $('#sheet').classList.remove('on'); if (!ui.modal) $('#scrim').classList.remove('on'); }
@@ -122,12 +124,12 @@ export function renderSheet() {
     }
   }
   else if (s.k === 'menu') {
-    sig = 'mn|' + canHolding() + S.premium + Math.floor(S.week.earned) + (S.shares || 0);
+    sig = 'mn|' + S.league.tier + canHolding() + S.premium + Math.floor(S.week.earned) + (S.shares || 0);
     if (sig !== ui.sheetSig) {
       const row = (a: string, ic: string, b: string, sm: string, dot = false) => `<button class="drow" data-a="${a}"><span class="ic">${ic}${dot ? '<span class="dot"></span>' : ''}</span><span class="di"><b>${b}</b><small>${sm}</small></span></button>`;
       html = `<p class="sec">Menü</p><div class="dlist">
         ${row('share', I.share, 'Şehrini paylaş', 'Story görseli, davet kodunla')}
-        ${row('lb', I.trophy, 'Haftalık sıralama', `Bu hafta ${fmt(S.week.earned)} kazandın`)}
+        ${row('lb', I.trophy, 'Haftalık lig', `${leagueName(S.league.tier)} · bu hafta ${fmt(S.week.earned)}`)}
         ${row('ref', I.users, 'Arkadaşını davet et', `Kodun: ${S.ref.code}`)}
         ${row('store', I.noads, 'Reklamsız paket', S.premium ? 'Aktif' : 'Reklamsız + kalıcı 2x gelir')}
         ${row('holding', I.tower, 'Holding kur', canHolding() ? `${sharesPreview()} hisse hazır` : S.shares ? `${S.shares} hisse · kiralar ${fmtX(1 + 0.1 * S.shares)}` : 'Bir ilin 5. semtini alınca açılır', canHolding())}
@@ -159,16 +161,49 @@ export function renderSheet() {
     }
   }
   else if (s.k === 'lb') {
-    if (!s.req) { s.req = true; s.rows = null; Cloud.top().then(r => { s.rows = r ? r.rows : []; s.rank = r ? r.myRank : null; ui.sheetSig = ''; }).catch(() => { s.rows = []; ui.sheetSig = ''; }); }
-    sig = 'lb|' + (s.rows ? s.rows.length : '-') + Cloud.ready() + Math.floor(S.week.earned);
+    // tasarım: L1 · haftalık lig tablosu
+    if (!s.req) { s.req = true; s.v = undefined; Cloud.league().then(v => { s.v = v; ui.sheetSig = ''; }).catch(() => { s.v = null; ui.sheetSig = ''; }); }
+    const left = fmtLeft(weekEndsAt(t) - t), v = s.v;
+    sig = 'lb|' + (v === undefined ? '-' : v ? v.rows.length + ':' + v.myRank + ':' + v.tier : 'x') + Cloud.ready() + Math.floor(S.week.earned) + left;
     if (sig !== ui.sheetSig) {
-      const list = !Cloud.ready() ? `<p class="note" style="margin-top:0">Sıralama internet bağlantısıyla çalışır.</p>`
-        : !s.rows ? '<p class="note" style="margin-top:0">Yükleniyor…</p>'
-          : !s.rows.length ? '<p class="note" style="margin-top:0">Bu hafta henüz kimse yok. İlk sen ol.</p>'
-            : `<div>${s.rows.map((r: any, i: number) => `<div class="lbr${r.me ? ' me' : ''}"><span class="rk">${i + 1}</span><span class="nm">${esc(r.me ? 'Sen' : r.name)} · ${esc(DMAP[r.district]?.n || '')}</span><span class="sc">${fmt(r.earned)}</span></div>`).join('')}</div>`;
-      html = `<p class="sec">Haftalık sıralama</p>${list}
-        <div class="task"><div class="tt"><b>Bu haftaki kazancın</b><small>${s.rank ? `${s.rank}. sıradasın · ` : ''}Her pazartesi sıfırlanır</small></div><b style="font:700 24px var(--cond)">${fmt(S.week.earned)}</b></div>
-        <div class="btns"><button class="btn gold" data-a="ref">${I.users} Arkadaşlarını yarışa davet et</button></div>`;
+      const tier = v ? v.tier : S.league.tier, wk = (S.week.key || '').split('H')[1] || '';
+      const head = `<div class="lghead"><div><p class="sec">Haftalık lig${wk ? ` · ${+wk}. hafta` : ''}</p>
+        <h4 class="lgt">${leagueName(tier)}${v && v.group !== 'onizleme' ? ` · grup ${esc(v.group.slice(-3).toUpperCase())}` : ''}</h4>
+        <small class="lgsub">${v ? `${v.size} emlakçı · ` : ''}bitişe ${left}</small></div>${leagueSeal(tier)}</div>`;
+      let list = '';
+      if (!Cloud.ready()) list = `<p class="note" style="margin-top:0">Lig internet bağlantısıyla çalışır. Bu hafta <b>${fmt(S.week.earned)}</b> kira topladın; bağlanınca grubuna katılırsın.</p>`;
+      else if (v === undefined) list = '<p class="note" style="margin-top:0">Grubun yükleniyor…</p>';
+      else if (!v) list = '<p class="note" style="margin-top:0">Bu hafta grubuna henüz yerleşmedin. Biraz kira topla; ilk skorunla sana yakın 30 emlakçılık gruba katılırsın.</p>';
+      else {
+        const z = leagueZones(v.size, v.tier), parts: string[] = [];
+        v.rows.forEach((r: any, i: number) => {
+          const rank = i + 1, inUp = rank <= z.up, inDown = z.down > 0 && rank > v.size - z.down;
+          if (z.down && rank === v.size - z.down + 1) parts.push('<div class="lgline down"><span>▼ Düşme çizgisi</span></div>');
+          let sub = '';
+          if (r.me) sub = inUp ? 'Yükselme bölgesindesin' : inDown ? 'Düşme bölgesindesin, hızlan' : z.up ? `${z.up}. sıraya ${fmt(Math.max(1, v.rows[z.up - 1].earned - r.earned + 1))} kaldı` : 'Zirvede kal';
+          parts.push(`<div class="lbr${r.me ? ' me' : ''}"><span class="rk${inUp ? ' up' : inDown ? ' down' : ''}">${rank}</span><span class="nm"><b>${esc(r.me ? 'Sen' : r.name)}</b> <i>· ${esc(DMAP[r.district]?.n || '')}</i>${sub ? `<small>${sub}</small>` : ''}</span><span class="sc">${fmt(r.earned)}</span></div>`);
+          if (rank === z.up && z.up < v.size) parts.push('<div class="lgline up"><span>▲ Yükselme çizgisi</span></div>');
+        });
+        list = `<div class="lglist">${parts.join('')}</div>`;
+      }
+      const chips = `<div class="lgchips">${tier < LEAGUE_TOP ? '<div class="up"><small>İlk 5 · yükselir</small><b>3 saat 2x + tapu ikramiyesi</b></div>' : '<div class="up"><small>İlk 3</small><b>Haftanın zirve mührü</b></div>'}${tier > 0 ? '<div class="down"><small>Son 5 · düşer</small><b>Bir alt ligde yeni grup</b></div>' : '<div class="down"><small>Arsa Ligi</small><b>Düşme yok</b></div>'}</div>`;
+      html = `${head}${list}${chips}
+        <div class="btns"><button class="btn gold" data-a="boost">${I.play} İzle, 30 dk 2x · yarışa yetiş</button>
+        <button class="btn soft" data-a="leagues">Ligler ve kurallar</button><button class="txt" data-a="ref">${I.users} Arkadaşını davet et</button></div>`;
+    }
+  }
+  else if (s.k === 'leagues') {
+    // tasarım: L3 · lig basamakları
+    sig = 'lg|' + S.league.tier;
+    if (sig !== ui.sheetSig) {
+      const rule = (i: number) => i === LEAGUE_TOP ? 'Zirve · ilk 3 haftanın mührünü alır' : i === 0 ? 'Başlangıç · düşme yok' : 'İlk 5 yükselir · son 5 düşer';
+      html = `<p class="sec">Ligler · yükseldikçe bina büyür</p><div class="lgtiers">
+        ${LEAGUES.map((_, i) => LEAGUE_TOP - i).map(i => `<div class="lgtier${i === S.league.tier ? ' here' : ''}">${tierArt(i)}<span class="di"><b>${leagueName(i)}</b><small>${rule(i)}</small></span>${i === S.league.tier ? '<span class="st">BURADASIN</span>' : ''}</div>`).join('')}</div>
+        <div class="lgrules"><p class="sec">Nasıl işler</p>
+        <p>Her pazartesi 30 kişilik yeni grup kurulur; kazancı sana yakın oyuncularla eşleşirsin.</p>
+        <p>Puan, o hafta topladığın kiradır. Hafta pazar gecesi biter, sonucun ilk girişte gelir.</p>
+        <p>Uğramayan oyuncu gruba alınmaz; gruplar hep canlı kalır.</p>${S.league.seals ? `<p>Zirve mührün: <b>${S.league.seals}</b></p>` : ''}</div>
+        <div class="btns"><button class="btn soft" data-a="back">Lig tablosuna dön</button></div>`;
     }
   }
   else if (s.k === 'ref') {
@@ -232,7 +267,8 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
   }
   if (s.k === 'menu') { if (a === 'share') return openShare(); return openSheet({ k: a }); }
   if (s.k === 'tasks') { if (a === 'daily') { closeSheet(); ui.lastDay = ''; return; } if (a === 'claim') claimTask(+btn.dataset.i!); if (a === 'bonus') claimBonus(); }
-  if (s.k === 'lb' && a === 'ref') return openSheet({ k: 'ref' });
+  if (s.k === 'lb') { if (a === 'ref') return openSheet({ k: 'ref' }); if (a === 'leagues') return openSheet({ k: 'leagues' }); if (a === 'boost') { closeSheet(); return watchBoost(); } }
+  if (s.k === 'leagues' && a === 'back') return openSheet({ k: 'lb' });
   if (s.k === 'ref') { if (a === 'copy') copyText(S.ref.code); if (a === 'sharetext') shareTextOnly(); if (a === 'usecode') await useCode(($('#refInput') || {}).value); }
   if (s.k === 'store') { if (a === 'buy') return Purchases.buy(); if (a === 'restore') return Purchases.restore(); }
   if (s.k === 'holding' && a === 'hold') { if (s.conf) return doHolding(); s.conf = true; later(s, 'conf'); }
@@ -246,4 +282,15 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
     if (a === 'reset') { if (s.reset) { await resetGame(); toast('Yeni oyun'); return; } s.reset = true; later(s, 'reset'); }
   }
   ui.sheetSig = ''; if (ui.sheet) renderSheet();
+}
+
+/* lig mührü (başlıkta) ve basamak çizimi */
+function leagueSeal(tier: number) {
+  return `<svg class="lgseal" viewBox="0 0 100 100" aria-hidden="true"><g transform="rotate(-9 50 50)"><circle cx="50" cy="50" r="44" fill="none" stroke="currentColor" stroke-width="3.5"/><circle cx="50" cy="50" r="36" fill="none" stroke="currentColor" stroke-width="1.2"/><text x="50" y="46" text-anchor="middle" font-family="IBM Plex Mono" font-weight="600" font-size="11" fill="currentColor" letter-spacing="1.5">LİG</text><text x="50" y="64" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="${leagueShort(tier).length > 5 ? 15 : 22}" fill="currentColor">${leagueShort(tier)}</text></g></svg>`;
+}
+function tierArt(i: number) {
+  const n = [0, 2, 4, 6, 9][i], w = [0, 34, 30, 26, 18][i], h = 56 / Math.max(n, 4);
+  const floors = Array.from({ length: n }, (_, k) => `<rect x="${27 - w / 2}" y="${(60 - (k + 1) * h).toFixed(1)}" width="${w}" height="${h.toFixed(1)}" fill="var(--bg)" stroke="currentColor" stroke-width="1.5"/>`).join('');
+  const stake = n ? '' : '<rect x="10" y="44" width="34" height="14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 2"/><line x1="40" y1="34" x2="40" y2="50" stroke="var(--stamp)" stroke-width="2"/><rect x="35" y="32" width="10" height="7" fill="var(--stamp)"/>';
+  return `<svg class="lgart" viewBox="0 0 54 62" aria-hidden="true"><line x1="2" y1="60" x2="52" y2="60" stroke="currentColor" stroke-width="1.5"/>${floors}${stake}</svg>`;
 }

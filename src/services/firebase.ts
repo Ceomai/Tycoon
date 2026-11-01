@@ -4,8 +4,8 @@
      telefonda yerel giriş penceresiyle (@capacitor-firebase/authentication, skipNativeAuth)
      alınan kimlik bilgisi JS SDK'daki anonim kullanıcıya bağlanır → uid değişmez, ilerleme korunur.
    - Bulut kaydı: Firestore saves/{uid} (yalnızca sahibi okur/yazar, firestore.rules).
-   - Sıralama: istemci yazamaz; skor "submitScore" fonksiyonuyla gönderilir, sunucu
-     zamana göre makul mü diye kontrol eder. Okuma: week == X, earned desc, limit 25 + sıra sayımı.
+   - Lig: istemci yazamaz; skor "submitScore" fonksiyonuyla gönderilir, sunucu zamana göre makul mü
+     diye kontrol eder ve 30 kişilik gruba yerleştirir. Okuma: lb/{hafta}_{uid} → group == X, earned desc.
    - Davet, kod üretimi, ödül, sunucu saati, hesap silme: Cloud Functions (functions/src/index.ts).
    ========================================================= */
 import { Capacitor } from '@capacitor/core';
@@ -15,10 +15,11 @@ import {
   GoogleAuthProvider, OAuthProvider, linkWithCredential, signInWithCredential, signOut, type Auth, type AuthCredential, type User,
 } from 'firebase/auth';
 import {
-  getFirestore, doc, getDoc, setDoc, collection, query, where, orderBy, limit, getDocs, getCountFromServer, type Firestore,
+  getFirestore, doc, getDoc, setDoc, collection, query, where, orderBy, limit, getDocs, type Firestore,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable, type Functions } from 'firebase/functions';
 import type { Backend, LbRow, RedeemResult } from './cloud';
+import { GROUP_SIZE } from '../config';
 
 export function createFirebaseBackend(): Backend {
   const env = import.meta.env;
@@ -100,22 +101,15 @@ export function createFirebaseBackend(): Backend {
       return { json: d.j, savedAt: d.savedAt || 0, earned: d.earned || 0 };
     },
     async postScore(p) { await call('submitScore', p); },
-    async top(week) {
-      const lb = collection(fs, 'lb');
-      const snap = await getDocs(query(lb, where('week', '==', week), orderBy('earned', 'desc'), limit(25)));
-      const rows: LbRow[] = snap.docs.map(d => { const x = d.data() as any; return { name: x.name || 'Emlakçı', district: x.district, earned: x.earned, me: d.id === be.uid }; });
-      let myRank: number | null = null;
-      const meIdx = rows.findIndex(r => r.me);
-      if (meIdx >= 0) myRank = meIdx + 1;
-      else if (be.uid) {
-        const mine = await getDoc(doc(fs, 'lb', be.uid));
-        const m = mine.exists() ? (mine.data() as any) : null;
-        if (m && m.week === week) {
-          const c = await getCountFromServer(query(lb, where('week', '==', week), where('earned', '>', m.earned)));
-          myRank = c.data().count + 1;
-        }
-      }
-      return { rows, myRank };
+    async league(week) {
+      if (!be.uid) return null;
+      const mine = await getDoc(doc(fs, 'lb', `${week}_${be.uid}`));
+      if (!mine.exists()) return null; // bu hafta henüz skor gönderilmedi → grup yok
+      const m = mine.data() as any;
+      const snap = await getDocs(query(collection(fs, 'lb'), where('group', '==', m.group), orderBy('earned', 'desc'), limit(GROUP_SIZE * 2)));
+      const rows: LbRow[] = snap.docs.map(d => { const x = d.data() as any; return { name: x.name || 'Emlakçı', district: x.district, earned: x.earned, me: x.uid === be.uid }; });
+      const i = rows.findIndex(r => r.me);
+      return { tier: m.tier || 0, group: m.group, rows, myRank: i >= 0 ? i + 1 : null, size: rows.length };
     },
     async redeemInvite(code): Promise<RedeemResult> {
       const r = await call<{ result: RedeemResult }>('redeemInvite', { code });

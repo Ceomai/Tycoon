@@ -1,7 +1,7 @@
 /* Layout: üst = sadece bilgi (semt, kasa). Orta = asfalt sokaklarla bölünmüş imar adası; arsalar parsel, aralar yol.
    Alt = başparmak bölgesi: [ayarlar] [büyük 2x] [semtler]. Tema: şantiye + gayrimenkul (beton, iş güvenliği sarısı, proje paftası). */
 :root{
-  --bg:#e8ecdf; --surface:#f6f7f1; --ink:#1e3a32; --muted:#55685f; --line:#c9d1c2; --stamp:#c23b2e; --guil:#8a7bb5;
+  --bg:#e8ecdf; --surface:#f6f7f1; --ink:#1e3a32; --muted:#55685f; --line:#c9d1c2; --stamp:#c23b2e; --up:#2c6e49; --me:#fbe9d0; --guil:#8a7bb5;
   --asph:#fbfbf7; --asph-d:#1e3a32; --lane:#c9d1c2; --curb:#1e3a32; --site:#ebe4d2;
   --dirt:#e1e6d6; --dirt-d:#c9d1c2; --gv:#c3ccbb; --sv:#1e3a32; --stk:#c23b2e; --sgn:#c23b2e;
   --haz:#ffc21a; --haz-d:#d79c00; --haz-ink:#1f1a00; --hk:#1f2227;
@@ -24,7 +24,7 @@
   --ui:'Barlow',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){ --bg:#111815; --surface:#18221e; --ink:#e3eadf; --muted:#97a69e; --line:#2a3833; --stamp:#e0554a; --guil:#7a6eaa;
+  :root:not([data-theme="light"]){ --bg:#111815; --surface:#18221e; --ink:#e3eadf; --muted:#97a69e; --line:#2a3833; --stamp:#e0554a; --up:#6cc093; --me:#3a2f1f; --guil:#7a6eaa;
     --asph:#18241f; --asph-d:#e3eadf; --lane:#33463f; --curb:#e3eadf; --site:#2a2a22;
     --dirt:#1d2a25; --dirt-d:#2a3833; --gv:#33463f; --sv:#9aaca3; --stk:#e0554a; --sgn:#e0554a;
     --haz:#ffc21a; --haz-d:#c98f00; --haz-ink:#1f1a00; --hk:#111215;
@@ -44,7 +44,7 @@
     --scrim:rgba(0,0,0,.6); --shadow:0 12px 32px rgba(0,0,0,.5);
     color-scheme:dark; }
 }
-:root[data-theme="dark"]{ --bg:#111815; --surface:#18221e; --ink:#e3eadf; --muted:#97a69e; --line:#2a3833; --stamp:#e0554a; --guil:#7a6eaa;
+:root[data-theme="dark"]{ --bg:#111815; --surface:#18221e; --ink:#e3eadf; --muted:#97a69e; --line:#2a3833; --stamp:#e0554a; --up:#6cc093; --me:#3a2f1f; --guil:#7a6eaa;
     --asph:#18241f; --asph-d:#e3eadf; --lane:#33463f; --curb:#e3eadf; --site:#2a2a22;
     --dirt:#1d2a25; --dirt-d:#2a3833; --gv:#33463f; --sv:#9aaca3; --stk:#e0554a; --sgn:#e0554a;
     --haz:#ffc21a; --haz-d:#c98f00; --haz-ink:#1f1a00; --hk:#111215;
@@ -470,3 +470,48 @@ svg .inked polygon:not(.sh), svg .inked rect:not(.net):not(.hz):not(.hk), .lot.b
 .acct{display:flex;flex-direction:column;gap:8px;margin-top:6px}
 .linkbtn{border:none;background:none;padding:12px 0;font:600 15px var(--ui);color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer;text-align:left}
 body.idle *,body.idle *::before,body.idle *::after{animation-play-state:paused!important}
+
+/* ---------- haftalık lig (tasarım L1–L3) ---------- */
+.lghead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.lghead .sec{margin:0 0 2px}
+.lgt{margin:0;font:700 28px/1 var(--cond);letter-spacing:.03em;text-transform:uppercase;color:var(--ink)}
+.lgsub{display:block;margin-top:5px;font:500 12px var(--mono);color:var(--muted)}
+.lgseal{width:68px;height:68px;flex:none;color:var(--stamp)}
+.lglist{border-top:1.5px solid var(--ink);margin-bottom:14px}
+.lglist .lbr{border-radius:0;background:none;padding:8px 2px;border-bottom:1px solid var(--line);min-height:24px}
+.lglist .lbr:nth-child(odd){background:none}
+.lglist .lbr .rk{width:24px;text-align:right;font:600 15px var(--mono);color:var(--muted);flex:none}
+.lglist .lbr .rk.up{color:var(--up)}
+.lglist .lbr .rk.down{color:var(--stamp)}
+.lglist .lbr .nm{flex:1;min-width:0;font:600 15px var(--ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lglist .lbr .nm i{font:500 12px var(--mono);font-style:normal;color:var(--muted)}
+.lglist .lbr .nm small{display:block;font:600 11px var(--mono);color:var(--up)}
+.lglist .lbr .sc{font:600 14px var(--mono);font-variant-numeric:tabular-nums}
+.lglist .lbr.me{background:var(--me);color:var(--ink);border:1.5px solid var(--ink);border-radius:6px;padding:8px 10px;margin:2px -8px}
+.lgline{display:flex;align-items:center;gap:8px;padding:6px 0;font:600 11px var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.lgline::before,.lgline::after{content:"";flex:1;border-top:2px dashed currentColor}
+.lgline.up{color:var(--up)}
+.lgline.down{color:var(--stamp)}
+.lgchips{display:flex;gap:8px;margin-bottom:6px}
+.lgchips>div{flex:1;border:1.5px dashed var(--up);border-radius:6px;padding:7px 9px;display:flex;flex-direction:column;gap:1px}
+.lgchips>div.down{border-color:var(--stamp)}
+.lgchips small{font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--up)}
+.lgchips>div.down small{color:var(--stamp)}
+.lgchips b{font:600 13px var(--ui)}
+.lgtiers{border-top:1.5px solid var(--ink);margin-bottom:14px}
+.lgtier{display:flex;align-items:center;gap:14px;padding:10px 8px;margin:0 -8px;border-bottom:1px solid var(--line);border-radius:6px;color:var(--ink)}
+.lgtier.here{background:var(--me)}
+.lgtier .lgart{width:54px;height:62px;flex:none}
+.lgtier .di{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.lgtier .di b{font:700 21px/1 var(--cond);letter-spacing:.05em;text-transform:uppercase}
+.lgtier .di small{font:500 12px/1.35 var(--mono);color:var(--muted)}
+.lgtier .st{font:600 11px var(--mono);color:var(--stamp);border:1.5px solid var(--stamp);border-radius:4px;padding:4px 6px;transform:rotate(-6deg);white-space:nowrap}
+.lgrules{border:1.5px dashed var(--ink);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.lgrules .sec{margin:0}
+.lgrules p:not(.sec){margin:0;font:400 14px/1.4 var(--ui);color:var(--ink)}
+.lgcard .lgstamp{width:150px;height:104px;margin:6px auto 10px;transform:rotate(-8deg);border:4.5px solid var(--stamp);border-radius:6px;outline:1.4px solid var(--stamp);outline-offset:-10px;color:var(--stamp);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.lgcard .lgstamp span{font:600 13px var(--mono);letter-spacing:.24em}
+.lgcard .lgstamp b{font:700 28px/1 var(--cond)}
+.lgrw{border-top:1.5px solid var(--ink);margin:14px 0 4px;text-align:left}
+.lgrw div{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font:600 15px var(--ui)}
+.lgrw b{font:600 14px var(--mono)}

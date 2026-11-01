@@ -1,22 +1,25 @@
 /* =========================================================
    TAPU — Cloud Functions (Firebase, Node 22)
-   hello            : sunucu saati + tekil davet kodu + yeni davet ödülleri
+   hello            : sunucu saati + tekil davet kodu + yeni davet ödülleri + geçen haftanın lig sonucu
    redeemInvite     : davet kodu kullanımı (hesap başına bir kez, kendi kodu olmaz)
-   submitScore      : haftalık skor; zamana göre makul mü kontrol edilir, aşırı artış kırpılır
+   submitScore      : haftalık skor (lig grubuna yerleşir); zamana göre makul mü kontrol edilir, aşırı artış kırpılır
    deleteAccount    : oyuncunun tüm verisini ve kimliğini siler (mağaza zorunluluğu)
    admobSsv         : AdMob ödüllü reklam sunucu doğrulaması (imza kontrolü, kayıt)
    revenuecatWebhook: satın alma olayları (premium bayrağı sunucuda tutulur)
    ========================================================= */
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { onCall, onRequest, HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { defineSecret } from 'firebase-functions/params';
 import { createVerify } from 'node:crypto';
+import { settle, ensureGroup } from './league';
 
 initializeApp();
-setGlobalOptions({ region: 'europe-west1', maxInstances: 20 });
+// Kapasite: her kopya aynı anda 80 isteğe bakar (2. nesil varsayılanı); 200 kopya ≈ 16.000 eşzamanlı istek.
+// Maliyet tavanı için Google Cloud'da bütçe uyarısı kurun (docs/RELEASE.md).
+setGlobalOptions({ region: 'europe-west1', maxInstances: 200, concurrency: 80, cpu: 1, memory: '256MiB' }); // concurrency > 1 için cpu en az 1 olmalı
 const db = getFirestore();
 const RC_SECRET = defineSecret('REVENUECAT_WEBHOOK_SECRET');
 
@@ -73,7 +76,10 @@ export const hello = onCall(async req => {
     const given = (u.get('granted') as number) || 0;
     if (used > given) { grants = Math.min(used - given, 20); tx.update(userRef, { granted: given + grants }); }
   });
-  return { now: Date.now(), code, grants };
+  // lig: geçen hafta bittiyse sonucu hesapla (bir kez)
+  const result = await settle(uid, weekKey()).catch(() => null);
+  const L = ((await userRef.get()).get('league') as any) || {};
+  return { now: Date.now(), code, grants, league: { tier: L.tier || 0, result } };
 });
 
 /* ---------- redeemInvite ---------- */
@@ -106,14 +112,15 @@ export const submitScore = onCall(async req => {
   if (!Number.isFinite(earned) || earned < 0) throw new HttpsError('invalid-argument', 'earned');
   const district = DISTRICT_RE.test(String(d.district)) ? String(d.district) : 'ist-0';
   const shares = Math.max(0, Math.min(1e6, Math.floor(Number(d.shares) || 0)));
-  const ref = db.doc(`lb/${uid}`);
+  const lg = await ensureGroup(uid, week);
+  const ref = db.doc(`lb/${week}_${uid}`); // hafta başına bir belge; 6 hafta sonra TTL ile silinir (expireAt)
   const nowMs = Date.now();
   return db.runTransaction(async tx => {
     const prev = await tx.get(ref);
-    const p = prev.exists && prev.get('week') === week ? prev.data()! : null;
+    const p = prev.exists ? prev.data()! : null;
     const mult = 1 + 0.1 * shares; // holding hisseleri kirayı katlar
     // oyuncunun kanıtlanmış hızı: geçen haftanın ortalamasının 5 katı ya da bu haftaki ortalamanın 5 katı (en az 2e4/sn)
-    const lastWeek = prev.exists ? (prev.get('week') === week ? prev.get('lastWeek') || 0 : prev.get('earned') || 0) : 0;
+    const lastWeek = p ? p.lastWeek || 0 : lg.lastWeek;
     const sw = secondsIntoWeek();
     const rate = Math.max(2e4 * mult, (lastWeek / 604800) * 5, p ? (p.earned / sw) * 5 : 0);
     let cap: number;
@@ -129,8 +136,9 @@ export const submitScore = onCall(async req => {
     const code = (await tx.get(db.doc(`users/${uid}`))).get('code') || '';
     const first = (user?.displayName || '').trim().split(/\s+/)[0];
     const name = first ? first.slice(0, 14) : 'Emlakçı ' + String(code).slice(2);
-    tx.set(ref, { week, earned, district, shares, name, atMs: nowMs, lastWeek, flagged: flagged || !!(p && p.flagged) });
-    return { ok: true, earned, flagged };
+    tx.set(ref, { uid, week, tier: lg.tier, group: lg.group, earned, district, shares, name, atMs: nowMs, lastWeek,
+      flagged: flagged || !!(p && p.flagged), expireAt: Timestamp.fromMillis(nowMs + 42 * 864e5) });
+    return { ok: true, earned, flagged, tier: lg.tier, group: lg.group };
   });
 });
 
@@ -140,7 +148,8 @@ export const deleteAccount = onCall(async req => {
   const batch = db.batch();
   const user = await db.doc(`users/${uid}`).get();
   if (user.exists && user.get('code')) batch.delete(db.doc(`codes/${user.get('code')}`));
-  for (const p of [`saves/${uid}`, `lb/${uid}`, `users/${uid}`, `invites/${uid}`]) batch.delete(db.doc(p));
+  for (const p of [`saves/${uid}`, `users/${uid}`, `invites/${uid}`]) batch.delete(db.doc(p));
+  (await db.collection('lb').where('uid', '==', uid).limit(400).get()).docs.forEach(d => batch.delete(d.ref));
   await batch.commit();
   const rewards = await db.collection('rewards').where('uid', '==', uid).limit(500).get();
   if (!rewards.empty) { const b2 = db.batch(); rewards.docs.forEach(r => b2.delete(r.ref)); await b2.commit(); }

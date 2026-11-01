@@ -174,6 +174,54 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
    await ctx.close();
  }
 
+ log('I) haftalık lig (paylaşılan veritabanı taklidiyle)');
+ {
+   const ctx = await b.newContext({ viewport: { width: 390, height: 844 } }); const p = await ctx.newPage(); p.errs = [];
+   p.on('pageerror', e => p.errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') p.errs.push(m.text()); });
+   await p.addInitScript(() => {
+     const wk = d => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const wd = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - wd); const y = t.getUTCFullYear(); return y + '-H' + String(Math.ceil(((t - Date.UTC(y, 0, 1)) / 864e5 + 1) / 7)).padStart(2, '0'); };
+     const week = wk(new Date()), store = {};
+     const names = ['Ayşe', 'Mert', 'Zeynep', 'Can', 'Elif', 'Burak', 'Deniz', 'Ece', 'Kaan', 'Selin'];
+     for (let k = 0; k < 29; k++) store['lb/u' + k] = { week, earned: Math.round(3e6 * Math.pow(0.88, k)), district: 'izm-' + (k % 5), tier: 1, n: names[k % 10] };
+     const snap = (id, d) => ({ id, exists: !!d, data: () => d && JSON.parse(JSON.stringify(d)) });
+     const db = {
+       doc: path => ({ get: async () => snap(path.split('/').pop(), store[path]), set: async v => { store[path] = JSON.parse(JSON.stringify(v)); }, delete: async () => { delete store[path]; } }),
+       collection: name => ({ where: (f, op, v) => ({ get: async () => ({ docs: Object.keys(store).filter(k => k.startsWith(name + '/') && store[k][f] === v).map(k => snap(k.split('/').pop(), store[k])) }) }) }),
+     };
+     const user = { id: async () => 'me', profiles: async ids => Object.fromEntries(ids.map(id => [id, { name: id === 'me' ? 'Ben' : (store['lb/' + id] || {}).n || '' }])) };
+     window.claude = { use: async n => (n === 'db' ? db : n === 'user' ? user : null) };
+     window.__store = store;
+     if (!sessionStorage.getItem('s')) { sessionStorage.setItem('s', 1); const t = Date.now(); const d = [0, 1, 2, 3, 4].map(() => Array(20).fill(null)); for (let i = 0; i < 6; i++) d[0][i] = { t: 'ev', lvl: 2, buf: 0, until: 0, dur: 1, up: false };
+       localStorage.setItem('tapu-save-v1', JSON.stringify({ v: 1, cash: 1000, earned: 5e6, unlocked: 1, cur: 0, d, lastSeen: t, nextAd: 9e9, nextEvent: 9e9, nextOffer: 9e9, nextTaxi: 9e9, sound: false, collects: 50, seen: { ev: true }, daily: { last: new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0'), streak: 1 }, week: { key: week, earned: 1.5e6 }, league: { tier: 1, seals: 0, last: '' } })); }
+   });
+   await p.goto(URL); await p.waitForTimeout(1500);
+   await dismiss(p);
+   await tap(p, '#menuBtn'); ok((await p.textContent('#sheetBody')).includes('Haftalık lig'), 'menüde haftalık lig satırı');
+   await tap(p, '[data-a="lb"]'); await p.waitForTimeout(800);
+   const body = await p.textContent('#sheetBody');
+   ok(body.includes('Kat Ligi') && body.includes('30 emlakçı'), 'lig başlığı: Kat Ligi, 30 emlakçı');
+   ok(await p.isVisible('.lgline.up') && await p.isVisible('.lgline.down'), 'yükselme ve düşme çizgileri çiziliyor');
+   const me = await p.textContent('.lbr.me'); ok(/Sen/.test(me) && /5\. sıraya/.test(me), 'senin satırın vurgulu, "5. sıraya … kaldı" yazıyor');
+   ok((await p.$$('.lglist .lbr')).length === 30, '30 satır');
+   await p.screenshot({ path: out + 'I-lig.png' }); await p.evaluate(() => document.querySelector('.lbr.me').scrollIntoView({ block: 'center' })); await p.screenshot({ path: out + 'I-lig-ben.png' });
+   ok(await p.evaluate(() => [...document.querySelectorAll('.lglist > *')].findIndex(e => e.classList.contains('lgline') && e.classList.contains('up')) === 5), 'yükselme çizgisi 5. sıranın altında');
+   await tap(p, '[data-a="leagues"]'); ok((await p.$$('.lgtier')).length === 5 && (await p.textContent('.lgtier.here')).includes('Kat Ligi'), 'lig basamakları: 5 lig, "buradasın" Kat Ligi\'nde');
+   await p.screenshot({ path: out + 'I-basamak.png' });
+   await tap(p, '[data-a="back"]'); ok(await p.isVisible('.lglist'), 'tabloya geri dönüldü');
+   await p.keyboard.press('Escape'); await p.waitForTimeout(400);
+   const c0 = await p.evaluate(() => window.__tapuState().cash);
+   await p.evaluate(() => window.__tapuTest.showLeagueResult({ week: '2026-H43', from: 1, to: 2, rank: 3, size: 30, seal: false }));
+   await p.waitForTimeout(400);
+   ok((await p.textContent('#modal .card')).includes('Apartman Ligine yükseldin'), 'terfi kartı: "Apartman Ligine yükseldin"');
+   await p.screenshot({ path: out + 'I-terfi.png' });
+   await tap(p, '#modal [data-a="ok"]'); let st = await p.evaluate(() => JSON.parse(JSON.stringify(window.__tapuState())));
+   ok(st.cash > c0 && st.boostUntil > Date.now() + 2.5 * 3600e3 && st.league.tier === 2, 'ikramiye + 3 saat 2x verildi, lig Apartman oldu');
+   await p.evaluate(() => window.__tapuTest.showLeagueResult({ week: '2026-H43', from: 1, to: 2, rank: 3, size: 30, seal: false }));
+   await p.waitForTimeout(300); ok(!(await p.isVisible('#modal .card')), 'aynı haftanın kartı ikinci kez çıkmıyor');
+   ok(p.errs.length === 0, 'konsol hatası yok ' + p.errs.join('|'));
+   await ctx.close();
+ }
+
  log('E) ekran boyutları');
  for(const vp of [{width:320,height:568},{width:360,height:640},{width:412,height:915},{width:768,height:1024},{width:1280,height:720}]){
    p=await page(b,{vp});

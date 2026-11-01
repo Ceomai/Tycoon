@@ -26,6 +26,7 @@ export interface State {
   offer: Offer | null;
   premium: boolean;                // önbellek; kaynak RevenueCat
   clockFlag: number;               // saat geri alındığında artar (analitik için)
+  league: { tier: number; seals: number; last: string }; // lig (kaynak sunucu; bu önbellek), last = gösterilen son hafta sonucu
 }
 
 const emptyLots = (): Lot[] => Array(N).fill(null);
@@ -46,7 +47,7 @@ export function newState(now: number, weekKey: string, city: CityId | null = nul
     sound: true, notif: true, collects: 0, ads: 0, skipHint: 0, seen: { ev: true },
     daily: { last: '', streak: 0 }, tasks: null, shares: 0, coll: [],
     ref: { code: makeCode(), used: false, rewarded: 0 }, week: { key: weekKey, earned: 0 },
-    offer: null, premium: false, clockFlag: 0,
+    offer: null, premium: false, clockFlag: 0, league: { tier: 0, seals: 0, last: '' },
   };
 }
 

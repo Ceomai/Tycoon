@@ -41,17 +41,16 @@ export async function createArtifactBackend(): Promise<Backend> {
       const base = (mine && mine.exists && mine.data && mine.data()) || {};
       await db.doc('lb/' + be.uid).set({ ...base, week: p.week, earned: p.earned, district: p.district, shares: p.shares, at: Date.now() });
     },
-    async top(week) {
+    async league(week) {
+      // önizlemede tek grup: bu haftaki herkes
       const snap = await db.collection('lb').where('week', '==', week).get();
-      const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => b.earned - a.earned);
-      const rows = all.slice(0, 25);
+      const all = snap.docs.map((d: any) => ({ id: d.id, ...d.data() })).filter((r: any) => typeof r.earned === 'number').sort((a: any, b: any) => b.earned - a.earned).slice(0, 30);
+      if (!all.some((r: any) => r.id === be.uid)) return null;
       let ps: Record<string, any> = {};
-      try { ps = await user.profiles(rows.map((r: any) => r.id)); } catch { /* yok */ }
-      const idx = all.findIndex((r: any) => r.id === be.uid);
-      return {
-        rows: rows.map((r: any): LbRow => ({ name: (ps[r.id] && ps[r.id].name) || 'Emlakçı', district: r.district, earned: r.earned, me: r.id === be.uid })),
-        myRank: idx >= 0 ? idx + 1 : null,
-      };
+      try { ps = await user.profiles(all.map((r: any) => r.id)); } catch { /* yok */ }
+      const rows = all.map((r: any): LbRow => ({ name: (ps[r.id] && ps[r.id].name) || 'Emlakçı', district: r.district, earned: r.earned, me: r.id === be.uid }));
+      const i = rows.findIndex(r => r.me);
+      return { tier: -1, group: 'onizleme', rows, myRank: i + 1, size: rows.length }; // -1: lig bilgisi cihazdaki kayıttan
     },
     async redeemInvite(code): Promise<RedeemResult> {
       const owner = await db.collection('lb').where('code', '==', code).get();
