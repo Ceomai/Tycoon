@@ -6,6 +6,11 @@ import { S, Plot, Lot, lotsOf } from './state';
 import { Time } from './time';
 import { LM } from './landmarks';
 import { festivalOn } from './game/festival';
+import { marketMult, civicMult, achBonus } from './game/modifiers';
+import { weekKey } from './format';
+/** Bu hafta (piyasa raporu için; dakikada bir hesaplanır). */
+let wkC = '', wkT = 0;
+export const curWeek = () => { const t = now(); if (t - wkT > 60e3 || !wkC) { wkC = weekKey(new Date(t)); wkT = t; } return wkC; };
 
 /** Oyun saati: sunucuyla düzeltilmiş cihaz saati. Saat geri alınırsa (5 dk tolerans) zaman,
  *  cihaz saati son görülen ana yetişene kadar donar; böylece geri-ileri oynatmayla kazanç olmaz. */
@@ -70,7 +75,7 @@ export function fxMult(k: DistrictKey, i: number, p: Plot, t: number): number {
 export const citiesOwned = () => new Set(S.own.map(k => D(k).city)).size;
 export function collBonus(): number { const n = (S.coll || []).length; return n * 0.05 + (n === LM.length ? 0.1 : 0); }
 export const portfolioBonus = () => CFG.PORTFOLIO_BONUS * Math.max(0, citiesOwned() - 1);
-export const permMult = () => (1 + 0.1 * (S.shares || 0)) * (1 + collBonus()) * (1 + portfolioBonus()) * (S.premium ? 2 : 1) * (festivalOn(now()) ? 1 + CFG.FEST_BONUS : 1);
+export const permMult = () => (1 + 0.1 * (S.shares || 0)) * (1 + collBonus()) * (1 + portfolioBonus()) * (S.premium ? 2 : 1) * (festivalOn(now()) ? 1 + CFG.FEST_BONUS : 1) * (1 + achBonus());
 /** 3 yıldızlı semte kalıcı bonus. */
 export const districtMult = (k: DistrictKey) => ((S.stars && S.stars[k] ? S.stars[k].length : 0) >= 3 ? 1 + CFG.STAR_BONUS : 1);
 /** Özel yapı: semtteki en iyi (özel olmayan) binanın 3 katı; hiç bina yoksa 1. kat ofis kadar. */
@@ -84,7 +89,7 @@ export function specialBase(k: DistrictKey, i: number): number {
 export function baseRate(k: DistrictKey, i: number): number {
   const p = lotsOf(S, k)[i]; if (!producing(p)) return 0;
   if (p!.sp) return specialBase(k, i) * permMult() * districtMult(k);
-  return TYPES[p!.t].inc * LV_INC[p!.lvl] * incM(k) * (1 + neighborBonus(k, i)) * ruleMult(k, i, p!.t) * permMult() * districtMult(k);
+  return TYPES[p!.t].inc * LV_INC[p!.lvl] * incM(k) * (1 + neighborBonus(k, i)) * ruleMult(k, i, p!.t) * marketMult(p!.t, curWeek()) * civicMult(k, p!.t) * permMult() * districtMult(k);
 }
 export function rate(k: DistrictKey, i: number, t = now()): number {
   const b = baseRate(k, i); if (!b) return 0;

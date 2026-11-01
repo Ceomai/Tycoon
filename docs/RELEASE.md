@@ -47,6 +47,7 @@ Kod tarafı hazır. Aşağıdakiler senin hesaplarınla yapılması gereken adı
 1. [ ] Play Console ve App Store Connect'te tek seferlik ürün: `tapu_premium` (tüketilmeyen / non-consumable).
 2. [ ] app.revenuecat.com → proje → Android + iOS uygulamaları (Play servis hesabı JSON'u, App Store paylaşılan gizli anahtarı / In-App Purchase anahtarı).
 3. [ ] Entitlement: **`premium`** → ürünü bağla. Offering: `default` → paket olarak `tapu_premium`.
+   - [ ] **Tapu sezonu (Altın Tapu):** her sezon tekrar alınan (tüketilen) ürün `tapu_sezon`, ₺99,99; RevenueCat'te bir offering'e (ör. `sezon`) paket olarak ekle. Uygulama kimliğinde "sezon" geçen paketi otomatik bulur.
 4. [ ] Herkese açık SDK anahtarları → `.env` → `VITE_REVENUECAT_ANDROID/IOS`.
 5. [ ] Integrations → Webhooks → URL: `…/revenuecatWebhook`, Authorization: Firebase'e girdiğin `REVENUECAT_WEBHOOK_SECRET`.
 

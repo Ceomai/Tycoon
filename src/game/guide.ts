@@ -9,6 +9,7 @@ import { LM, lmSvg } from '../landmarks';
 import { bld, svg } from '../draw';
 import { I } from '../icons';
 import { SPECIALS, specialSvg, weekSpecial } from '../specials';
+import { ACH, SEASON_LV, XP_PER } from './fun';
 
 export interface Chapter { t: string; s: string; isNew?: boolean; art: () => string; body: string[]; facts: [string, string][]; tip?: string; }
 
@@ -138,6 +139,34 @@ export function chapters(): Chapter[] {
         'Mevsimler de görünür: kışın kar yağar, yazın Çeşme’nin boş arsalarında plaj şemsiyeleri açılır.',
       ],
       facts: [['Bayram günleri', 'Yılbaşı · 23 Nisan · 19 Mayıs · 30 Ağustos · 29 Ekim'], ['Kira', `+${pct(CFG.FEST_BONUS)}`], ['Bayram ikramiyesi', 'günde bir (reklamla 2 katı)']],
+    },
+    {
+      t: 'Piyasa ve belediye', s: 'Haftalık piyasa raporu · kalıcı belediye kararları', isNew: true,
+      art: () => '<span class="gdstamp sm">↑</span>',
+      body: [
+        'Her pazartesi bir <b>piyasa raporu</b> gelir: bir bina türü o hafta +%30 kazanır, bir başkası −%10. Rapor herkes için aynıdır; kira göstergesindeki küçük işaret (örneğin “OFİS ↑”) hafta boyunca durur.',
+        'Arada bir <b>belediye</b> görüşünü sorar: park mı otopark mı, metro durağı mı bisiklet yolu mu? Seçtiğin yatırım o semtte ilgili türe kalıcı +%15 verir. Her semtte en fazla 2 karar.',
+      ],
+      facts: [['Piyasa', 'bir tür +%30 · bir tür −%10'], ['Belediye kararı', 'semtte kalıcı +%15'], ['Semt başına', 'en fazla 2 karar']],
+      tip: 'Piyasa raporu ofisi gösteriyorsa, o hafta ofislere kat çıkmanın tam zamanı.',
+    },
+    {
+      t: 'Tapu arşivi ve cephe', s: 'Mühür albümü · binalarına renk ve çatı', isNew: true,
+      art: () => '<span class="gdstamp sm">MÜHÜR</span>',
+      body: [
+        `<b>Tapu arşivi</b> (Menü) ${ACH.length} mühürlük bir albüm: ilk ofis, 100. bina, üç il, altın mühür… Her 4 mühür tüm kiralara kalıcı +%1 verir.`,
+        'Bir binaya dokunup <b>Görünümü değiştir</b> ile cephe rengini, evlerde çatıyı ve tabelayı seçebilirsin. Yalnızca görünümdür; bazı renkler arşivden ve tapu sezonundan açılır.',
+      ],
+      facts: [['Arşiv bonusu', 'her 4 mühürde +%1'], ['Cephe', '9 renk · 3 çatı · tabela'], ['Kira etkisi', 'yok (yalnızca görünüm)']],
+    },
+    {
+      t: 'Tapu sezonu', s: `Aylık ${SEASON_LV} basamak · ücretsiz ve Altın Tapu yolu`, isNew: true,
+      art: () => '<span class="gdstamp sm">30</span>',
+      body: [
+        `Her ay yeni bir <b>tapu sezonu</b> başlar. Kira toplamak, görev bitirmek, kat çıkmak, yıldız ve terfi kazanmak puan verir; her ${XP_PER} puanda bir basamak atlarsın.`,
+        'Ücretsiz yolda nakit, <b>2x jetonu</b> (bir mülke reklamsız 1 saat 2x) ve cephe renkleri var. <b>Altın Tapu</b> her basamakta ek ödül, altın cephe ve 30. basamakta özel bir yapı verir.',
+      ],
+      facts: [['Basamak', `${SEASON_LV} · her biri ${XP_PER} puan`], ['Puan', 'kira, görev, inşaat, yıldız, lig'], ['Yenilenme', 'her ayın başında']],
     },
     {
       t: 'Tarihi yapılar', s: `Her biri +%5 · hepsi ek +%10`,

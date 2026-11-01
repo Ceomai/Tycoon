@@ -6,6 +6,7 @@ import { I } from '../icons';
 import { Snd } from '../sound';
 import { openModal, closeModal, bump } from '../ui/modal';
 import { addCash, addBoost } from './actions';
+import { addXp } from './fun';
 import { Ads } from '../services/ads';
 import { persist } from './persist';
 import { Analytics } from '../services/analytics';
@@ -33,7 +34,7 @@ export function checkDaily() {
 }
 export function showDaily(n: number) {
   const amt = dailyAmount(n), day = (n - 1) % 7 + 1, big = day === 7;
-  const claim = (m: number) => { addCash(amt * m); bump(); S.daily = { last: dayKey(new Date(now())), streak: n }; persist(); Analytics.log('daily_claim', { day: n, doubled: m > 1 }); };
+  const claim = (m: number) => { addXp(40); addCash(amt * m); bump(); S.daily = { last: dayKey(new Date(now())), streak: n }; persist(); Analytics.log('daily_claim', { day: n, doubled: m > 1 }); };
   openModal(`<div class="card"><div class="badge">${I.cal}</div><h3>${n}. gün kira günü</h3><p>Her gün uğra, 7. gün büyük ödül.</p>
     ${streakStrip(day, day - 1)}<div class="big">${fmt(amt)}</div>${big ? '<p><b>Haftanın büyük kira ödülü</b></p>' : ''}
     <div class="btns"><button class="btn gold" data-a="x2">${I.play} İzle, 2 katını al</button><button class="txt" data-a="x1">Al</button></div></div>`,

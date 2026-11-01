@@ -1,6 +1,7 @@
 import { BuildingType, CityId, DistrictKey, N, SCHEMA, dkey, CFG } from './config';
 
-export interface Plot { t: BuildingType; lvl: number; buf: number; until: number; dur: number; up: boolean; bu?: number; sp?: string; ob?: string; } // bu: bu mülke 2x bitişi · sp: özel yapı · ob: engel (gecekondu, hurda…)
+export interface Skin { c?: number; r?: number; s?: boolean; }
+export interface Plot { t: BuildingType; lvl: number; buf: number; until: number; dur: number; up: boolean; bu?: number; sp?: string; ob?: string; sk?: Skin; } // bu: bu mülke 2x bitişi · sp: özel yapı · ob: engel (gecekondu, hurda…)
 export type Lot = Plot | null;
 export interface Fx { k: 'row' | 'type'; d?: DistrictKey; r?: number; t?: BuildingType; x: number; until: number; }
 export interface Task { k: string; goal: number; prog: number; claimed: boolean; }
@@ -37,7 +38,16 @@ export interface State {
   lien: Record<DistrictKey, number>; // kaporalı semtlerin kalan borcu
   lienT: Record<DistrictKey, number>; // kaporalı semtlerin ilk borcu (ilerleme için)
   dEarn: Record<DistrictKey, number>; // semt, oyuncu başka semtteyken ne kazandı (semt özeti)
-  cards: string[];                 // gösterilen il kartpostalları // lig (kaynak sunucu; bu önbellek), last = gösterilen son hafta sonucu
+  cards: string[];                 // gösterilen il kartpostalları
+  market: string;                  // piyasa raporu gösterilen hafta
+  ach: string[];                   // tapu arşivi: kazanılan mühürler
+  cnt: { ob: number; civic: number; skin: number; kapora: number }; // arşiv sayaçları
+  civic: Record<DistrictKey, string[]>; // belediye kararları
+  nextCivic: number;               // sonraki belediye kartı (oyun süresi, ms)
+  night: boolean;                  // gece görünümü açık mı
+  tokens: number;                  // 2x jetonu (reklamsız mülke 2x)
+  skinsU: number[];                // açılmış cephe renkleri
+  season: { id: string; xp: number; got: number[]; ggot: number[]; gold: boolean }; // tapu sezonu // lig (kaynak sunucu; bu önbellek), last = gösterilen son hafta sonucu
 }
 
 const emptyLots = (): Lot[] => Array(N).fill(null);
@@ -59,6 +69,7 @@ export function newState(now: number, weekKey: string, city: CityId | null = nul
     daily: { last: '', streak: 0 }, tasks: null, shares: 0, coll: [],
     ref: { code: makeCode(), used: false, rewarded: 0 }, week: { key: weekKey, earned: 0 },
     offer: null, premium: false, clockFlag: 0, league: { tier: 0, seals: 0, last: '' }, guideHint: false, collectMode: 'tap', stars: {}, inv: [], ozel: { week: '', bought: false }, fest: '', rifki: true, lien: {}, lienT: {}, dEarn: {}, cards: [],
+    market: '', ach: [], cnt: { ob: 0, civic: 0, skin: 0, kapora: 0 }, civic: {}, nextCivic: 12 * 60e3, night: true, tokens: 0, skinsU: [], season: { id: '', xp: 0, got: [], ggot: [], gold: false },
   };
 }
 

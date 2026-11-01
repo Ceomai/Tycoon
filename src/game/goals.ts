@@ -9,6 +9,7 @@ import { neighbors, filled, totalRate, PAIRS } from '../economy';
 import { Snd, buzz } from '../sound';
 import { toast, bump } from '../ui/modal';
 import { addCash } from './actions';
+import { addXp } from './fun';
 import { persist } from './persist';
 import { Analytics } from '../services/analytics';
 
@@ -66,7 +67,7 @@ export function checkGoals() {
       if (got.includes(gi)) return;
       const [p, n] = g.f(k); if (p < n) return;
       S.stars[k] = [...got, gi]; got.push(gi);
-      const cash = prize(k); addCash(cash); bump(); Snd.unlock(); buzz(20);
+      const cash = prize(k); addCash(cash); addXp(80); bump(); Snd.unlock(); buzz(20);
       Analytics.log('district_star', { district: k, goal: gi, stars: got.length });
       if (got.length >= 3) toast(`${DMAP[k].n}: 3 yıldız! Altın mühür · kiralar kalıcı +%${Math.round(CFG.STAR_BONUS * 100)}`);
       else toast(`★ ${DMAP[k].n}: ${g.t} · ${fmt(cash)}`);

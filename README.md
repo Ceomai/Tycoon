@@ -70,6 +70,13 @@ Simülasyona göre (`npm run sim`, aktif oyuncu, reklamsız) İstanbul'un semtle
 | İl kartpostalı ve semt kuralları | Yeni semtte il kartpostalı ve semtin kuralı (ör. Beşiktaş kafeler +%20, Bebek sahil sırası +%30, Bornova inşaatlar %25 hızlı, Ümitköy tadilat %20 ucuz). | – |
 | Engelli arsalar | Yeni semtte 3–4 arsa gecekondu / hurda / moloz / yıkık duvar; küçük bedelle temizlenir, bedelden fazlası geri döner, nadiren tarihi yapı çıkar. | – |
 | Semt özeti | Semte dönünce "Kadıköy sen Beşiktaş'tayken ₺… kazandı" şeridi. | – |
+| TOPLA anı | Binalardan mühre para uçar, kasa sayarak yükselir, "+₺… ↑" göstergesi; kumbaralar doluyken "DOLU KASA!" mührü. | – |
+| Haftalık piyasa raporu | Her pazartesi bir tür +%30, bir tür −%10 (herkes için aynı); kira göstergesinde işaret. | – |
+| Gece ve gündüz | 19:00–06:00 gece görünümü, pencereler yanar, sokaklar sakin; Ayarlar'dan kapatılabilir. | – |
+| Tapu arşivi | 26 mühürlük albüm; her 4 mühür kiraya kalıcı +%1, 8 ve 16 mühürde yeni cephe renkleri. | – |
+| Belediye kararları | Semtte iki seçenekli kalıcı yatırım (park/otopark, metro/bisiklet yolu): ilgili türe +%15; semt başına en fazla 2. | – |
+| Cephe | Bina başına cephe rengi (9), çatı (3), tabela; yalnızca görünüm. | – |
+| Tapu sezonu | Aylık 30 basamak; puan: kira, görev, inşaat, yıldız, lig. Ücretsiz yol (nakit, 2x jetonu, renk) ve Altın Tapu (₺99,99, RevenueCat ürünü `tapu_sezon`). | RevenueCat |
 | Tapu teslim anı | İnşaatın son 5 saniyesinde geri sayım; bitince binaya "TESLİM" mührü vurulur. Reklamla hızlandırma son 5 saniyeyi bırakır. | – |
 | Semt hedefleri | Her semtte 3 hedef (yan yana dizme, kat çıkma, semti doldurma); her yıldız ikramiye, 3 yıldız kalıcı +%10 ve altın mühür. | – |
 | Karma komşuluk | Aynı tür komşu +%20; akıllı ikililer Kafe+Ofis ve Ev+Dükkân +%10; mülk panelinde dört komşunun şeması. | – |
