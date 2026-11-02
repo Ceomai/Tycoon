@@ -162,3 +162,12 @@ describe('ekonomi değişmezleri', () => {
     const c = ORDER.map(t => TYPES[t].cost); expect([...c].sort((a, b) => a - b)).toEqual(c);
   });
 });
+
+describe('kayıt: çizim tarafına giden kimlikler', () => {
+  it('bilinmeyen engel türü boş arsaya döner (render çökmesin)', () => {
+    const s: any = newState(T, WK, 'ist'); s.d['ist-0'][0] = { t: 'ev', lvl: 0, buf: 0, until: 0, dur: 1, up: false, ob: 'ufo' };
+    s.d['ist-0'][1] = { t: 'ev', lvl: 0, buf: 0, until: 0, dur: 1, up: false, ob: 'hurda' };
+    const m = migrate(JSON.parse(JSON.stringify(s)), T, WK)!;
+    expect(m.d['ist-0'][0]).toBeNull(); expect(m.d['ist-0'][1]!.ob).toBe('hurda');
+  });
+});

@@ -13,7 +13,7 @@ import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { onCall, onRequest, HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { defineSecret } from 'firebase-functions/params';
-import { createVerify } from 'node:crypto';
+import { createVerify, timingSafeEqual } from 'node:crypto';
 import { settle, ensureGroup } from './league';
 
 initializeApp();
@@ -192,7 +192,7 @@ export const admobSsv = onRequest(async (req, res) => {
     const ok = createVerify('SHA256').update(message).verify(pem, sig);
     if (!ok) { res.status(403).send('bad signature'); return; }
     const tx = q.get('transaction_id') || '';
-    if (tx) await db.doc(`rewards/${tx}`).set({ uid: q.get('user_id') || '', kind: q.get('custom_data') || '', unit: q.get('ad_unit') || '', at: FieldValue.serverTimestamp() }, { merge: true });
+    if (tx && /^[A-Za-z0-9_-]{1,128}$/.test(tx)) await db.doc(`rewards/${tx}`).set({ uid: q.get('user_id') || '', kind: q.get('custom_data') || '', unit: q.get('ad_unit') || '', at: FieldValue.serverTimestamp() }, { merge: true });
     res.status(200).send('ok');
   } catch { res.status(500).send('error'); }
 });
@@ -201,7 +201,8 @@ export const admobSsv = onRequest(async (req, res) => {
    RevenueCat panelinde Webhook URL = bu fonksiyon, Authorization = REVENUECAT_WEBHOOK_SECRET.
    app_user_id = Firebase uid (istemci RC.configure/logIn ile verir). */
 export const revenuecatWebhook = onRequest({ secrets: [RC_SECRET] }, async (req, res) => {
-  if (req.get('authorization') !== RC_SECRET.value()) { res.status(401).send('no'); return; }
+  const got = Buffer.from(String(req.get('authorization') || '')), want = Buffer.from(RC_SECRET.value() || '');
+  if (!want.length || got.length !== want.length || !timingSafeEqual(got, want)) { res.status(401).send('no'); return; } // sabit zamanlı karşılaştırma
   const ev = (req.body && req.body.event) || {};
   const uid = String(ev.app_user_id || '');
   if (!uid || uid.startsWith('$RCAnonymousID')) { res.status(200).send('skip'); return; }

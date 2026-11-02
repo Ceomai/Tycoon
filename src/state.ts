@@ -1,4 +1,4 @@
-import { BuildingType, CityId, DistrictKey, N, SCHEMA, dkey, CFG, DMAP, TYPES, MAXLV, CITY_ORDER } from './config';
+import { BuildingType, CityId, DistrictKey, N, SCHEMA, dkey, CFG, DMAP, TYPES, MAXLV, CITY_ORDER, OBSTACLE_IDS } from './config';
 
 export interface Skin { c?: number; r?: number; s?: boolean; }
 export interface Plot { t: BuildingType; lvl: number; buf: number; until: number; dur: number; up: boolean; bu?: number; sp?: string; ob?: string; sk?: Skin; } // bu: bu mülke 2x bitişi · sp: özel yapı · ob: engel (gecekondu, hurda…)
@@ -113,7 +113,7 @@ function cleanLot(q: unknown): Lot {
   const p: Plot = { t: q.t, lvl: Math.round(num(q.lvl, 0, 0, MAXLV)), buf: num(q.buf, 0, 0, MAX_CASH), until: num(q.until, 0, 0), dur: num(q.dur, 1, 1), up: q.up === true };
   if (typeof q.bu === 'number' && Number.isFinite(q.bu)) p.bu = q.bu;
   if (typeof q.sp === 'string') p.sp = q.sp;
-  if (typeof q.ob === 'string') p.ob = q.ob;
+  if (typeof q.ob === 'string') { if (!OBSTACLE_IDS.includes(q.ob)) return null; p.ob = q.ob; } // bilinmeyen engel: boş arsa
   if (isObj(q.sk)) p.sk = { ...(typeof q.sk.c === 'number' ? { c: q.sk.c } : {}), ...(typeof q.sk.r === 'number' ? { r: q.sk.r } : {}), ...(q.sk.s === true ? { s: true } : {}) };
   return p;
 }

@@ -75,6 +75,8 @@ export const CFG = {
 };
 export type Cfg = typeof CFG;
 
+/** Engelli arsa türleri (çizim ve metinler game/district.ts'te). Kayıt doğrulaması için burada. */
+export const OBSTACLE_IDS = ['gecekondu', 'hurda', 'moloz', 'duvar'];
 export const SAVE_KEY = 'tapu-save-v2';
 export const LEGACY_SAVE_KEY = 'tapu-save-v1';
 export const SCHEMA = 2;
