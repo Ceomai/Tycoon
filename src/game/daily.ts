@@ -1,5 +1,6 @@
 /* GÜNLÜK KİRA GÜNÜ — 7 günlük seri; 1-2 gün kaçıran reklamla seriyi kurtarabilir */
 import { S } from '../state';
+import { CFG } from '../config';
 import { fmt, dayKey, dayDiff } from '../format';
 import { now, totalRate } from '../economy';
 import { I } from '../icons';
@@ -33,10 +34,10 @@ export function checkDaily() {
   showDaily(Dd.streak + 1);
 }
 export function showDaily(n: number) {
-  const amt = dailyAmount(n), day = (n - 1) % 7 + 1, big = day === 7;
+  const amt = dailyAmount(n), day = (n - 1) % 7 + 1, big = day === 7, mx = big ? CFG.DAILY7_X : 2; // 7. gün reklam çarpanı daha yüksek
   const claim = (m: number) => { addXp(40); addCash(amt * m); bump(); S.daily = { last: dayKey(new Date(now())), streak: n }; persist(); Analytics.log('daily_claim', { day: n, doubled: m > 1 }); };
   openModal(`<div class="card"><div class="badge">${I.cal}</div><h3>${n}. gün kira günü</h3><p>Her gün uğra, 7. gün büyük ödül.</p>
     ${streakStrip(day, day - 1)}<div class="big">${fmt(amt)}</div>${big ? '<p><b>Haftanın büyük kira ödülü</b></p>' : ''}
-    <div class="btns"><button class="btn gold" data-a="x2">${I.play} İzle, 2 katını al</button><button class="txt" data-a="x1">Al</button></div></div>`,
-    a => { closeModal(); if (a === 'x1') { claim(1); Snd.collect(5); } else Ads.rewarded('daily', `${fmt(amt * 2)} kira`, () => claim(2)); });
+    <div class="btns"><button class="btn gold" data-a="x2">${I.play} İzle, ${mx} katını al</button><button class="txt" data-a="x1">Al</button></div></div>`,
+    a => { closeModal(); if (a === 'x1') { claim(1); Snd.collect(5); } else Ads.rewarded('daily', `${fmt(amt * mx)} kira`, () => claim(mx)); });
 }

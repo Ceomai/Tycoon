@@ -9,6 +9,7 @@ import { weekKey, loc } from '../format';
 
 const GEN: Record<string, string> = { ev: 'Evin', kafe: 'Kafenin', dukkan: 'Dükkânın', ofis: 'Ofisin' };
 const LOW: Record<string, string> = { ev: 'ev', kafe: 'kafe', dukkan: 'dükkân', ofis: 'ofis' };
+const POSS: Record<string, string> = { ev: 'Evinize', kafe: 'Kafenize', dukkan: 'Dükkânınıza', ofis: 'Ofisinize' };
 import { $, ui, SheetState } from '../ui/ctx';
 import { openSheet } from '../ui/sheets';
 import { nearestGoal } from './goals';
@@ -16,6 +17,9 @@ import { nextDistrict, kaporaOf, clearCost } from './district';
 import { festivalOn } from './festival';
 import { weekSpecial } from '../specials';
 import { specialPrice } from './actions';
+import { saveTarget, boostSaving } from './monetize';
+
+let last2x = -1e9; // 2x hatırlatması (CFG.HINT2X_EVERY) en fazla bu sıklıkla
 
 interface Tip { id: string; text: string; go?: SheetState; }
 const FACE = `<svg viewBox="0 0 74 86" aria-hidden="true"><rect x="1" y="1" width="72" height="84" rx="8" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
@@ -53,6 +57,12 @@ function tips(): Tip[] {
   if (!(S.ozel.week === wk && S.ozel.bought) && S.cash >= specialPrice()) out.push({ id: 'ozel', text: `Bu hafta ${sp.n} satışta. Böyle tapu her gün çıkmaz efendim.`, go: { k: 'ozel' } });
   const empty = lots.findIndex(p => !p);
   if (empty >= 0 && ORDER.some(b => S.seen[b] && S.cash >= withDisc(buildCost(k, b)))) out.push({ id: 'empty', text: `${loc(d.n)} boş arsa var. Arsa boş durunca kira getirmez; küçük bir ev bile iş görür.`, go: { k: 'plot', key: k, i: empty } });
+  // tapu beklerken: en çok kazandıran binaya 2x (tasarım M3)
+  const tg = saveTarget(), bs = tg && boostSaving(tg.rem);
+  if (tg && bs && bs.now >= 5 && bs.saved >= 2 && performance.now() - last2x > CFG.HINT2X_EVERY) {
+    const q = lotsOf(S, bs.lot.k)[bs.lot.i]!;
+    out.unshift({ id: 'save2x', text: `${DMAP[tg.k].n} tapusuna ${Math.round(bs.now)} dakika var efendim. ${q.sp ? 'Özel yapınıza' : POSS[q.t]} bir reklamlık 2x verirseniz ${Math.max(1, Math.round(bs.now - bs.saved))} dakikaya iner, benden söylemesi.`, go: { k: 'plot', key: bs.lot.k, i: bs.lot.i } });
+  }
   let best = -1, br = 0;
   lots.forEach((p, i) => { if (producing(p) && !((p!.bu || 0) > t)) { const r = rate(k, i, t); if (r > br) { br = r; best = i; } } });
   if (best >= 0 && S.collects > 10) out.push({ id: 'boost', text: `En çok kazandıran mülkünüz bu ${lots[best]!.sp ? 'özel yapı' : LOW[lots[best]!.t]}. Ona bir 2x verin, para orada katlanır.`, go: { k: 'plot', key: k, i: best } });
@@ -72,7 +82,7 @@ export function maybeTip(pt: number) {
   if (pt - lastAt < CFG.TIP_EVERY) return;
   const list = tips(); if (!list.length) return;
   const tip = list.find(x => x.id !== lastId) || list[0];
-  lastAt = pt; showTip(tip);
+  lastAt = pt; if (tip.id === 'save2x') last2x = performance.now(); showTip(tip);
 }
 export function onTipClick(e: Event) {
   const b = (e.target as HTMLElement).closest('[data-rk]') as HTMLElement | null; if (!b) return;

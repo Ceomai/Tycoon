@@ -5,7 +5,9 @@
      - iOS'ta takip izni (ATT) penceresi onaydan sonra istenir.
      - Ödüllü reklamlarda sunucu tarafı doğrulama (SSV): userId = Firebase uid, customData = ödül türü.
    Web ve önizlemede: 5 saniyelik simülasyon ekranı.
-   Premium oyuncuya geçiş reklamı gösterilmez, ödüller izlemeden verilir.
+   Holding / Reklamsız / Kulüp sahiplerine geçiş reklamı gösterilmez; Holding ve Kulüp'te ödüller izlemeden verilir.
+   Geçiş reklamı zamanlaması (tasarım M1): süresi dolunca doğal durakta (panel/kart kapanışı, TOPLA, semt değişimi) çıkar;
+   ödüllü reklamdan sonra 10 dk kredi, ilk 30 dk oyunda ve açılışın ilk 60 sn'sinde hiç çıkmaz.
    ========================================================= */
 import { Capacitor } from '@capacitor/core';
 import { AdMob, RewardAdPluginEvents, AdmobConsentStatus } from '@capacitor-community/admob';
@@ -20,6 +22,12 @@ import { grantReward } from '../game/actions';
 import { persist } from '../game/persist';
 import { Analytics } from './analytics';
 import { Cloud } from './cloud';
+import { adFree, instantRewards } from './purchases';
+import { rand } from '../format';
+
+let dueAt = 0; // geçiş reklamı zamanı geldiği an (performance.now); 0 = beklemiyor
+/** Ödüllü reklam izlendi: kısa süre geçiş reklamı gösterilmez (reklam kredisi). */
+function credit() { S.adCredit = S.playMs + CFG.AD_CREDIT_MS; }
 
 const env = import.meta.env;
 const isIOS = () => Capacitor.getPlatform() === 'ios';
@@ -60,17 +68,17 @@ export const Ads = {
     } catch (e) { Analytics.error(e, 'ads_init'); }
   },
   async preload() {
-    if (!ready || !canRequest || S.premium) return;
+    if (!ready || !canRequest || instantRewards()) return;
     const id = ids();
     try { if (!rewardedLoaded && id.rewarded) { await AdMob.prepareRewardVideoAd({ adId: id.rewarded, isTesting: testing(), ssv: { userId: Cloud.uid() || 'misafir', customData: 'tapu' } } as any); rewardedLoaded = true; } } catch { /* stok yok */ }
-    try { if (!interstitialLoaded && id.interstitial) { await AdMob.prepareInterstitial({ adId: id.interstitial, isTesting: testing() }); interstitialLoaded = true; } } catch { /* stok yok */ }
+    try { if (!adFree() && !interstitialLoaded && id.interstitial) { await AdMob.prepareInterstitial({ adId: id.interstitial, isTesting: testing() }); interstitialLoaded = true; } } catch { /* stok yok */ }
   },
   async showPrivacyOptions() { if (this.native()) try { await AdMob.showPrivacyOptionsForm(); } catch { /* yok */ } },
 
   /** Ödüllü reklam: izlenirse onReward çalışır. */
   async rewarded(kind: string, label: string, onReward: () => void) {
     Analytics.log('ad_reward_request', { kind });
-    if (S.premium) { grantReward(onReward); toast('Premium: ödül anında'); return; }
+    if (instantRewards()) { grantReward(onReward); toast(`${S.club ? 'Kulüp' : 'Holding'}: ödül anında`); return; }
     if (!this.native()) { showSimulated(true, label, onReward, kind); return; }
     if (!ready || !canRequest) { toast('Reklam şu an yüklenemedi'); return; }
     try {
@@ -80,13 +88,26 @@ export const Ads = {
       const h = await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => { got = true; });
       await AdMob.showRewardVideoAd();
       h.remove(); ui.ad = false;
-      if (got) { grantReward(onReward); Analytics.log('ad_reward', { kind }); S.ads++; }
+      if (got) { credit(); grantReward(onReward); Analytics.log('ad_reward', { kind }); S.ads++; }
       flushQueue(); this.preload();
     } catch (e) { ui.ad = false; toast('Reklam şu an yüklenemedi'); Analytics.error(e, 'ad_rewarded'); this.preload(); }
   },
   /** Geçiş reklamı (15-20 dk'da bir). */
+  /** Oyun döngüsünden çağrılır (kart sırası boşsa): zamanı gelen geçiş reklamını doğal durakta gösterir. */
+  tickInterstitial(pt: number, free: boolean) {
+    if (adFree() || S.playMs < S.nextAd) { dueAt = 0; return; }
+    const gate = Math.max(CFG.FIRST_FREE_MS, S.adCredit || 0);
+    if (S.playMs < gate) { S.nextAd = gate; dueAt = 0; return; }           // ilk oturum ya da reklam kredisi
+    if (pt - ui.bootAt < CFG.BOOT_QUIET_MS) return;                          // açılışta asla
+    if (!dueAt) dueAt = pt;
+    if (!free) return;                                                       // panel/kart açık: beklemede
+    const atBreak = pt - ui.breakAt < 6000 && pt - ui.lastInput > 800;       // doğal durak, oyuncu boşta
+    const waited = pt - dueAt > CFG.BREAK_WAIT_MS && pt - ui.lastInput > 2000;
+    if (!atBreak && !waited) return;
+    dueAt = 0; S.nextAd = S.playMs + rand(CFG.INTER_MIN, CFG.INTER_MAX); void this.interstitial();
+  },
   async interstitial() {
-    if (S.premium) return;
+    if (adFree()) return;
     Analytics.log('ad_interstitial', {});
     if (!this.native()) { showSimulated(false, '', null, 'interstitial'); return; }
     if (!ready || !canRequest || !interstitialLoaded) { this.preload(); return; }
@@ -106,7 +127,7 @@ function showSimulated(rewarded: boolean, label: string, onReward: (() => void) 
   x.onclick = () => {
     if (!done) return;
     el.hidden = true; el.innerHTML = ''; ui.ad = false; ui.lastClose = performance.now(); S.ads++;
-    if (rewarded) { grantReward(onReward || undefined); Analytics.log('ad_reward', { kind }); } else { persist(); render(); }
+    if (rewarded) { credit(); grantReward(onReward || undefined); Analytics.log('ad_reward', { kind }); } else { persist(); render(); }
     flushQueue();
   };
   const pr = $('#adPrem'); if (pr) pr.onclick = () => { if (!done) return toast('Reklam bitince açılır'); x.onclick(); openSheet({ k: 'store' }); };

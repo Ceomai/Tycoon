@@ -25,6 +25,7 @@ import { payLien, showDistrictCard } from './district';
 import { maybeTip } from './rifki';
 import { festivalOn } from './festival';
 import { showFestGift } from './events';
+import { maybeStarter, clubTick } from './monetize';
 
 let lastT = performance.now(), lastGoals = 0;
 const anyProducing = () => S.own.some(k => lotsOf(S, k).some(producing));
@@ -68,10 +69,11 @@ export function tick() {
   else if (free && S.collects >= 3 && S.market !== curWeek()) showMarket();
   else if (free && maybeCivic()) { /* belediye kartı açıldı */ }
   else if (free && festivalOn(t) && S.fest !== dayKey(new Date(t))) { S.fest = dayKey(new Date(t)); showFestGift(); }
+  else if (free && maybeStarter()) { /* başlangıç paketi: ilk tapu duvarında bir kez */ }
   else if (free && S.playMs >= S.nextEvent) { S.nextEvent = S.playMs + rand(CFG.EVENT_MIN, CFG.EVENT_MAX); if (anyProducing()) showEvent(); }
   else if (free && !S.offer && S.playMs >= S.nextOffer) { S.nextOffer = S.playMs + rand(CFG.OFFER_MIN, CFG.OFFER_MAX); if (anyProducing()) showOffer(); }
-  else if (free && S.playMs >= S.nextAd) { S.nextAd = S.playMs + rand(CFG.INTER_MIN, CFG.INTER_MAX); Ads.interstitial(); }
-  if (pt - lastGoals > 2000) { lastGoals = pt; checkGoals(); checkAch(); }
+  else Ads.tickInterstitial(pt, !!free); // geçiş reklamı: zamanı gelince doğal durakta
+  if (pt - lastGoals > 2000) { lastGoals = pt; checkGoals(); checkAch(); clubTick(); }
   maybeTip(pt);
   if (S.collectMode === 'auto') autoCollect(pt);
   // kumbaralar dolunca TOPLA mührü hafifçe sallanır (dakikada en fazla bir kez)

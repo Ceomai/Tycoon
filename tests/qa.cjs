@@ -55,7 +55,7 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
    if(await p.isVisible('#ad:not([hidden])')){ inter++; interTimes.push(Math.round(sec/60)); await p.clock.runFor(5500); await tap(p,'#adX'); }
  }
  log('   geçiş reklamı:',inter,'kez, dakika',interTimes.join(','),'| etkinlik:',ev);
- ok(inter>=2&&inter<=3,'45 dk içinde 2-3 geçiş reklamı');
+ ok(inter>=1&&inter<=2&&interTimes[0]>=30,'ilk 30 dk geçiş reklamı yok; 45 dk içinde 1-2 geçiş reklamı');
  ok(ev>=8&&ev<=30,'kart (etkinlik/fırsat/günlük) sıklığı makul');
  ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
 
@@ -129,7 +129,7 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
  ok(taxi,'altın taksi geçiyor');
  if(taxi){ const cX=(await st(p)).cash; await p.dispatchEvent('.car.taxi','pointerdown'); s=await st(p); ok(s.cash>cX,'altın taksi yakalandı, para geldi'); }
  await dismiss(p); await tap(p,'#menuBtn'); await tap(p,'[data-a="ref"]'); await p.fill('#refInput','tpxyz9'); await tap(p,'[data-a="usecode"]'); s=await st(p); ok(s.ref.used==='TPXYZ9',"davet kodu kullanıldı"); ok(s.cash>=2000,'davet hediyesi nakit verildi');
- const cRef=s.cash; await p.keyboard.press('Escape'); await p.waitForTimeout(380); await tap(p,'#menuBtn'); await tap(p,'[data-a="store"]'); await tap(p,'[data-a="buy"]'); await tap(p,'#modal [data-a="ok"]'); s=await st(p); ok(s.premium===true,'reklamsız paket alındı (test)');
+ const cRef=s.cash; await p.keyboard.press('Escape'); await p.waitForTimeout(380); await tap(p,'#menuBtn'); await tap(p,'[data-a="store"]'); await tap(p,'[data-a="buyp"][data-p="holding"]'); await tap(p,'#modal [data-a="ok"]'); s=await st(p); ok(s.premium===true,'reklamsız paket alındı (test)');
  await p.keyboard.press('Escape'); await p.waitForTimeout(400); await tap(p,'.lot[data-i="1"]'); await tap(p,'[data-a="lotboost"]'); ok(!(await p.isVisible('#ad:not([hidden])')),'premiumda reklam ekranı açılmıyor'); s=await st(p); ok(s.d['ist-0'][1].bu>s._now,'premiumda mülke 2x anında eklendi');
  ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
  p=await page(b,{},baseSeed(`{unlocked:5,earned:1e10}`));

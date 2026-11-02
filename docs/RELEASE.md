@@ -43,13 +43,23 @@ Kod tarafı hazır. Aşağıdakiler senin hesaplarınla yapılması gereken adı
 6. [ ] Ödüllü birim → Sunucu tarafı doğrulama → URL: `https://europe-west1-<proje>.cloudfunctions.net/admobSsv`.
 7. [ ] `app-ads.txt` dosyasını geliştirici web sitende yayınla.
 
-## 4. RevenueCat (reklamsız paket)
-1. [ ] Play Console ve App Store Connect'te tek seferlik ürün: `tapu_premium` (tüketilmeyen / non-consumable).
+## 4. RevenueCat (paketler)
+1. [ ] Play Console ve App Store Connect'te ürünler (uygulama kimlikleri desenle eşler; fiyatlar öneri):
+
+   | Ürün kimliği | Tür | Fiyat | Entitlement |
+   |---|---|---|---|
+   | `tapu_premium` | tüketilmeyen | ₺249,99 | **`premium`** (Holding paketi: reklamsız + anında ödül + kalıcı 2x kira) |
+   | `tapu_reklamsiz` | tüketilmeyen | ₺99,99 | **`reklamsiz`** (yalnızca geçiş reklamı kalkar) |
+   | `tapu_kulup` | aylık abonelik | ₺69,99 | **`kulup`** (reklamsız, anında ödül, günde 1 jeton, Altın Tapu) |
+   | `tapu_baslangic` | tüketilmeyen | ₺49,99 | — (uygulama içinde bir kez verilir) |
+   | `tapu_jeton5`, `tapu_jeton15` | tüketilen | ₺29,99 · ₺69,99 | — |
+   | `tapu_sezon` | tüketilen | ₺99,99 | — (Altın Tapu, her sezon) |
+   | `tapu_sezon_ilk` | tüketilen | ₺49,99 | — (ilk sezon indirimi; yoksa `tapu_sezon` kullanılır) |
 2. [ ] app.revenuecat.com → proje → Android + iOS uygulamaları (Play servis hesabı JSON'u, App Store paylaşılan gizli anahtarı / In-App Purchase anahtarı).
-3. [ ] Entitlement: **`premium`** → ürünü bağla. Offering: `default` → paket olarak `tapu_premium`.
-   - [ ] **Tapu sezonu (Altın Tapu):** her sezon tekrar alınan (tüketilen) ürün `tapu_sezon`, ₺99,99; RevenueCat'te bir offering'e (ör. `sezon`) paket olarak ekle. Uygulama kimliğinde "sezon" geçen paketi otomatik bulur.
+3. [ ] Entitlement'ları oluştur ve ürünleri bağla; tüm ürünleri bir offering'e (`default`) paket olarak ekle. Uygulama paketleri ürün kimliğinden tanır.
 4. [ ] Herkese açık SDK anahtarları → `.env` → `VITE_REVENUECAT_ANDROID/IOS`.
 5. [ ] Integrations → Webhooks → URL: `…/revenuecatWebhook`, Authorization: Firebase'e girdiğin `REVENUECAT_WEBHOOK_SECRET`.
+6. [ ] Remote Config (isteğe bağlı A/B): `AD_CREDIT_MS`, `FIRST_FREE_MS`, `DAILY7_X`, `CARD_FLOOR_SEC`, `STARTER_CASH_SEC`, `INTER_MIN/MAX` sayısal anahtarları uygulamayı güncellemeden değiştirir.
 
 ## 5. Gizlilik ve yasal
 - [ ] `docs/privacy-policy.md` taslağını doldur (şirket adı, adres, iletişim e-postası, VERBİS durumu), bir web adresinde yayınla → `.env` → `VITE_PRIVACY_URL`. Kullanım koşulları için `VITE_TERMS_URL`.

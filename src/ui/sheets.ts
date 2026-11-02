@@ -23,7 +23,8 @@ import { openShare, copyText, shareTextOnly } from '../game/share';
 import { useCode } from '../game/referral';
 import { persist } from '../game/persist';
 import { Cloud } from '../services/cloud';
-import { Purchases } from '../services/purchases';
+import { Purchases, adFree, instantRewards } from '../services/purchases';
+import { saveTarget, boostSaving, starterActive, starterLeft, showStarter, buyTokens } from '../game/monetize';
 import { Notify } from '../services/notify';
 import { Ads } from '../services/ads';
 import { resetGame } from '../game/loop';
@@ -32,7 +33,7 @@ import { leagueZones, leagueName, leagueShort, weekEndsAt, fmtLeft } from '../ga
 import { LEAGUES, LEAGUE_TOP } from '../config';
 
 export function openSheet(s: SheetState) { ui.openedAt = performance.now(); ui.sheet = s; ui.sheetSig = ''; renderSheet(); $('#sheet').classList.add('on'); $('#scrim').classList.add('on'); Snd.tap(); }
-export function closeSheet() { if (!ui.sheet) return; ui.sheet = null; ui.lastClose = performance.now(); $('#sheet').classList.remove('on'); if (!ui.modal) $('#scrim').classList.remove('on'); }
+export function closeSheet() { if (!ui.sheet) return; ui.sheet = null; ui.lastClose = ui.breakAt = performance.now(); $('#sheet').classList.remove('on'); if (!ui.modal) $('#scrim').classList.remove('on'); }
 const lvBar = (l: number) => `<div class="lv">${[1, 2, 3, 4, 5].map(k => `<i class="${k <= l ? 'on' : ''}"></i>`).join('')}</div>`;
 const discBox = () => S.disc ? `<div class="disc">${small(I.tag, 16)} %${Math.round(S.disc * 100)} müteahhit indirimi</div>` : '';
 
@@ -106,7 +107,8 @@ export function renderSheet() {
     }
   }
   else if (s.k === 'map') {
-    sig = 'm|' + JSON.stringify(S.lien) + Math.floor(S.cash) + JSON.stringify(S.stars) + goalsOf(S.cur).map(g => g.f(S.cur).join('/')).join() + S.cur + S.own.join() + S.own.map(filled).join() + CITY_ORDER.map(c => CITIES[c].districts.map((_, i) => { const u = unlockInfo(dkey(c, i)); return (u.ok ? 1 : 0) + '' + (S.cash >= u.fee ? 1 : 0); }).join('')).join();
+    const tg = saveTarget(), bs = tg ? boostSaving(tg.rem) : null, hint = tg && bs && bs.saved >= 1 ? { k: tg.k, bs } : null;
+    sig = 'm|' + (hint ? hint.k + Math.round(hint.bs.saved) + hint.bs.lot.k + hint.bs.lot.i : '') + JSON.stringify(S.lien) + Math.floor(S.cash) + JSON.stringify(S.stars) + goalsOf(S.cur).map(g => g.f(S.cur).join('/')).join() + S.cur + S.own.join() + S.own.map(filled).join() + CITY_ORDER.map(c => CITIES[c].districts.map((_, i) => { const u = unlockInfo(dkey(c, i)); return (u.ok ? 1 : 0) + '' + (S.cash >= u.fee ? 1 : 0); }).join('')).join();
     if (sig !== ui.sheetSig) {
       const start = S.city || 'ist';
       const order = [start, ...CITY_ORDER.filter(c => c !== start)];
@@ -125,6 +127,7 @@ export function renderSheet() {
             const af = S.cash >= u.fee, kap = kaporaOf(k), kf = S.cash >= kap; if (!af) anyShort = true;
             return `<div class="salerow"><div class="sh2"><b>${d.n}</b><span class="st">SATIŞTA</span></div>${rl}
               <p>Tapu ${fmt(u.fee)}${af ? '' : kf ? ' · paran şimdilik yetmiyor ama kapora verip hemen başlayabilirsin' : ` · kaporaya ${fmt(kap - S.cash)} kaldı`}</p>
+              ${hint && hint.k === k ? `<div class="hint2x"><span class="h2c">2x</span><span class="h2t"><b>2x ile ≈ ${Math.round(hint.bs.saved)} dk kısalır</b><small>en çok kazandıran binana 1 sa 2x</small></span><button class="chip h2b" data-a="boost2x" data-k="${hint.bs.lot.k}" data-i="${hint.bs.lot.i}">${instantRewards() ? '★ Ver' : `${I.play} İzle`}</button></div>` : ''}
               <div class="sbtns"><button class="btn" data-a="kapora" data-k="${k}" ${kf && !af ? '' : 'disabled'}>Kapora · ${fmt(kap)}<small>%${Math.round(CFG.KAPORA * 100)} · ${CFG.KAPORA_LOTS} arsa hemen</small></button>
               <button class="btn ${af ? 'gold' : 'soft'}" data-a="buy" data-k="${k}" ${af ? '' : 'disabled'}>Tapuyu al · ${fmt(u.fee)}<small>20 arsa</small></button></div></div>`;
           }
@@ -137,7 +140,7 @@ export function renderSheet() {
   }
   else if (s.k === 'set') {
     const acct = Cloud.account();
-    sig = 's|' + S.night + S.rifki + S.collectMode + S.sound + S.notif + S.premium + (s.reset ? 1 : 0) + (s.del ? 1 : 0) + JSON.stringify(acct) + Ads.privacyRequired();
+    sig = 's|' + S.night + S.rifki + S.collectMode + S.sound + S.notif + S.premium + S.noAds + S.club + (s.reset ? 1 : 0) + (s.del ? 1 : 0) + JSON.stringify(acct) + Ads.privacyRequired();
     if (sig !== ui.sheetSig) {
       html = `<p class="sec">Nasıl oynanır</p>
         <ul class="rules">
@@ -157,7 +160,7 @@ export function renderSheet() {
         <div class="srow"><span>Rıfkı Abi’nin ipuçları</span><button class="sw${S.rifki ? ' on' : ''}" data-a="rifki" aria-label="Rıfkı Abi’nin ipuçları"></button></div>
         <div class="srow"><span>Ses</span><button class="sw${S.sound ? ' on' : ''}" data-a="sound" aria-label="Ses"></button></div>
         <div class="srow"><span>Bildirimler</span><button class="sw${S.notif ? ' on' : ''}" data-a="notif" aria-label="Bildirimler"></button></div>
-        <div class="srow"><span>Reklamlar</span><span>${S.premium ? 'Kapalı (reklamsız paket)' : Ads.native() ? 'Açık' : 'Test modu'}</span></div>
+        <div class="srow"><span>Reklamlar</span><span>${S.premium ? 'Kapalı (Holding paketi)' : S.club ? 'Kapalı (Emlak Kulübü)' : S.noAds ? 'Yalnızca isteğe bağlı (Reklamsız)' : Ads.native() ? 'Açık' : 'Test modu'}</span></div>
         <p class="sec" style="margin-top:18px">Hesap ve kayıt</p>
         <div class="srow"><span>Kayıt</span><span>${acct.enabled ? (acct.linked ? `${esc(acct.provider)} hesabına bağlı` : 'Misafir · bulutta yedekleniyor') : 'Bu cihazda'}</span></div>
         <div class="acct">
@@ -170,7 +173,7 @@ export function renderSheet() {
     }
   }
   else if (s.k === 'menu') {
-    sig = 'mn|' + S.ach.length + seasonLevel() + seasonClaimable() + S.league.tier + canHolding() + S.premium + Math.floor(S.week.earned) + (S.shares || 0);
+    sig = 'mn|' + (starterActive() ? Math.floor(starterLeft() / 1000) : 0) + S.noAds + S.club + S.ach.length + seasonLevel() + seasonClaimable() + S.league.tier + canHolding() + S.premium + Math.floor(S.week.earned) + (S.shares || 0);
     if (sig !== ui.sheetSig) {
       const row = (a: string, ic: string, b: string, sm: string, dot = false) => `<button class="drow" data-a="${a}"><span class="ic">${ic}${dot ? '<span class="dot"></span>' : ''}</span><span class="di"><b>${b}</b><small>${sm}</small></span></button>`;
       html = `<p class="sec">Menü</p><div class="dlist">
@@ -180,7 +183,8 @@ export function renderSheet() {
         ${row('sezon', I.crown, 'Tapu sezonu', `${seasonName(seasonId())} · basamak ${seasonLevel()}/${SEASON_LV}${S.season && S.season.gold ? ' · Altın' : ''}`, seasonClaimable())}
         ${row('arsiv', I.trophy, 'Tapu arşivi', `${S.ach.length}/${ACH.length} mühür · kira +%${Math.floor(S.ach.length / 4)}`)}
         ${row('ozel', I.tower, 'Haftanın özel tapusu', ozelAvail() ? `${weekSpecial(weekKey(new Date(t))).n} satışta` : `${weekSpecial(weekKey(new Date(t))).n} alındı`, ozelAvail())}
-        ${row('store', I.noads, 'Reklamsız paket', S.premium ? 'Aktif' : 'Reklamsız + kalıcı 2x gelir')}
+        ${starterActive() ? row('starter', I.crown, 'Başlangıç paketi', `Yalnızca bir kez · bitiş ${clock(starterLeft())}`, true) : ''}
+        ${row('store', I.noads, 'Mağaza', S.premium ? 'Holding paketi aktif' : S.club ? 'Emlak Kulübü aktif' : S.noAds ? 'Reklamsız aktif · jetonlar, sezon' : 'Reklamsız, Holding, Kulüp, jetonlar')}
         ${row('holding', I.tower, 'Holding kur', canHolding() ? `${sharesPreview()} hisse hazır` : S.shares ? `${S.shares} hisse · kiralar ${fmtX(1 + 0.1 * S.shares)}` : 'Bir ilin 5. semtini alınca açılır', canHolding())}
         ${row('set', I.gear, 'Ayarlar', 'Ses, bildirim, hesap, gizlilik')}
       </div>`;
@@ -269,7 +273,7 @@ export function renderSheet() {
   else if (s.k === 'sezon') {
     // tasarım: H8 · tapu sezonu
     ensureSeason(); const lv = seasonLevel(), sv = S.season;
-    sig = 'se|' + sv.id + sv.xp + sv.got.length + sv.ggot.length + sv.gold + Math.floor(seasonLeft() / 3600e3);
+    sig = 'se|' + S.seasonFirst + sv.id + sv.xp + sv.got.length + sv.ggot.length + sv.gold + Math.floor(seasonLeft() / 3600e3);
     if (sig !== ui.sheetSig) {
       const from = Math.max(1, Math.min(SEASON_LV - 5, lv - 1)), cols = Array.from({ length: 6 }, (_, q) => from + q);
       const cell = (l: number, gold: boolean) => { const r = seasonReward(l, gold), got = (gold ? sv.ggot : sv.got).includes(l), ready = l <= lv && !got && (!gold || sv.gold); return `<span class="sc ${gold ? 'g' : ''}${got ? ' got' : ready ? ' rd' : ''}${l > lv || (gold && !sv.gold) ? ' lk' : ''}">${r.label}</span>`; };
@@ -280,7 +284,7 @@ export function renderSheet() {
           <span class="sl">ÜCRETSİZ</span>${cols.map(l => cell(l, false)).join('')}
           <span class="sl g">ALTIN</span>${cols.map(l => cell(l, true)).join('')}</div>
         <div class="btns"><button class="btn gold" data-a="sclaim" ${seasonClaimable() ? '' : 'disabled'}>Ödülleri al</button></div>
-        ${sv.gold ? '<p class="note" style="text-align:center">Altın Tapu bu sezon açık · her basamakta ek ödül</p>' : `<div class="gbox"><span><b>Altın Tapu</b><small>Her basamakta ek ödül, sezona özel altın cephe ve 30. basamakta özel yapı.</small></span><button class="btn" data-a="sgold">${Purchases.seasonPrice()}</button></div>`}
+        ${sv.gold ? '<p class="note" style="text-align:center">Altın Tapu bu sezon açık · her basamakta ek ödül</p>' : `<div class="gbox"><span><b>Altın Tapu</b><small>Her basamakta ek ödül, sezona özel altın cephe ve 30. basamakta özel yapı.</small></span><button class="btn gprice" data-a="sgold">${!S.seasonFirst ? `<s>${Purchases.seasonFull()}</s>` : ''}${Purchases.seasonPrice()}</button></div>`}
         <p class="note">Ödüller: nakit, 2x jetonu (bir mülke reklamsız 1 saat 2x), cephe renkleri; 30. basamakta büyük ödül. Her ayın başında yeni sezon.</p>`;
     }
   }
@@ -347,11 +351,28 @@ export function renderSheet() {
     }
   }
   else if (s.k === 'store') {
-    sig = 'st|' + S.premium + Purchases.price();
+    // tasarım M6–M7: üç basamak + jetonlar + Altın Tapu
+    sig = 'st|' + S.premium + S.noAds + S.club + S.tokens + S.seasonFirst + (S.season && S.season.gold) + (starterActive() ? Math.floor(starterLeft() / 1000) : 0) + Purchases.price('holding') + Purchases.price('reklamsiz');
     if (sig !== ui.sheetSig) {
-      html = `<div class="sh-head"><div class="badge" style="margin:0">${I.crown}</div><div class="sh-t"><h3>Reklamsız paket</h3><p>Tek seferlik satın alım</p></div></div>
-        <ul class="prem"><li>${I.noads}Geçiş reklamı yok</li><li>${I.bolt}Ödüllü reklam ödülleri izlemeden, anında</li><li>${I.crown}Tüm kiralar kalıcı olarak 2 kat</li></ul>
-        ${S.premium ? '<div class="btns"><button class="btn" disabled>Aktif</button></div>' : `<div class="price">${Purchases.price()}</div><div class="btns"><button class="btn gold" data-a="buy">Satın al</button><button class="txt" data-a="restore">Satın alımı geri yükle</button></div>`}`;
+      const li = (ok: boolean, t: string) => `<li class="${ok ? '' : 'no'}">${ok ? I.check : '–'}<span>${t}</span></li>`;
+      const tier = (key: string, name: string, items: [boolean, string][], price: string, own: boolean, tag = '', best = false, sub = '') =>
+        `<div class="tier${best ? ' best' : ''}">${tag ? `<span class="ttag">${tag}</span>` : ''}<div class="tl"><b>${name}</b><ul>${items.map(([o, t]) => li(o, t)).join('')}</ul></div>
+          ${own ? '<button class="btn" disabled>Aktif</button>' : `<button class="btn${best ? ' gold' : ''}" data-a="buyp" data-p="${key}">${price}${sub ? `<small>${sub}</small>` : ''}</button>`}</div>`;
+      const ss = S.season && S.season.gold;
+      html = `<div class="sh-head"><div class="badge" style="margin:0">${I.crown}</div><div class="sh-t"><h3>Mağaza</h3><p>Oyun aynı; yalnızca reklam ve hız tercihi</p></div></div>
+        ${starterActive() ? `<button class="drow starterrow" data-a="starter"><span class="ic">${I.crown}<span class="dot"></span></span><span class="di"><b>Başlangıç paketi</b><small>Yalnızca bir kez · bitiş ${clock(starterLeft())}</small></span><span class="pr">${Purchases.price('baslangic')}</span></button>` : ''}
+        <p class="sec">Paketler</p>
+        ${tier('reklamsiz', 'Reklamsız', [[true, 'Geçiş reklamı yok'], [true, 'Ödüllü reklamlar isteğe bağlı, ödül verir'], [false, 'Ödüller anında'], [false, 'Kalıcı 2x kira']], Purchases.price('reklamsiz'), adFree())}
+        ${tier('holding', 'Holding paketi', [[true, 'Geçiş reklamı yok'], [true, 'Ödüller izlemeden, anında'], [true, 'Tüm kiralar kalıcı 2 kat']], Purchases.price('holding'), S.premium, 'EN ÇOK DEĞER', true)}
+        ${tier('kulup', 'Emlak Kulübü', [[true, 'Geçiş reklamı yok'], [true, 'Ödüller anında'], [true, 'Her gün 1 adet 2x jetonu'], [true, 'Altın Tapu sezonu dahil'], [false, 'Kalıcı 2x kira']], Purchases.price('kulup'), S.club, 'ABONELİK', false, '/ay')}
+        <p class="sec">2x jetonu · reklamsız 1 saat 2x</p>
+        <div class="jets"><div class="jet"><span class="h2c">2x</span><b>× 5</b><small>5 saat 2x</small><button class="btn" data-a="jet" data-n="5">${Purchases.price('jeton5')}</button></div>
+          <div class="jet best"><span class="ttag">%25 KÂR</span><span class="h2c">2x</span><b>× 15</b><small>15 saat 2x</small><button class="btn gold" data-a="jet" data-n="15">${Purchases.price('jeton15')}</button></div></div>
+        <p class="note">Elindeki jeton: <b>${S.tokens}</b>. Jeton, mülk panelindeki “2x jetonu kullan” düğmesiyle harcanır.</p>
+        <p class="sec">Tapu sezonu</p>
+        ${ss ? `<p class="note" style="text-align:center">Altın Tapu bu sezon açık${S.club ? ' · Kulüp ile dahil' : ''}</p>` : `<div class="gbox"><span><b>Altın Tapu</b><small>${!S.seasonFirst ? 'İlk sezonuna özel yarı fiyat. ' : ''}Her basamakta ek ödül, 30. basamakta özel yapı.</small></span><button class="btn gprice" data-a="sgold">${!S.seasonFirst ? `<s>${Purchases.seasonFull()}</s>` : ''}${Purchases.seasonPrice()}</button></div>`}
+        <p class="note">Holding’i alan Reklamsız’ı da almış sayılır. Kulüp iptal edilince geçiş reklamı geri gelir; kazanılan jetonlar ve sezon ödülleri kalır.</p>
+        <div class="btns"><button class="txt" data-a="restore">Satın alımları geri yükle</button></div>`;
     }
   }
   else if (s.k === 'holding') {
@@ -401,8 +422,9 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
     if (a === 'buy') return buyDistrict(k);
     if (a === 'kapora') return buyDistrict(k, true);
     if (a === 'payoff') { closeLien(k); ui.sheetSig = ''; return; }
+    if (a === 'boost2x') { lotBoost(k, +btn.dataset.i!); ui.sheetSig = ''; return; }
   }
-  if (s.k === 'menu') { if (a === 'share') return openShare(); return openSheet({ k: a }); }
+  if (s.k === 'menu') { if (a === 'share') return openShare(); if (a === 'starter') { closeSheet(); return showStarter(); } return openSheet({ k: a }); }
   if (s.k === 'tasks') { if (a === 'daily') { closeSheet(); ui.lastDay = ''; return; } if (a === 'claim') claimTask(+btn.dataset.i!); if (a === 'bonus') claimBonus(); }
   if (s.k === 'lb') { if (a === 'ref') return openSheet({ k: 'ref' }); if (a === 'leagues') return openSheet({ k: 'leagues' }); }
   if (s.k === 'leagues' && a === 'back') return openSheet({ k: 'lb' });
@@ -425,7 +447,14 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
   }
   if (s.k === 'set' && a === 'guide') return openSheet({ k: 'guide' });
   if (s.k === 'ref') { if (a === 'copy') copyText(S.ref.code); if (a === 'sharetext') shareTextOnly(); if (a === 'usecode') await useCode(($('#refInput') || {}).value); }
-  if (s.k === 'store') { if (a === 'buy') return Purchases.buy(); if (a === 'restore') return Purchases.restore(); }
+  if (s.k === 'store') {
+    if (a === 'buy') return Purchases.buy();
+    if (a === 'buyp') return Purchases.buyProduct(btn.dataset.p as any);
+    if (a === 'jet') return buyTokens(+btn.dataset.n! === 15 ? 15 : 5);
+    if (a === 'starter') { closeSheet(); return showStarter(); }
+    if (a === 'sgold') return Purchases.buySeason(() => { ensureSeason(); S.season.gold = true; toast('Altın Tapu açıldı'); Snd.unlock(); ui.sheetSig = ''; persist(); });
+    if (a === 'restore') return Purchases.restore();
+  }
   if (s.k === 'holding' && a === 'hold') { if (s.conf) return doHolding(); s.conf = true; later(s, 'conf'); }
   if (s.k === 'set') {
     if (a === 'sound') { S.sound = !S.sound; persist(); Snd.tap(); }

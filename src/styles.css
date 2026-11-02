@@ -782,3 +782,48 @@ body.idle .bigstamp,body.idle .gain{animation-play-state:running!important}
 .gbox span{flex:1;display:flex;flex-direction:column;gap:2px} .gbox b{font:700 18px/1.05 var(--cond);letter-spacing:.04em;text-transform:uppercase}
 .gbox small{font:400 12px/1.35 var(--ui);color:var(--muted)}
 .gbox .btn{width:auto;padding:0 14px;background:#e0a21b;color:#1e3a32}
+
+/* ---------- M · gelir modeli (tasarım M2, M5–M8): yalnızca yeni öğeler; mevcut bileşenlerin dili ---------- */
+.hint2x{display:flex;align-items:center;gap:10px;border:1.5px solid #e0a21b;background:var(--surface);border-radius:8px;padding:8px 10px}
+.h2c{width:34px;height:34px;flex:none;box-sizing:border-box;border-radius:50%;border:2px solid #e0a21b;display:grid;place-items:center;font:700 13px var(--mono);color:#b8860b}
+.h2t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.h2t b{font:700 15px/1.1 var(--cond);letter-spacing:.04em;text-transform:uppercase}
+.h2t small{font:500 11px var(--mono);color:var(--muted)}
+.chip.h2b{background:var(--haz);color:var(--haz-ink);display:inline-flex;align-items:center;gap:4px;min-width:0}
+.chip.h2b svg{width:12px;height:12px}
+.card.starter{position:relative;text-align:left}
+.card.starter h3{margin-top:2px}
+.card.starter .gseal.st{position:absolute;right:16px;top:14px;width:66px;height:66px;border-color:var(--stamp);color:var(--stamp);transform:rotate(-10deg)}
+.pkit{list-style:none;margin:6px 0 0;padding:12px 0;border-top:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);display:flex;flex-direction:column;gap:10px}
+.pkit li{display:flex;gap:10px;align-items:center}
+.pkit .pk{width:40px;height:40px;flex:none;border-radius:8px;box-shadow:inset 0 0 0 1.5px var(--ink);display:grid;place-items:center;font:700 13px var(--mono);background:var(--bg)}
+.pkit .sw{width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--ink)}
+.pkit li > span:last-child{display:flex;flex-direction:column}
+.pkit b{font:700 16px/1.1 var(--cond);letter-spacing:.04em;text-transform:uppercase}
+.pkit small{font:500 11.5px var(--mono);color:var(--muted)}
+.pkfoot{display:flex;justify-content:space-between;align-items:baseline;margin:10px 0 2px;font:500 12.5px var(--mono)}
+.pkfoot s{color:var(--muted)} .pkfoot .tm{color:var(--stamp);font-weight:600}
+.tier{position:relative;display:flex;gap:10px;align-items:center;border:1.5px solid var(--ink);border-radius:10px;padding:12px;margin:0 0 12px}
+.tier.best{border:2px solid #e0a21b;background:color-mix(in srgb,#e0a21b 9%,var(--surface))}
+.tier .tl{flex:1;min-width:0}
+.tier .tl b{font:700 19px/1 var(--cond);letter-spacing:.04em;text-transform:uppercase}
+.tier ul{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:3px;font:500 12.5px/1.35 var(--ui)}
+.tier li{display:flex;gap:6px;align-items:flex-start}
+.tier li svg{width:13px;height:13px;flex:none;margin-top:2px;color:var(--up)}
+.tier li.no{color:var(--muted);opacity:.75}
+.tier .btn{width:100px;flex:none;min-height:52px;padding:0 6px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.tier .btn small,.jet .btn small{font:600 9px var(--mono);opacity:.8}
+.ttag{position:absolute;right:10px;top:-10px;background:#e0a21b;color:#1e3a32;font:600 9.5px var(--mono);letter-spacing:.1em;border-radius:4px;padding:3px 6px}
+.jets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.jet{position:relative;border:1.5px solid var(--ink);border-radius:10px;padding:14px 8px 10px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.jet.best{border:2px solid #e0a21b;background:color-mix(in srgb,#e0a21b 9%,var(--surface))}
+.jet .ttag{right:auto;left:50%;transform:translateX(-50%)}
+.jet .h2c{width:46px;height:46px;font-size:15px}
+.jet b{font:700 20px/1 var(--cond);letter-spacing:.04em}
+.jet small{font:500 10.5px var(--mono);color:var(--muted)}
+.jet .btn{width:100%;min-height:42px}
+.btn.gprice{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}
+.btn.gprice s{font:500 10px var(--mono);opacity:.75}
+.starterrow .pr{font:700 15px var(--cond);letter-spacing:.04em;color:var(--stamp)}
+.card.starter > p:not(.sec){max-width:none;margin-left:0;margin-right:0;padding-right:70px}
+.pkit .sw{display:block;width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--ink)}

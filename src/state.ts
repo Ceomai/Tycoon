@@ -47,7 +47,13 @@ export interface State {
   night: boolean;                  // gece görünümü açık mı
   tokens: number;                  // 2x jetonu (reklamsız mülke 2x)
   skinsU: number[];                // açılmış cephe renkleri
-  season: { id: string; xp: number; got: number[]; ggot: number[]; gold: boolean }; // tapu sezonu // lig (kaynak sunucu; bu önbellek), last = gösterilen son hafta sonucu
+  season: { id: string; xp: number; got: number[]; ggot: number[]; gold: boolean };
+  noAds: boolean;                  // Reklamsız paket (önbellek; kaynak RevenueCat)
+  club: boolean;                   // Emlak Kulübü aboneliği (önbellek)
+  starter: { at: number; bought: boolean }; // başlangıç paketi: gösterildiği an, alındı mı
+  seasonFirst: boolean;            // Altın Tapu ilk sezon indirimi kullanıldı mı
+  adCredit: number;                // bu oyun süresine (playMs) kadar geçiş reklamı yok
+  clubDay: string;                 // Kulüp günlük jetonunun verildiği gün // tapu sezonu // lig (kaynak sunucu; bu önbellek), last = gösterilen son hafta sonucu
 }
 
 const emptyLots = (): Lot[] => Array(N).fill(null);
@@ -70,6 +76,7 @@ export function newState(now: number, weekKey: string, city: CityId | null = nul
     ref: { code: makeCode(), used: false, rewarded: 0 }, week: { key: weekKey, earned: 0 },
     offer: null, premium: false, clockFlag: 0, league: { tier: 0, seals: 0, last: '' }, guideHint: false, collectMode: 'tap', stars: {}, inv: [], ozel: { week: '', bought: false }, fest: '', rifki: true, lien: {}, lienT: {}, dEarn: {}, cards: [],
     market: '', ach: [], cnt: { ob: 0, civic: 0, skin: 0, kapora: 0 }, civic: {}, nextCivic: 12 * 60e3, night: true, tokens: 0, skinsU: [], season: { id: '', xp: 0, got: [], ggot: [], gold: false },
+    noAds: false, club: false, starter: { at: 0, bought: false }, seasonFirst: false, adCredit: 0, clubDay: '',
   };
 }
 
