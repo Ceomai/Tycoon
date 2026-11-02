@@ -91,5 +91,8 @@ export async function readRegionSave(r: RegionId): Promise<any | null> {
 }
 export async function writeRegionSave(r: RegionId, state: object) { await setRaw(saveKeyOf(r), wrap(JSON.stringify(state))); }
 export const ALL_REGIONS = REGION_ORDER;
+/** Ayarlar ekranı için: her bölgede kaç semt var (kayıt yoksa bölge listede "başlanmadı"). */
+export const REGION_INFO: Partial<Record<RegionId, { own: number }>> = {};
+export async function loadRegionInfo() { for (const r of REGION_ORDER) { const v = await readRegionSave(r); if (v && Array.isArray(v.own) && v.city) REGION_INFO[r] = { own: v.own.length }; } }
 /** Herhangi bir bölgede kayıt var mı (mevcut oyuncuyu ilk açılış seçimlerinden geçirmemek için). */
 export async function anySave(): Promise<boolean> { for (const r of REGION_ORDER) if (await readRegionSave(r)) return true; return false; }

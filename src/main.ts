@@ -41,7 +41,7 @@ import { toast } from './ui/modal';
 import { persist, persistSync } from './game/persist';
 import { tick, pickCity, firstRun, applyRegion } from './game/loop';
 import { P, loadPrefs, savePrefs } from './prefs';
-import { anySave } from './storage';
+import { anySave, loadRegionInfo } from './storage';
 import { setLang, deviceLang, t } from './i18n';
 import { REGIONS, RegionId } from './config';
 import { Analytics } from './services/analytics';
@@ -151,9 +151,10 @@ async function boot() {
 
   // ağ işleri arayüzü bekletmez
   const cloud = Cloud.init();
-  if (first) firstRun(() => { localizeStatic(); void Notify.ask(); }); // dil ilk açılışta seçilir
+  if (first) firstRun(() => { void Notify.ask(); }, localizeStatic); // dil ilk açılışta seçilir
   else if (!S.city) pickCity(() => { void Notify.ask(); });
   else { catchUp(awayMs()); S.lastSeen = now(); }
+  void loadRegionInfo();
   await cloud;
   void Purchases.init(Cloud.uid());
   void Ads.init();

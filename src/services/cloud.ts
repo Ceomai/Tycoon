@@ -14,7 +14,8 @@ import { Time } from '../time';
 import { I } from '../icons';
 import { fmt } from '../format';
 import { openModal, closeModal, toast } from '../ui/modal';
-import { writeSave, lockSaves } from '../storage';
+import { writeSave, lockSaves, readRegionSave, writeRegionSave } from '../storage';
+import { REGION, REGION_ORDER, RegionId } from '../config';
 import { Snd } from '../sound';
 import { Analytics } from './analytics';
 import { showLeagueResult, type LeagueResult } from '../game/league';
@@ -108,10 +109,11 @@ export const Cloud = {
     let r: RemoteSave | null = null;
     try { r = await be.pullSave(); markCheck(); } catch { return; }
     if (!r || !r.json) { void this.pushSave(); return; }
-    if (r.savedAt <= S.savedAt + 60e3 || r.earned <= S.earned) { if (r.savedAt < S.savedAt) void this.pushSave(); return; }
+    const localEarned = (await bundle()).earned;
+    if (r.savedAt <= S.savedAt + 60e3 || r.earned <= localEarned) { if (r.savedAt < S.savedAt) void this.pushSave(); return; }
     if (freshLocal) { await adopt(r.json); return; }
     openModal(`<div class="card"><div class="badge">${I.users}</div><h3>${t('Buluttaki kayıt')}</h3>
-      <p>${t('Hesabında daha ileri bir şehir var.')}<br>${t('Bulut: {a} · Bu cihaz: {b}', { a: `<b>${fmt(r.earned)}</b>`, b: `<b>${fmt(S.earned)}</b>` })}</p>
+      <p>${t('Hesabında daha ileri bir şehir var.')}<br>${t('Bulut: {a} · Bu cihaz: {b}', { a: `<b>${fmt(r.earned)}</b>`, b: `<b>${fmt(localEarned)}</b>` })}</p>
       <div class="btns"><button class="btn gold" data-a="cloud">${t('Buluttakini yükle')}</button><button class="txt" data-a="local">${t('Bu cihazdakiyle devam et')}</button></div></div>`,
       a => { closeModal(); if (a === 'cloud') void adopt(r!.json); else void this.pushSave(); });
   },
@@ -119,7 +121,7 @@ export const Cloud = {
   async pushSave() {
     if (!be || !isReady || !S.city || S.savedAt === lastPushed) return; // değişmemiş kayıt tekrar yazılmaz
     const at = S.savedAt;
-    try { await be.pushSave(JSON.stringify(S), at || now(), Math.floor(S.earned)); lastPushed = at; } catch (e) { Analytics.error(e, 'cloud_save'); }
+    try { const b = await bundle(); await be.pushSave(b.json, at || now(), Math.floor(b.earned)); lastPushed = at; } catch (e) { Analytics.error(e, 'cloud_save'); }
   },
 
   /** Haftalık skor: değiştiyse en fazla SCORE_POST_MS'de bir gönderilir (sunucu ayrıca doğrular, lig grubuna yerleştirir). */
@@ -173,10 +175,23 @@ function grantInvites(n: number) {
   toast(t('{n} arkadaşın katıldı: {gift} tapu hediyesi', { n, gift: fmt(gift) })); Snd.unlock();
 }
 
+/** Bulut yedeği tüm bölgeleri tek belgede taşır: { b: 1, saves: { tr: {...}, de: {...} } } (Firestore kuralı değişmeden). */
+async function bundle(): Promise<{ json: string; earned: number }> {
+  const saves: Record<string, unknown> = {}; let earned = 0;
+  for (const r of REGION_ORDER) {
+    const v: any = r === REGION ? S : await readRegionSave(r);
+    if (v && v.city) { saves[r] = v; earned += Number(v.earned) || 0; }
+  }
+  return { json: JSON.stringify({ b: 1, saves }), earned };
+}
 async function adopt(json: string) {
   try {
     const obj = JSON.parse(json);
-    await writeSave(obj);
+    if (obj && obj.b === 1 && obj.saves) {   // çok bölgeli paket
+      for (const r of REGION_ORDER) if (obj.saves[r] && r !== REGION) await writeRegionSave(r as RegionId, obj.saves[r]);
+      if (obj.saves[REGION]) await writeSave(obj.saves[REGION]);
+    } else if (REGION === 'tr') await writeSave(obj); // eski tek kayıt biçimi = Türkiye
+    else await writeRegionSave('tr', obj);
     lockSaves();
     location.reload();
   } catch (e) { Analytics.error(e, 'cloud_adopt'); toast(t('Bulut kaydı açılamadı')); }

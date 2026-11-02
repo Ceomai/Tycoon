@@ -123,15 +123,15 @@ export function applyRegion(r: RegionId) {
   document.documentElement.style.setProperty('--cur', JSON.stringify(currency()));
 }
 /** İlk açılış akışı: dil → bölge → şehir. */
-export function firstRun(onDone?: () => void) {
-  pickLang(() => pickRegion(r => {
+export function firstRun(onDone?: () => void, onLang?: () => void) {
+  pickLang(() => { if (onLang) onLang(); pickRegion(r => {
     P.region = r; savePrefs(); applyRegion(r);
     const ent = { premium: S.premium, noAds: S.noAds, club: S.club };
     setS(Object.assign(newState(now(), weekKey(new Date(now()))), ent));
     ui.tileSig = []; ui.linkSig = ''; render();
     Analytics.log('start_region', { region: r, lang: LANG });
     pickCity(onDone);
-  }));
+  }); });
 }
 /** Ayarlar'dan bölge değiştirme: kayıt yazılır, diğer bölgenin kaydı açılır (yoksa şehir seçimi). */
 export function switchRegion(r: RegionId) {

@@ -27,11 +27,13 @@ import { Purchases, adFree, instantRewards } from '../services/purchases';
 import { saveTarget, boostSaving, starterActive, starterLeft, showStarter, buyTokens } from '../game/monetize';
 import { Notify } from '../services/notify';
 import { Ads } from '../services/ads';
-import { resetGame } from '../game/loop';
+import { resetGame, switchLang, switchRegion } from '../game/loop';
+import { REGIONS, REGION_ORDER, REGION, RegionId } from '../config';
+import { REGION_INFO } from '../storage';
 import { chapters } from '../game/guide';
 import { leagueZones, leagueName, leagueShort, weekEndsAt, fmtLeft } from '../game/league';
 import { LEAGUES, LEAGUE_TOP } from '../config';
-import { t, tk, nm, pctTxt, LANG } from '../i18n';
+import { t, tk, nm, pctTxt, LANG, LANGS } from '../i18n';
 
 export function openSheet(s: SheetState) { ui.openedAt = performance.now(); ui.sheet = s; ui.sheetSig = ''; renderSheet(); $('#sheet').classList.add('on'); $('#scrim').classList.add('on'); Snd.tap(); }
 export function closeSheet() { if (!ui.sheet) return; ui.sheet = null; ui.lastClose = ui.breakAt = performance.now(); $('#sheet').classList.remove('on'); if (!ui.modal) $('#scrim').classList.remove('on'); }
@@ -141,9 +143,16 @@ export function renderSheet() {
   }
   else if (s.k === 'set') {
     const acct = Cloud.account();
-    sig = 's|' + S.night + S.rifki + S.collectMode + S.sound + S.notif + S.premium + S.noAds + S.club + (s.reset ? 1 : 0) + (s.del ? 1 : 0) + JSON.stringify(acct) + Ads.privacyRequired();
+    sig = 's|' + LANG + REGION + JSON.stringify(REGION_INFO) + S.night + S.rifki + S.collectMode + S.sound + S.notif + S.premium + S.noAds + S.club + (s.reset ? 1 : 0) + (s.del ? 1 : 0) + JSON.stringify(acct) + Ads.privacyRequired();
     if (sig !== ui.sheetSig) {
-      html = `<p class="sec">${t('Nasıl oynanır')}</p>
+      const regRow = (r: RegionId) => { const R = REGIONS[r], cur = r === REGION, inf = REGION_INFO[r];
+        const st = cur ? t('şu an oynanıyor') : inf ? t('kayıtlı · {n} semt', { n: inf.own }) : t('başlanmadı');
+        return `<button class="cm${cur ? ' on' : ''}" data-a="region" data-r="${r}"><span class="rd"></span><span class="di"><b>${t(R.n)} · ${R.cur}</b><small>${R.cities.map(c => nm(CITIES[c].n)).join(' · ')} · ${st}</small></span></button>`; };
+      html = `<p class="sec">${t('Dil ve bölge')}</p>
+        <div class="langs">${LANGS.map(l => `<button class="chip${l.id === LANG ? ' on' : ''}" data-a="lang" data-l="${l.id}">${l.n}</button>`).join('')}</div>
+        <div class="cmode">${REGION_ORDER.map(regRow).join('')}</div>
+        <p class="note">${t('Her bölgenin ilerlemesi, tapuları ve sırası ayrıdır. Dil yalnızca metinleri değiştirir; şehirleri ve para birimini bölge belirler. Satın aldığın paketler tüm bölgelerde geçerli.')}</p>
+        <p class="sec" style="margin-top:14px">${t('Nasıl oynanır')}</p>
         <ul class="rules">
           <li>${t('<b>Arsaya dokun</b>, inşaatı başlat. Bina kat kat yükselir.')}</li>
           <li>${t('Kira binaların kumbarasında birikir; ortadaki <b>TOPLA</b> mührüyle hepsini tek seferde al (ya da aşağıdan otomatiğe geç).')}</li>
@@ -457,6 +466,8 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
     if (a === 'restore') return Purchases.restore();
   }
   if (s.k === 'holding' && a === 'hold') { if (s.conf) return doHolding(); s.conf = true; later(s, 'conf'); }
+  if (s.k === 'set' && a === 'lang') return switchLang(btn.dataset.l!);
+  if (s.k === 'set' && a === 'region') return switchRegion(btn.dataset.r as RegionId);
   if (s.k === 'set') {
     if (a === 'sound') { S.sound = !S.sound; persist(); Snd.tap(); }
     if (a === 'night') { S.night = S.night === false; persist(); Snd.tap(); }

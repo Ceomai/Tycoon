@@ -1,6 +1,7 @@
 /* =========================================================
    SEMT GEÇİŞLERİ — kapora, engelli arsalar, il kartpostalı + semt kuralı, semt özeti
    ========================================================= */
+import { POST2 } from '../postcards';
 import { CFG, N, TYPES, DMAP, CITIES, DistrictKey, DRULES, OBSTACLE_IDS, currency } from '../config';
 import { t, tk, nm, pctTxt, LANG } from '../i18n';
 import { S, lotsOf, Plot } from '../state';
@@ -98,7 +99,7 @@ const POST: Record<string, string> = {
     <rect x="240" y="100" width="40" height="24" fill="#f3ede0" stroke="#1e3a32"/><rect x="132" y="104" width="30" height="20" fill="#f3ede0" stroke="#1e3a32"/>`,
 };
 export function postcard(city: string) {
-  return `<svg class="postimg" viewBox="0 0 320 170" role="img" aria-label="${t('{city} kartpostalı', { city: nm(CITIES[city as 'ist'].n) })}">${POST[city] || POST.ist}</svg>`;
+  return `<svg class="postimg" viewBox="0 0 320 170" role="img" aria-label="${t('{city} kartpostalı', { city: nm(CITIES[city as 'ist'].n) })}">${POST[city] || POST2[city] || POST.ist}</svg>`;
 }
 /** Yeni semte girişte: il kartpostalı + semtin kuralı. */
 export function showDistrictCard(k: DistrictKey, onDone?: () => void) {
