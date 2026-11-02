@@ -58,7 +58,7 @@ export const ACH: { id: string; n: string; d: string; ok: () => boolean }[] = [
   { id: 'ob10', n: tk('TEMİZLİKÇİ'), d: tk('10 engelli arsa temizle'), ok: () => S.cnt.ob >= 10 },
   { id: 'civ', n: tk('MECLİS ÜYESİ'), d: tk('3 belediye kararı ver'), ok: () => S.cnt.civic >= 3 },
   { id: 'cep', n: tk('MİMAR'), d: tk('Bir binanın cephesini değiştir'), ok: () => S.cnt.skin > 0 },
-  { id: 'mn', n: tk('MİLYONER'), d: tk('Toplam ₺1 milyon kazan'), ok: () => S.earned >= 1e6 },
+  { id: 'mn', n: tk('MİLYONER'), d: tk('Toplam 1 milyon kazan'), ok: () => S.earned >= 1e6 },
 ];
 /** Yeni mühürleri verir (birkaç saniyede bir). */
 export function checkAch() {
