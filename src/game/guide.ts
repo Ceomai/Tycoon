@@ -132,13 +132,10 @@ export function chapters(): Chapter[] {
       facts: [['Etkinlik kartı', `${dk(CFG.EVENT_MIN)}–${dk(CFG.EVENT_MAX)}’da bir`], ['Süreli fırsat', `${dk(CFG.OFFER_MIN)}–${dk(CFG.OFFER_MAX)}’da bir`], ['Altın taksi', 'yaklaşık 1–2 dk’da bir'], ['Taksiden tarihi yapı', '%8 şans']],
     },
     {
-      t: 'Bayramlar ve mevsimler', s: `Bayram günleri kiralar +${pct(CFG.FEST_BONUS)}`, isNew: true,
-      art: () => '<span class="gdstamp sm">29</span>',
-      body: [
-        `Yılbaşı, 23 Nisan, 19 Mayıs, 30 Ağustos ve 29 Ekim’de şehir bayramlık giyinir: haritanın üstüne bayrak zinciri gelir, kiralar +${pct(CFG.FEST_BONUS)} artar ve günde bir kez <b>bayram ikramiyesi</b> verilir.`,
-        'Mevsimler de görünür: kışın kar yağar, yazın Çeşme’nin boş arsalarında plaj şemsiyeleri açılır.',
-      ],
-      facts: [['Bayram günleri', 'Yılbaşı · 23 Nisan · 19 Mayıs · 30 Ağustos · 29 Ekim'], ['Kira', `+${pct(CFG.FEST_BONUS)}`], ['Bayram ikramiyesi', 'günde bir (reklamla 2 katı)']],
+      t: 'Mevsimler', s: 'Kışın kar, yazın plaj şemsiyeleri', isNew: true,
+      art: () => '<span class="gdstamp sm">❄</span>',
+      body: ['Mevsimler şehirde görünür: kışın kar yağar, yazın sahil semtlerinin boş arsalarında plaj şemsiyeleri açılır. Yalnızca görünümdür; kiraları değiştirmez.'],
+      facts: [['Kış', 'Aralık–Şubat · kar'], ['Yaz', 'Haziran–Ağustos · plaj şemsiyeleri']],
     },
     {
       t: 'Piyasa ve belediye', s: 'Haftalık piyasa raporu · kalıcı belediye kararları', isNew: true,

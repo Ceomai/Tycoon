@@ -23,8 +23,6 @@ import { checkGoals } from './goals';
 import { checkAch, showMarket, maybeCivic } from './fun';
 import { payLien, showDistrictCard } from './district';
 import { maybeTip } from './rifki';
-import { festivalOn } from './festival';
-import { showFestGift } from './events';
 import { maybeStarter, clubTick } from './monetize';
 
 let lastT = performance.now(), lastGoals = 0;
@@ -68,7 +66,6 @@ export function tick() {
   if (free && S.collects >= 3 && ui.lastDay !== dayKey(new Date(t))) { ui.lastDay = dayKey(new Date(t)); ensureTasks(); checkDaily(); }
   else if (free && S.collects >= 3 && S.market !== curWeek()) showMarket();
   else if (free && maybeCivic()) { /* belediye kartı açıldı */ }
-  else if (free && festivalOn(t) && S.fest !== dayKey(new Date(t))) { S.fest = dayKey(new Date(t)); showFestGift(); }
   else if (free && maybeStarter()) { /* başlangıç paketi: ilk tapu duvarında bir kez */ }
   else if (free && S.playMs >= S.nextEvent) { S.nextEvent = S.playMs + rand(CFG.EVENT_MIN, CFG.EVENT_MAX); if (anyProducing()) showEvent(); }
   else if (free && !S.offer && S.playMs >= S.nextOffer) { S.nextOffer = S.playMs + rand(CFG.OFFER_MIN, CFG.OFFER_MAX); if (anyProducing()) showOffer(); }

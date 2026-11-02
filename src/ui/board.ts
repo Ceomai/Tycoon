@@ -5,7 +5,7 @@ import { fmt, fmtX, clock, rand, esc } from '../format';
 import { now, totalRate, coinFill, fxMult, producing, buyableDistricts, pending, unlockInfo } from '../economy';
 import { bld, site, emptyLot, svg } from '../draw';
 import { specialSvg, specialOf } from '../specials';
-import { festivalOn, festivalLeft, season } from '../game/festival';
+import { season } from '../game/festival';
 import { skinStyle, marketChip, seasonClaimable } from '../game/fun';
 import { progressInfo, builtCount, lienBlocks, obstacleSvg, OBSTACLES } from '../game/district';
 import { I } from '../icons';
@@ -20,9 +20,9 @@ import { persist } from '../game/persist';
 
 export function render() {
   const t = now(), k = S.cur, d = DMAP[k], boosted = S.boostUntil > t;
-  const fest = festivalOn(t), ssn = season(t);
+  const ssn = season(t);
   const hr = new Date(t).getHours(), night = S.night !== false && (hr >= 19 || hr < 6);
-  const bodyCls = 'd-' + d.v + (ui.idle ? ' idle' : '') + (fest ? ' fest-' + fest.k : '') + (ssn ? ' ' + ssn : '') + (night ? ' night' : '');
+  const bodyCls = 'd-' + d.v + (ui.idle ? ' idle' : '') + (ssn ? ' ' + ssn : '') + (night ? ' night' : '');
   if (document.body.className !== bodyCls) document.body.className = bodyCls;
   const dn = S.city ? `${CITIES[d.city].n} · ${d.n}` : "İl seçimi"; const dEl = $('#dname'); if (dEl.textContent !== dn) dEl.textContent = dn;
   const ca = ui.cashAnim; let cv = S.cash;
@@ -34,9 +34,7 @@ export function render() {
     ? `<span class="dl"><b>${d.n} · kaporalı</b><i>borç ${fmt(pi.lien)}</i></span><span class="dp"><u style="width:${Math.round(100 * (1 - pi.lien / Math.max(pi.lien, S.lienT[k] || pi.lien)))}%" class="kp"></u></span><small>${builtCount(k)}/${CFG.KAPORA_LOTS} arsa açık · borç ${d.n} kirasının yarısıyla ödeniyor</small>`
     : `<span class="dl"><b>${d.n} · %${pi.pct}</b><i>${pi.f >= N ? 'tamamlandı' : `bitirmeye ${N - pi.f} arsa kaldı`}</i></span><span class="dp"><u style="width:${pi.pct}%"></u></span>${pi.sub ? `<small>${pi.sub}</small>` : ''}`;
   if (db.dataset.v !== dh) { db.dataset.v = dh; db.innerHTML = dh; db.hidden = !dh; }
-  const fb = $('#festBar'), fh = fest ? `<b>${fest.n}</b><span>Kiralar +%${Math.round(CFG.FEST_BONUS * 100)} · bugün bayram ikramiyesi · ${clock(festivalLeft(t))}</span>` : '';
-  if (fb.dataset.v !== fh) { fb.dataset.v = fh; fb.innerHTML = fh; fb.hidden = !fest; }
-  const rateHtml = `${fmt(totalRate(true), true)}/sn${boosted ? '<span class="x2">2x</span>' : ''}${S.premium ? '<span class="x2">PRO</span>' : ''}${fest ? `<span class="x2">+%${Math.round(CFG.FEST_BONUS * 100)}</span>` : ''}<span class="x2 mk">${marketChip()}</span>${S.shares ? `<span class="x2">${I.crown.replace('<svg', '<svg width="10" height="10"')} ${fmtX(1 + 0.1 * S.shares)}</span>` : ''}`;
+  const rateHtml = `${fmt(totalRate(true), true)}/sn${boosted ? '<span class="x2">2x</span>' : ''}${S.premium ? '<span class="x2">PRO</span>' : ''}<span class="x2 mk">${marketChip()}</span>${S.shares ? `<span class="x2">${I.crown.replace('<svg', '<svg width="10" height="10"')} ${fmtX(1 + 0.1 * S.shares)}</span>` : ''}`;
   if (ui.rateHtml !== rateHtml) { ui.rateHtml = rateHtml; $('#rate').innerHTML = rateHtml; }
   const op = $('#offerPill'), o = S.offer;
   if (o && !o.done) { const h = `${esc(o.title)} <i><b style="width:${o.prog / o.goal * 100}%"></b></i> ${o.prog}/${o.goal} <span class="ot">${clock(o.until - t)}</span>`; if (op.dataset.v !== h) { op.dataset.v = h; op.innerHTML = h; } op.hidden = false; } else op.hidden = true;

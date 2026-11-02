@@ -12,7 +12,6 @@ import { addCash, addBoost } from './actions';
 import { track } from './tasks';
 import { lmLeft } from './collection';
 import { Ads } from '../services/ads';
-import { festivalOn } from './festival';
 import { payLien } from './district';
 
 interface Ev { ic?: string; art?: string; title: string; text: string; big?: boolean; rw: (m: number) => string; apply: (m: number) => void; }
@@ -26,7 +25,7 @@ function pickEvent(): Ev {
   if (rows.length) list.push({ w: 3, e: () => { const r = rows[Math.floor(Math.random() * rows.length)]; return { ic: I.train, title: 'Metro geliyor', text: `${dn}'de bir sokağa durak açılıyor. O sokaktaki kiralar ikiye katlanıyor.`, rw: m => `${3 * m} dk 2x kira`, apply: m => { S.fx.push({ k: 'row', d: cur, r, x: 2, until: now() + 3 * 60e3 * m }); } }; } });
   if (any('kafe')) list.push({ w: 2, e: () => ({ ic: I.spark, title: 'Turist akını', text: 'Şehre turist akını var. Kafeler tıklım tıklım.', rw: m => `${2 * m} dk kafeler 3x`, apply: m => { S.fx.push({ k: 'type', t: 'kafe', x: 3, until: now() + 2 * 60e3 * m }); } }) });
   if (any('ev')) list.push({ w: 2, e: () => ({ ic: I.spark, title: 'Öğrenci sezonu', text: 'Üniversiteler açıldı, herkes kiralık ev arıyor.', rw: m => `${3 * m} dk evler 2x`, apply: m => { S.fx.push({ k: 'type', t: 'ev', x: 2, until: now() + 3 * 60e3 * m }); } }) });
-  if (any('dukkan')) list.push({ w: 1, e: () => ({ ic: I.spark, title: 'Bayram alışverişi', text: 'Çarşı kalabalık, dükkânlar rekor kırıyor.', rw: m => `${2 * m} dk dükkânlar 3x`, apply: m => { S.fx.push({ k: 'type', t: 'dukkan', x: 3, until: now() + 2 * 60e3 * m }); } }) });
+  if (any('dukkan')) list.push({ w: 1, e: () => ({ ic: I.spark, title: 'Alışveriş çılgınlığı', text: 'Çarşı kalabalık, dükkânlar rekor kırıyor.', rw: m => `${2 * m} dk dükkânlar 3x`, apply: m => { S.fx.push({ k: 'type', t: 'dukkan', x: 3, until: now() + 2 * 60e3 * m }); } }) });
   const left = lmLeft();
   if (left.length) list.push({ w: 1, e: () => { const l = left[Math.floor(Math.random() * left.length)]; return { art: lmSvg(l.id), title: 'Tarihi yapı bulundu', text: `Tapu arşivinde ${l.n} kaydı çıktı. Koleksiyonuna eklenince tüm kiralar %5 artar.`, rw: m => m > 1 ? `yapı + ${fmt(Math.max(1000, totalRate(false) * 600))}` : 'Yapıyı al', apply: m => { if (!S.coll.includes(l.id)) S.coll.push(l.id); if (m > 1) addCash(Math.max(1000, totalRate(false) * 600)); toast(l.n + ' koleksiyonda'); } }; } });
   if (!S.disc) list.push({ w: 2, e: () => ({ ic: I.tag, title: 'Müteahhit indirimi', text: 'Tanıdık bir müteahhit sonraki inşaatın için indirim yapacak.', rw: m => `%${25 * m} indirim`, apply: m => { S.disc = 0.25 * m; } }) });
@@ -70,12 +69,3 @@ export function catchUp(ms: number) {
     });
 }
 
-/** Bayram ikramiyesi: bayram günü ilk girişte bir kez (reklamla 2 katı). */
-export function showFestGift() {
-  const f = festivalOn(now()); if (!f) return;
-  const amt = Math.max(1500, totalRate(false) * 600);
-  openModal(`<div class="card"><div class="badge">${I.spark}</div><h3>Bayram ikramiyesi</h3><p>${f.n} kutlu olsun! Bugün tüm kiralar %20 fazla.</p>
-    <div class="big">${fmt(amt)}</div>
-    <div class="btns"><button class="btn gold" data-a="x2">${I.play} İzle, 2 katını al</button><button class="txt" data-a="x1">Al</button></div></div>`,
-    a => { closeModal(); if (a === 'x1') { addCash(amt); bump(); Snd.collect(5); } else Ads.rewarded('fest', `${fmt(amt * 2)} ikramiye`, () => { addCash(amt * 2); bump(); }); });
-}

@@ -14,7 +14,6 @@ import { $, ui, SheetState } from '../ui/ctx';
 import { openSheet } from '../ui/sheets';
 import { nearestGoal } from './goals';
 import { nextDistrict, kaporaOf, clearCost } from './district';
-import { festivalOn } from './festival';
 import { weekSpecial } from '../specials';
 import { specialPrice } from './actions';
 import { saveTarget, boostSaving } from './monetize';
@@ -32,8 +31,6 @@ let lastId = '', hideT: any = 0, current: Tip | null = null;
 
 function tips(): Tip[] {
   const out: Tip[] = [], t = now(), k = S.cur, d = DMAP[k], lots = lotsOf(S, k);
-  const f = festivalOn(t);
-  if (f) out.push({ id: 'fest', text: `${f.n} kutlu olsun! Bugün kiralar %20 fazla; tam tapu günü.` });
   if (S.collectMode === 'tap' && pending().fill >= .9) out.push({ id: 'full', text: 'Kumbaralar ağzına kadar dolmuş efendim. TOPLA’ya bir basın, kira boşa akmasın.' });
   const T = S.tasks;
   if (T && !T.bonus && T.list.filter(q => q.claimed).length === 2) out.push({ id: 'task', text: 'Bir görev kaldı efendim. Bitirin, bütün mülkler bir saat 2x kazansın.', go: { k: 'tasks' } });

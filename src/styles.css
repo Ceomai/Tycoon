@@ -631,15 +631,12 @@ body.idle *,body.idle *::before,body.idle *::after{animation-play-state:paused!i
 .nb.same i{color:var(--up)} .nb.pair i,.nb.sp i{color:var(--stamp)}
 .nb.emp{border-style:dashed;color:var(--muted)} .nb.none{color:var(--muted)} .nb.off{visibility:hidden}
 .nbnote{margin:6px 0 0}
-/* 5 · bayramlar ve mevsimler */
+/* 5 · mevsimler */
 .festbar{display:flex;flex-direction:column;gap:1px;margin-top:6px;background:var(--ink);color:var(--surface);border-radius:8px;padding:6px 10px}
 .festbar b{font:700 14px/1.1 var(--cond);letter-spacing:.05em;text-transform:uppercase}
 .festbar span{font:500 11px var(--mono);color:var(--line)}
-.fest-milli .plate,.fest-yil .plate{position:relative}
-.fest-milli .plate::before,.fest-yil .plate::before{content:"";position:absolute;left:6px;right:6px;top:-6px;height:16px;z-index:3;pointer-events:none;
   background:repeating-linear-gradient(90deg,var(--stamp) 0 10px,transparent 10px 12px,#fbfbf7 12px 22px,transparent 22px 24px);
   -webkit-mask:repeating-linear-gradient(90deg,#000 0 24px) ,linear-gradient(180deg,#000 0 100%);clip-path:polygon(0 0,100% 0,100% 30%,50% 100%,0 30%)}
-.fest-yil .plate::before{background:repeating-linear-gradient(90deg,#e0a21b 0 10px,transparent 10px 12px,#2f7d5b 12px 22px,transparent 22px 24px,var(--stamp) 24px 34px,transparent 34px 36px)}
 .kis .board::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:4;opacity:.9;
   background-image:radial-gradient(circle at 20px 30px,#fff 0 2px,#9fb3c8 2.6px,transparent 3.2px),radial-gradient(circle at 80px 120px,#fff 0 2px,#9fb3c8 2.6px,transparent 3.2px),radial-gradient(circle at 150px 60px,#fff 0 1.5px,#9fb3c8 2px,transparent 2.6px),radial-gradient(circle at 220px 160px,#fff 0 2px,#9fb3c8 2.6px,transparent 3.2px),radial-gradient(circle at 300px 90px,#fff 0 1.5px,#9fb3c8 2px,transparent 2.6px);
   background-size:320px 200px;animation:snow 9s linear infinite}

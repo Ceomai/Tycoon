@@ -5,7 +5,6 @@ import { CFG, COLS, ROWS, N, TYPES, LV_INC, UP_COST, UP_TIME, DMAP, DistrictKey,
 import { S, Plot, Lot, lotsOf } from './state';
 import { Time } from './time';
 import { LM } from './landmarks';
-import { festivalOn } from './game/festival';
 import { marketMult, civicMult, achBonus } from './game/modifiers';
 import { weekKey } from './format';
 /** Bu hafta (piyasa raporu için; dakikada bir hesaplanır). */
@@ -75,7 +74,7 @@ export function fxMult(k: DistrictKey, i: number, p: Plot, t: number): number {
 export const citiesOwned = () => new Set(S.own.map(k => D(k).city)).size;
 export function collBonus(): number { const n = (S.coll || []).length; return n * 0.05 + (n === LM.length ? 0.1 : 0); }
 export const portfolioBonus = () => CFG.PORTFOLIO_BONUS * Math.max(0, citiesOwned() - 1);
-export const permMult = () => (1 + 0.1 * (S.shares || 0)) * (1 + collBonus()) * (1 + portfolioBonus()) * (S.premium ? 2 : 1) * (festivalOn(now()) ? 1 + CFG.FEST_BONUS : 1) * (1 + achBonus());
+export const permMult = () => (1 + 0.1 * (S.shares || 0)) * (1 + collBonus()) * (1 + portfolioBonus()) * (S.premium ? 2 : 1) * (1 + achBonus());
 /** 3 yıldızlı semte kalıcı bonus. */
 export const districtMult = (k: DistrictKey) => ((S.stars && S.stars[k] ? S.stars[k].length : 0) >= 3 ? 1 + CFG.STAR_BONUS : 1);
 /** Özel yapı: semtteki en iyi (özel olmayan) binanın 3 katı; hiç bina yoksa 1. kat ofis kadar. */

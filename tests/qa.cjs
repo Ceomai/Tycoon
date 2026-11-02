@@ -306,15 +306,8 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
    await tap(p,'[data-a="del"]'); await tap(p,'[data-a="del"]'); s2=await st(p); ok(s2.d['ist-0'][15]===null && s2.inv.length===1,'yıkılan özel yapı depoya döndü');
    ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
 
-   // bayram (29 Ekim)
-   p=await page(b,{time:new Date('2026-10-29T12:00:00')},baseSeed(`{rifki:false,guideHint:true}`));
-   const titles=[]; for(let k=0;k<5&&await p.isVisible('#modal .card');k++){ titles.push(await p.textContent('#modal .card h3')); await tap(p, await p.isVisible('#modal .card .txt') ? '#modal .card .txt' : '#modal .card [data-a]'); await p.clock.runFor(3000); }
-   for(let k=0;k<8;k++){ await p.clock.runFor(1500); if(await p.isVisible('#modal .card')){ titles.push(await p.textContent('#modal .card h3')); await tap(p, await p.isVisible('#modal .card .txt') ? '#modal .card .txt' : '#modal .card [data-a]'); } }
-   ok(titles.some(x=>x.includes('Bayram ikramiyesi')),'bayram ikramiyesi kartı çıktı');
-   ok(await p.isVisible('#festBar') && (await p.textContent('#festBar')).includes('Cumhuriyet'),'29 Ekim: bayram şeridi görünüyor');
-      ok((await p.textContent('#rate')).includes('+%20'),'kira göstergesinde +%20');
-   ok(await p.evaluate(()=>document.body.classList.contains('fest-milli')),'harita bayrak zinciriyle süslendi');
-   ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
+   // bayram yok: 29 Ekim'de de bayram kartı/şeridi çıkmaz
+   p=await page(b,{time:new Date('2026-10-29T12:00:00')},baseSeed(`{rifki:false,guideHint:true}`)); await p.clock.runFor(8000); ok(!(await p.$('#festBar')) && !(await p.evaluate(()=>document.body.className.includes('fest-'))),'bayram ve özel gün yok'); await p.context().close();
 
    // Rıfkı Abi
    p=await page(b,{},baseSeed(`{guideHint:true}`));
