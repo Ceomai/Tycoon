@@ -17,7 +17,8 @@
     "android": "vite build && cap sync android && cap open android",
     "ios": "vite build && cap sync ios && cap open ios",
     "icons": "capacitor-assets generate",
-    "test:audit": "vite build --mode preview && node tests/audit.cjs"
+    "test:audit": "vite build --mode preview && node tests/audit.cjs",
+    "test:gelir": "vite build --mode preview && node tests/gelir.cjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "8.2.1",

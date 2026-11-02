@@ -20,8 +20,8 @@ interface Ev { ic?: string; art?: string; title: string; text: string; big?: boo
 function pickEvent(): Ev {
   const R = totalRate(false), list: { w: number; e: () => Ev }[] = [], cur = S.cur, dn = DMAP[cur].n;
   const any = (t: BuildingType) => S.own.some(k => lotsOf(S, k).some(p => producing(p) && p.t === t));
-  list.push({ w: 3, e: () => { const a = Math.max(60, R * 90); return { ic: I.coin, title: 'Vergi iadesi', text: 'Belediye fazla ödediğin emlak vergisini geri yatırdı.', rw: m => fmt(a * m), big: true, apply: m => { addCash(a * m); bump(); } }; } });
-  list.push({ w: 2, e: () => { const a = Math.max(150, R * 180); return { ic: I.coin, title: 'Yatırımcı ziyareti', text: 'Bir yatırımcı portföyünü beğendi ve danışmanlık ücreti ödedi.', rw: m => fmt(a * m), big: true, apply: m => { addCash(a * m); bump(); } }; } });
+  list.push({ w: 3, e: () => { const a = Math.max(60, R * Math.max(90, CFG.CARD_FLOOR_SEC)); return { ic: I.coin, title: 'Vergi iadesi', text: 'Belediye fazla ödediğin emlak vergisini geri yatırdı.', rw: m => fmt(a * m), big: true, apply: m => { addCash(a * m); bump(); } }; } });
+  list.push({ w: 2, e: () => { const a = Math.max(150, R * Math.max(180, CFG.CARD_FLOOR_SEC * 2)); return { ic: I.coin, title: 'Yatırımcı ziyareti', text: 'Bir yatırımcı portföyünü beğendi ve danışmanlık ücreti ödedi.', rw: m => fmt(a * m), big: true, apply: m => { addCash(a * m); bump(); } }; } });
   const rows = [...new Set(lotsOf(S, cur).map((p, i) => producing(p) ? Math.floor(i / COLS) : -1).filter(r => r >= 0))];
   if (rows.length) list.push({ w: 3, e: () => { const r = rows[Math.floor(Math.random() * rows.length)]; return { ic: I.train, title: 'Metro geliyor', text: `${dn}'de bir sokağa durak açılıyor. O sokaktaki kiralar ikiye katlanıyor.`, rw: m => `${3 * m} dk 2x kira`, apply: m => { S.fx.push({ k: 'row', d: cur, r, x: 2, until: now() + 3 * 60e3 * m }); } }; } });
   if (any('kafe')) list.push({ w: 2, e: () => ({ ic: I.spark, title: 'Turist akını', text: 'Şehre turist akını var. Kafeler tıklım tıklım.', rw: m => `${2 * m} dk kafeler 3x`, apply: m => { S.fx.push({ k: 'type', t: 'kafe', x: 3, until: now() + 2 * 60e3 * m }); } }) });

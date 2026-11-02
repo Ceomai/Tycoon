@@ -26,7 +26,7 @@ import { Capacitor } from '@capacitor/core';
 import { CFG } from './config';
 import { S, setS, newState, migrate } from './state';
 import { weekKey } from './format';
-import { now } from './economy';
+import { now, totalRate } from './economy';
 import { Time, guardRollback } from './time';
 import { loadRaw } from './storage';
 import { Snd } from './sound';
@@ -116,7 +116,7 @@ async function boot() {
   const raw = await loadRaw();
   setS((raw ? migrate(raw, t0, weekKey(new Date(t0))) : null) || newState(t0, weekKey(new Date(t0))));
 
-  if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult }; } // uçtan uca testler için (yalnızca önizleme paketi)
+  if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult, totalRate: () => totalRate(true) }; } // uçtan uca testler için (yalnızca önizleme paketi)
   setupGrid(); Street.init(); ensureTasks(); drawGuilloche(); bindUi(); fit();
   ui.lastInput = performance.now();
   render();

@@ -91,6 +91,7 @@ export function skip(k: DistrictKey, i: number) {
 }
 /** Tek tuşla topla: bütün semtlerdeki kumbaralar kasaya. */
 export function collectAll(from?: Element | null) {
+  ui.breakAt = performance.now(); // geçiş reklamı için doğal durak
   const full = pending().fill >= .999;
   // bu semtte kirası olan binalardan (en çok 7) mühre para uçar
   const src = lotsOf(S, S.cur).map((p, i) => ({ p, i })).filter(x => x.p && x.p.buf >= 1).sort((a, b) => b.p!.buf - a.p!.buf).slice(0, 7);
@@ -139,7 +140,7 @@ export function buyDistrict(k: DistrictKey, kapora = false) {
   showDistrictCard(k);
   Analytics.log(newCity ? 'city_unlock' : 'district_unlock', { district: k, kapora });
 }
-export function switchDistrict(k: DistrictKey) { if (!S.own.includes(k)) return; const from = S.cur; S.cur = k; showSummary(k, from); ui.tileSig = []; ui.linkSig = ''; render(); }
+export function switchDistrict(k: DistrictKey) { if (!S.own.includes(k)) return; ui.breakAt = performance.now(); const from = S.cur; S.cur = k; showSummary(k, from); ui.tileSig = []; ui.linkSig = ''; render(); }
 
 /** Ödüllü reklam (ya da premium) sonrası ortak işlemler. */
 export function grantReward(fn?: () => void) {

@@ -72,6 +72,17 @@ export const CFG = {
   IDLE_MS: 30e3,               // bu kadar dokunulmazsa animasyonlar durur
   CLOUD_SAVE_MS: 5 * 60e3,     // bulut kaydı sıklığı (ayrıca uygulama arka plana alınınca hemen gönderilir)
   SCORE_POST_MS: 5 * 60e3,     // sıralamaya skor gönderme sıklığı
+  // gelir modeli (Remote Config ile değiştirilebilir; oyun dengesine dokunmaz)
+  AD_CREDIT_MS: 10 * 60e3,     // ödüllü reklamdan sonra bu süre geçiş reklamı yok
+  FIRST_FREE_MS: 30 * 60e3,    // ilk 30 dk oyunda geçiş reklamı yok
+  BOOT_QUIET_MS: 60e3,         // açılışın ilk 60 sn'sinde geçiş reklamı yok
+  BREAK_WAIT_MS: 3 * 60e3,     // doğal durak gelmezse en fazla bu kadar beklenir
+  DAILY7_X: 3,                 // günlük ödülün 7. gününde reklam çarpanı
+  CARD_FLOOR_SEC: 600,         // etkinlik/fırsat nakit ödülü tabanı (sn kira)
+  HINT2X_EVERY: 15 * 60e3,     // Rıfkı'nın 2x hatırlatması en fazla bu sıklıkla
+  STARTER_MS: 48 * 3600e3,     // başlangıç paketi süresi
+  STARTER_CASH_SEC: 7200,      // başlangıç paketi nakdi (sn kira)
+  STARTER_TOKENS: 5,
 };
 export type Cfg = typeof CFG;
 

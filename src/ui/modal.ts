@@ -12,9 +12,8 @@ export function openModal(html: string, handler: (a: string) => void) {
   const m = $('#modal'); m.innerHTML = html; m.hidden = false; $('#scrim').classList.add('on'); Snd.unlock();
 }
 export function closeModal() {
-  S.nextAd = Math.max(S.nextAd, S.playMs + 60e3);
   ui.modal = false; modalHandler = null; $('#modal').hidden = true; $('#modal').innerHTML = ''; $('#scrim').classList.remove('on');
-  ui.lastClose = performance.now(); flushQueue();
+  ui.lastClose = ui.breakAt = performance.now(); flushQueue();
 }
 export function flushQueue() {
   if (ui.mq.length && !ui.modal && !ui.ad) setTimeout(() => { if (ui.mq.length && !ui.modal && !ui.ad) openModal(...ui.mq.shift()!); }, 350);

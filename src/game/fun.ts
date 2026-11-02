@@ -99,6 +99,7 @@ export const SKIN_COLORS: { n: string; f: string; s: string; t: string; lock?: s
   { n: 'Lavanta', f: '#d9cfe8', s: '#bfb2d3', t: '#cdc2df', lock: 'Sezon · 10. basamak' },
   { n: 'Mercan', f: '#f2b7a0', s: '#d99a83', t: '#e8a993', lock: 'Sezon · 20. basamak' },
   { n: 'Altın', f: '#e9c46a', s: '#c9a24a', t: '#dcb65c', lock: 'Altın Tapu · 15. basamak' },
+  { n: 'Tuğla kırmızısı', f: '#d98b6c', s: '#bf6f52', t: '#cf7e60', lock: 'Başlangıç paketi' },
 ];
 export const ROOFS = [{ n: 'Kiremit' }, { n: 'Arduvaz', rf: '#4f5b6b', rf2: '#3d4855' }, { n: 'Yeşil', rf: '#5f8a4c', rf2: '#476a38' }];
 export function skinUnlocked(c: number) {

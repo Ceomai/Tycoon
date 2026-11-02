@@ -1,5 +1,6 @@
 /* SÜRELİ FIRSATLAR — kısa hedef, sayaç ve ödül */
 import { S, lotsOf } from '../state';
+import { CFG } from '../config';
 import { fmt } from '../format';
 import { now, totalRate, producing } from '../economy';
 import { I } from '../icons';
@@ -15,7 +16,7 @@ const OFFERS = [
   { k: 'build', goal: 2, min: 8, title: 'Hızlı müteahhit', text: '8 dakika içinde 2 yeni bina kur.', need: () => lotsOf(S, S.cur).filter(p => !p).length >= 2 },
   { k: 'taxi', goal: 2, min: 8, title: 'Altın taksi avı', text: '8 dakika içinde 2 altın taksi yakala. Taksiler daha sık geçecek.', need: () => true },
 ];
-export const offerReward = () => Math.max(1500, totalRate(false) * 600);
+export const offerReward = () => Math.max(1500, totalRate(false) * CFG.CARD_FLOOR_SEC);
 export function showOffer() {
   const list = OFFERS.filter(o => o.need()); if (!list.length) return;
   const o = list[Math.floor(Math.random() * list.length)], rw = offerReward();
