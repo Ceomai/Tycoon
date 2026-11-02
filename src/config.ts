@@ -20,7 +20,9 @@ export const MAXLV = 5;
 /* ---------- iller ve semtler ----------
    Her ilin 5 semti var; aynı sıradaki semtler aynı ekonomik kademede.
    v = ev mimarisi (0 kırma çatı, 1 tuğla apartman, 2 rezidans, 3 taş apartman/mansart, 4 yalı, 5 Ege taş evi) */
-export type CityId = 'ist' | 'izm' | 'ank';
+export type CityId = string;
+/** Şehirler. n: varsayılan ad (dile göre i18n'de çevrilir), tagline: Türkçe kaynak metin (i18n anahtarı).
+ *  Semtler ucuzdan pahalıya; aynı sıradaki semtler aynı ekonomik kademede (tüm bölgelerde ekonomi aynı). */
 export const CITIES: Record<CityId, { n: string; districts: { n: string; v: number }[]; tagline: string }> = {
   ist: { n: 'İstanbul', tagline: 'Boğaz manzaralı semtler, yalılar ve plazalar', districts: [
     { n: 'Kadıköy', v: 0 }, { n: 'Beşiktaş', v: 1 }, { n: 'Şişli', v: 2 }, { n: 'Nişantaşı', v: 3 }, { n: 'Bebek', v: 4 }] },
@@ -28,15 +30,58 @@ export const CITIES: Record<CityId, { n: string; districts: { n: string; v: numb
     { n: 'Karşıyaka', v: 0 }, { n: 'Bornova', v: 1 }, { n: 'Alsancak', v: 3 }, { n: 'Göztepe', v: 2 }, { n: 'Çeşme', v: 5 }] },
   ank: { n: 'Ankara', tagline: 'Bahçeli evler, bulvarlar ve yeni yerleşimler', districts: [
     { n: 'Bahçelievler', v: 0 }, { n: 'Kızılay', v: 1 }, { n: 'Çankaya', v: 3 }, { n: 'Ümitköy', v: 2 }, { n: 'İncek', v: 0 }] },
+  nyc: { n: 'New York', tagline: 'Gökdelenler, kahverengi taş evler ve çatı katları', districts: [
+    { n: 'Queens', v: 0 }, { n: 'Brooklyn', v: 1 }, { n: 'Harlem', v: 3 }, { n: 'Upper West Side', v: 3 }, { n: 'Tribeca', v: 2 }] },
+  la: { n: 'Los Angeles', tagline: 'Palmiyeli bulvarlar, plajlar ve tepe villaları', districts: [
+    { n: 'Long Beach', v: 0 }, { n: 'Downtown', v: 2 }, { n: 'Santa Monica', v: 5 }, { n: 'Hollywood Hills', v: 0 }, { n: 'Beverly Hills', v: 4 }] },
+  chi: { n: 'Chicago', tagline: 'Göl kıyısı, tuğla apartmanlar ve kuleler', districts: [
+    { n: 'Pilsen', v: 1 }, { n: 'Wicker Park', v: 1 }, { n: 'Lincoln Park', v: 3 }, { n: 'River North', v: 2 }, { n: 'Gold Coast', v: 4 }] },
+  lon: { n: 'London', tagline: 'Sıra evler, ara sokaklar ve rıhtımlar', districts: [
+    { n: 'Croydon', v: 0 }, { n: 'Camden', v: 1 }, { n: 'Shoreditch', v: 2 }, { n: 'Notting Hill', v: 3 }, { n: 'Mayfair', v: 3 }] },
+  man: { n: 'Manchester', tagline: 'Tuğla fabrikalar, kanallar ve yeni kuleler', districts: [
+    { n: 'Salford', v: 0 }, { n: 'Ancoats', v: 1 }, { n: 'Northern Quarter', v: 1 }, { n: 'Spinningfields', v: 2 }, { n: 'Didsbury', v: 3 }] },
+  edi: { n: 'Edinburgh', tagline: 'Taş konaklar, kale ve liman', districts: [
+    { n: 'Leith', v: 1 }, { n: 'Gorgie', v: 0 }, { n: 'Marchmont', v: 3 }, { n: 'Stockbridge', v: 3 }, { n: 'New Town', v: 4 }] },
+  muc: { n: 'Munich', tagline: 'Bira bahçeleri, eski apartmanlar ve Alp villaları', districts: [
+    { n: 'Neuperlach', v: 0 }, { n: 'Sendling', v: 1 }, { n: 'Maxvorstadt', v: 3 }, { n: 'Schwabing', v: 3 }, { n: 'Bogenhausen', v: 4 }] },
+  ber: { n: 'Berlin', tagline: 'Sokak sanatı, avlulu apartmanlar ve göl villaları', districts: [
+    { n: 'Marzahn', v: 2 }, { n: 'Neukölln', v: 1 }, { n: 'Kreuzberg', v: 1 }, { n: 'Prenzlauer Berg', v: 3 }, { n: 'Grunewald', v: 4 }] },
+  ham: { n: 'Hamburg', tagline: 'Liman lofları, kanallar ve Elbe konakları', districts: [
+    { n: 'Wilhelmsburg', v: 0 }, { n: 'Altona', v: 1 }, { n: 'St. Pauli', v: 2 }, { n: 'Eppendorf', v: 3 }, { n: 'Blankenese', v: 4 }] },
+  tyo: { n: 'Tokyo', tagline: 'Neon kuleler, ara sokaklar ve sakin tapınaklar', districts: [
+    { n: 'Adachi', v: 0 }, { n: 'Nakano', v: 1 }, { n: 'Shibuya', v: 2 }, { n: 'Ginza', v: 2 }, { n: 'Azabu', v: 4 }] },
+  osa: { n: 'Osaka', tagline: 'Sokak lezzetleri, kanallar ve iş kuleleri', districts: [
+    { n: 'Nishinari', v: 0 }, { n: 'Tennoji', v: 1 }, { n: 'Namba', v: 2 }, { n: 'Umeda', v: 2 }, { n: 'Kitashinchi', v: 3 }] },
+  kyo: { n: 'Kyoto', tagline: 'Ahşap evler, bahçeler ve tapınaklar', districts: [
+    { n: 'Fushimi', v: 0 }, { n: 'Nakagyo', v: 1 }, { n: 'Higashiyama', v: 3 }, { n: 'Arashiyama', v: 5 }, { n: 'Gion', v: 4 }] },
 };
+
+/* ---------- bölgeler: dil ayrı seçilir; bölge şehirleri ve para birimini belirler ---------- */
+export type RegionId = 'tr' | 'us' | 'uk' | 'de' | 'jp' | 'gl';
+export const REGIONS: Record<RegionId, { n: string; cur: string; cities: CityId[]; lang: string; tagline: string }> = {
+  tr: { n: 'Türkiye', cur: '₺', cities: ['ist', 'izm', 'ank'], lang: 'tr', tagline: 'Boğaz, Ege ve başkent' },
+  us: { n: 'ABD', cur: '$', cities: ['nyc', 'la', 'chi'], lang: 'en', tagline: 'Gökdelenler ve gün batımı bulvarları' },
+  uk: { n: 'Birleşik Krallık', cur: '£', cities: ['lon', 'man', 'edi'], lang: 'en', tagline: 'Sıra evler, ara sokaklar ve rıhtımlar' },
+  de: { n: 'Almanya', cur: '€', cities: ['muc', 'ber', 'ham'], lang: 'de', tagline: 'Eski apartmanlar, villalar ve limanlar' },
+  jp: { n: 'Japonya', cur: '¥', cities: ['tyo', 'osa', 'kyo'], lang: 'ja', tagline: 'Neon kuleler ve sakin tapınaklar' },
+  gl: { n: 'GLOBAL', cur: '$', cities: ['ist', 'nyc', 'lon', 'muc', 'tyo'], lang: 'en', tagline: 'Her ülkenin en pahalı şehri' },
+};
+export const REGION_ORDER: RegionId[] = ['tr', 'us', 'uk', 'de', 'jp', 'gl'];
+/** Etkin bölgenin şehirleri (setRegion yerinde günceller; içe aktaranlar aynı diziyi görür). */
 export const CITY_ORDER: CityId[] = ['ist', 'izm', 'ank'];
+export let REGION: RegionId = 'tr';
+export function setRegion(r: RegionId) {
+  REGION = REGIONS[r] ? r : 'tr';
+  CITY_ORDER.splice(0, CITY_ORDER.length, ...REGIONS[REGION].cities);
+}
+export const currency = () => REGIONS[REGION].cur;
 // Denge (scripts/sim.ts ile ölçüldü): semtler 15–45 dk'da dolar, tapu beklemesi ≤ ~17 dk
 export const TIER_M = [1, 10, 100, 1000, 10000];       // kademe çarpanı (maliyet)
 export const TIER_FEE = [0, 80e3, 1e6, 1.2e7, 1.5e8];   // il içinde sonraki semtin tapu bedeli
 
 export type DistrictKey = string; // örn. "ist-0"
 export interface District { key: DistrictKey; city: CityId; idx: number; n: string; v: number; }
-export const DLIST: District[] = CITY_ORDER.flatMap(city => CITIES[city].districts.map((d, idx) => ({ key: `${city}-${idx}`, city, idx, n: d.n, v: d.v })));
+export const DLIST: District[] = Object.keys(CITIES).flatMap(city => CITIES[city].districts.map((d, idx) => ({ key: `${city}-${idx}`, city, idx, n: d.n, v: d.v })));
 export const DMAP: Record<DistrictKey, District> = Object.fromEntries(DLIST.map(d => [d.key, d]));
 export const dkey = (city: CityId, idx: number): DistrictKey => `${city}-${idx}`;
 
@@ -65,6 +110,8 @@ export const CFG = {
   AD_SECONDS: 5,               // yalnızca web simülasyonu
   EXTRA_CITY_FEE_1: 60e3,      // ikinci ilin ilk semti
   EXTRA_CITY_FEE_2: 600e3,     // üçüncü ilin ilk semti
+  EXTRA_CITY_FEE_3: 6e6,       // dördüncü şehir (yalnızca Global)
+  EXTRA_CITY_FEE_4: 60e6,      // beşinci şehir (yalnızca Global)
   PORTFOLIO_BONUS: 0.1,        // sahip olunan her ek il için kalıcı kira bonusu
   SHARE_BASE: 1e8,             // holding hissesi = √(tur kazancı / SHARE_BASE)
   TICK_MS: 250,                // oyun döngüsü (4 Hz)
@@ -124,3 +171,13 @@ export const DRULES: Record<string, DRule> = {
   'ank-3': { n: 'Yeni yerleşim', t: 'Tadilat %20 ucuz', kind: 'upDisc', x: 0.2 },
   'ank-4': { n: 'Yükselen bölge', t: 'İnşaatlar %25 hızlı', kind: 'speed', x: 0.25 },
 };
+
+/** Yeni şehirlerin semt kuralları: bölgedeki sırasına göre İstanbul / İzmir / Ankara şablonu (aynı denge). */
+const SLOT_TPL = ['ist', 'izm', 'ank'];
+const TYPE_RULE: Record<BuildingType, string> = { ev: 'Bahçeli evler', kafe: 'Kafe semti', dukkan: 'Alışveriş caddesi', ofis: 'İş merkezi' };
+/** Yeni şehirlerde şehre özgü olmayan, türüne göre genel kural adı. */
+const ruleName = (r: DRule) => r.kind === 'type' ? TYPE_RULE[r.type!] : r.kind === 'row' ? 'Kıyı şeridi' : r.kind === 'speed' ? 'Yükselen bölge' : r.kind === 'upDisc' ? 'Yenilenen bölge' : 'Mahalle kültürü';
+for (const [r, reg] of Object.entries(REGIONS)) {
+  if (r === 'tr' || r === 'gl') continue;
+  reg.cities.forEach((c, slot) => { for (let i = 0; i < 5; i++) { const src = DRULES[`${SLOT_TPL[slot % 3]}-${i}`]; if (src && !DRULES[`${c}-${i}`]) DRULES[`${c}-${i}`] = { ...src, n: ruleName(src) }; } });
+}

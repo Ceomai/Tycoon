@@ -1,5 +1,7 @@
 /* OYUN DÖNGÜSÜ (4 Hz), başlangıç ili seçimi, boşta duraklatma, yeni oyun */
-import { CFG, N, CITIES, CITY_ORDER, CityId, dkey, TYPES } from '../config';
+import { CFG, N, CITIES, CITY_ORDER, CityId, dkey, TYPES, REGIONS, REGION_ORDER, RegionId, setRegion, currency } from '../config';
+import { t, nm, LANGS, setLang, LANG } from '../i18n';
+import { P, savePrefs } from '../prefs';
 import { S, setS, newState, lotsOf } from '../state';
 import { rand, dayKey, weekKey } from '../format';
 import { now, producing, rate, pending, curWeek } from '../economy';
@@ -84,20 +86,64 @@ export function tick() {
   render();
 }
 
-/** İlk açılışta başlangıç ili seçimi. */
+const MAP_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg>';
+const GLOBE_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>';
+const opt = (a: string, b: string, sm: string, sp = '', on = false, gold = false) => `<button class="cityopt${on ? ' on' : ''}${gold ? ' gl' : ''}" data-a="${a}"><b>${b}</b><small>${sm}</small>${sp ? `<span>${sp}</span>` : ''}</button>`;
+
+/** İlk açılış: dil seçimi (tasarım Y1). Cihaz dili seçili gelir. */
+export function pickLang(onDone: () => void) {
+  openModal(`<div class="card citycard"><div class="badge">${GLOBE_IC}</div><h3>Dil · Language · Sprache</h3><p>${t('Cihaz dilin seçili geldi. İstediğin zaman Ayarlar’dan değiştirebilirsin.')}</p>
+    <div class="citylist">${LANGS.map(l => opt(l.id, l.n, l.sub, '', l.id === LANG)).join('')}</div></div>`,
+    a => { if (!LANGS.some(l => l.id === a)) return; closeModal(); setLang(a); P.lang = LANG; savePrefs(); onDone(); });
+}
+/** Bölge seçimi (tasarım Y2): 5 ülke + Global; her bölgenin ilerlemesi ayrı. */
+export function pickRegion(onDone: (r: RegionId) => void, intro = true) {
+  openModal(`<div class="card citycard regcard"><h3>${t('Nerede yatırım yapıyorsun?')}</h3>${intro ? `<p>${t('Her bölgenin kendi şehirleri ve kendi ilerlemesi var. Başka bir bölgeyi sonra da açabilirsin.')}</p>` : ''}
+    <div class="citylist">${REGION_ORDER.map(r => { const R = REGIONS[r]; return opt(r, `${t(R.n)} · ${R.cur}`, r === 'gl' ? t('Her ülkenin en pahalı şehri') : t(R.tagline), R.cities.map(c => nm(CITIES[c].n)).join(' · '), false, r === 'gl'); }).join('')}</div></div>`,
+    a => { if (!REGIONS[a as RegionId]) return; closeModal(); onDone(a as RegionId); });
+}
+/** İlk açılışta başlangıç şehri seçimi (etkin bölgenin şehirleri). */
 export function pickCity(onDone?: () => void) {
-  openModal(`<div class="card citycard"><div class="badge">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg>'}</div>
-    <h3>Hangi ilde başlıyorsun?</h3><p>İlk semtini doldurunca diğer illerde de arsa alabilirsin.</p>
-    <div class="citylist">${CITY_ORDER.map(c => `<button class="cityopt" data-a="${c}"><b>${CITIES[c].n}</b><small>${CITIES[c].tagline}</small><span>${CITIES[c].districts.map(d => d.n).join(' · ')}</span></button>`).join('')}</div></div>`,
+  openModal(`<div class="card citycard"><div class="badge">${MAP_IC}</div>
+    <h3>${t('Hangi şehirde başlıyorsun?')}</h3><p>${t('İlk semtini doldurunca diğer şehirlerde de arsa alabilirsin.')}</p>
+    <div class="citylist">${CITY_ORDER.map(c => opt(c, nm(CITIES[c].n), t(CITIES[c].tagline), CITIES[c].districts.map(d => nm(d.n)).join(' · '))).join('')}</div></div>`,
     a => {
-      const c = a as CityId; if (!CITIES[c]) return;
+      const c = a as CityId; if (!CITIES[c] || !CITY_ORDER.includes(c)) return;
       closeModal();
       const fresh = newState(now(), weekKey(new Date(now())), c);
       Object.assign(S, { city: c, own: fresh.own, cur: fresh.cur, d: fresh.d });
       ui.tileSig = []; ui.linkSig = ''; persist(); render(); Snd.unlock();
       Analytics.log('start_city', { city: c });
-      showDistrictCard(fresh.cur, onDone); // il kartpostalı + başlangıç semtinin kuralı
+      showDistrictCard(fresh.cur, onDone); // şehir kartpostalı + başlangıç semtinin kuralı
     });
+}
+/** Etkin bölgeyi uygular (para simgesi CSS'e de yazılır). */
+export function applyRegion(r: RegionId) {
+  setRegion(r);
+  document.documentElement.style.setProperty('--cur', JSON.stringify(currency()));
+}
+/** İlk açılış akışı: dil → bölge → şehir. */
+export function firstRun(onDone?: () => void) {
+  pickLang(() => pickRegion(r => {
+    P.region = r; savePrefs(); applyRegion(r);
+    const ent = { premium: S.premium, noAds: S.noAds, club: S.club };
+    setS(Object.assign(newState(now(), weekKey(new Date(now()))), ent));
+    ui.tileSig = []; ui.linkSig = ''; render();
+    Analytics.log('start_region', { region: r, lang: LANG });
+    pickCity(onDone);
+  }));
+}
+/** Ayarlar'dan bölge değiştirme: kayıt yazılır, diğer bölgenin kaydı açılır (yoksa şehir seçimi). */
+export function switchRegion(r: RegionId) {
+  if (r === P.region) return;
+  persist(); P.region = r; savePrefs(); Analytics.log('switch_region', { region: r });
+  setTimeout(() => location.reload(), 150);
+}
+/** Ayarlar'dan dil değiştirme: tüm metinler yeniden çizilsin diye sayfa yenilenir. */
+export function switchLang(l: string) {
+  if (l === LANG) return;
+  persist(); setLang(l); P.lang = LANG; savePrefs();
+  setTimeout(() => location.reload(), 150);
 }
 
 export async function resetGame() {

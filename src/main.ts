@@ -39,7 +39,11 @@ import { catchUp } from './game/events';
 import { collectAll } from './game/actions';
 import { toast } from './ui/modal';
 import { persist, persistSync } from './game/persist';
-import { tick, pickCity } from './game/loop';
+import { tick, pickCity, firstRun, applyRegion } from './game/loop';
+import { P, loadPrefs, savePrefs } from './prefs';
+import { anySave } from './storage';
+import { setLang, deviceLang } from './i18n';
+import { REGIONS, RegionId } from './config';
 import { Analytics } from './services/analytics';
 import { applyRemoteConfig } from './services/remote';
 import { Cloud } from './services/cloud';
@@ -112,9 +116,17 @@ async function boot() {
   Analytics.installGlobalHandlers();
   void deviceSetup();
   await applyRemoteConfig();
+  // dil ve bölge: mevcut oyuncu (kaydı var, tercihi yok) Türkçe/Türkiye ile devam eder
+  await loadPrefs();
+  if (!P.region && await anySave()) { P.region = 'tr'; P.lang = P.lang || 'tr'; savePrefs(); }
+  const first = !P.region;
+  setLang(P.lang || deviceLang());
+  applyRegion((REGIONS[P.region as RegionId] ? P.region : 'tr') as RegionId);
   const t0 = Date.now();
   const raw = await loadRaw();
   setS((raw ? migrate(raw, t0, weekKey(new Date(t0))) : null) || newState(t0, weekKey(new Date(t0))));
+  // satın alınan paketler tüm bölgelerde geçerli
+  S.premium = S.premium || P.ent.premium; S.noAds = S.noAds || P.ent.noAds; S.club = S.club || P.ent.club;
 
   if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult, totalRate: () => totalRate(true) }; } // uçtan uca testler için (yalnızca önizleme paketi)
   setupGrid(); Street.init(); ensureTasks(); drawGuilloche(); bindUi(); fit();
@@ -125,7 +137,8 @@ async function boot() {
 
   // ağ işleri arayüzü bekletmez
   const cloud = Cloud.init();
-  if (!S.city) pickCity(() => { void Notify.ask(); });
+  if (first) firstRun(() => { void Notify.ask(); });
+  else if (!S.city) pickCity(() => { void Notify.ask(); });
   else { catchUp(awayMs()); S.lastSeen = now(); }
   await cloud;
   void Purchases.init(Cloud.uid());

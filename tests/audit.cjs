@@ -12,10 +12,11 @@ let section='';
 const ok=(c,m)=>{ results.push({section,name:m,pass:!!c}); log(c?'  ✓':'  ✗',m); };
 
 async function open(b,o={}){
-  const ctx=await b.newContext({viewport:o.vp||{width:390,height:844},deviceScaleFactor:o.dpr||2,colorScheme:o.scheme||'light',reducedMotion:o.motion||'no-preference',offline:!!o.offline,isMobile:true,hasTouch:true});
+  const ctx=await b.newContext({viewport:o.vp||{width:390,height:844},deviceScaleFactor:o.dpr||2,colorScheme:o.scheme||'light',reducedMotion:o.motion||'no-preference',offline:!!o.offline,isMobile:true,hasTouch:true}); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{}}));`);
   const p=await ctx.newPage(); p.errs=[];
   p.on('pageerror',e=>p.errs.push(e.message)); p.on('console',m=>{ if(m.type()==='error') p.errs.push(m.text()); });
   await p.clock.install(o.time?{time:o.time}:undefined);
+  await p.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{}}));`);
   if(o.init) await p.addInitScript(o.init);
   const t0=Date.now(); await p.goto(URL); p.loadMs=Date.now()-t0;
   await p.clock.runFor(500); return p;
@@ -213,7 +214,7 @@ const fillFn=(S,a)=>{ const T=['ev','kafe','dukkan','ofis']; S.d[a.k]=Array.from
  await tap(p,'#mapBtn'); for(const e of await p.$$('#sheet [data-a="buy"],#sheet [data-a="kapora"]')) await e.click({force:true}).catch(()=>{}); await p.clock.runFor(400);
  ok((await S(p)).own.length===1,'E3 parasız semt alınamadı'); await closeSheet(p); await sane(p,'E3'); await p.context().close();
  log('E4 aynı anda iki sekme (eşzamanlılık)');
- { const ctx=await b.newContext({viewport:{width:390,height:844}}); const a=await ctx.newPage(); await a.goto(URL); await a.waitForTimeout(800);
+ { const ctx=await b.newContext({viewport:{width:390,height:844}}); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{}}));`); const a=await ctx.newPage(); await a.goto(URL); await a.waitForTimeout(800);
    if(await a.isVisible('#modal .citycard')){ await a.click('#modal .cityopt[data-a="ist"]',{force:true}); await a.waitForTimeout(600); }
    const c=await ctx.newPage(); const errs=[]; c.on('pageerror',e=>errs.push(e.message)); a.on('pageerror',e=>errs.push(e.message));
    await c.goto(URL); await c.waitForTimeout(1500); await a.waitForTimeout(500);
@@ -236,11 +237,11 @@ const fillFn=(S,a)=>{ const T=['ev','kafe','dukkan','ofis']; S.d[a.k]=Array.from
  /* ---------------- PERFORMANS VE STRES ---------------- */
  section='perf';
  log('PF1 açılış süresi (5 soğuk açılış, ortanca)');
- { const t=[]; for(let k=0;k<5;k++){ const ctx=await b.newContext(); const q=await ctx.newPage(); const t0=Date.now(); await q.goto(URL,{waitUntil:'load'}); await q.waitForSelector('.lot'); const nav=await q.evaluate(()=>{const n=performance.getEntriesByType('navigation')[0]; const fcp=performance.getEntriesByName('first-contentful-paint')[0]; return {dcl:n.domContentLoadedEventEnd, load:n.loadEventEnd, fcp:fcp?fcp.startTime:null};}); t.push({wall:Date.now()-t0,...nav}); await ctx.close(); }
+ { const t=[]; for(let k=0;k<5;k++){ const ctx=await b.newContext(); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{}}));`); const q=await ctx.newPage(); const t0=Date.now(); await q.goto(URL,{waitUntil:'load'}); await q.waitForSelector('.lot'); const nav=await q.evaluate(()=>{const n=performance.getEntriesByType('navigation')[0]; const fcp=performance.getEntriesByName('first-contentful-paint')[0]; return {dcl:n.domContentLoadedEventEnd, load:n.loadEventEnd, fcp:fcp?fcp.startTime:null};}); t.push({wall:Date.now()-t0,...nav}); await ctx.close(); }
    const med=a=>a.sort((x,y)=>x-y)[Math.floor(a.length/2)]; metrics.startup={runs:t.length,medianWallMs:med(t.map(x=>x.wall)),medianDclMs:+med(t.map(x=>x.dcl)).toFixed(0),medianLoadMs:+med(t.map(x=>x.load)).toFixed(0),medianFcpMs:+(med(t.map(x=>x.fcp||0))).toFixed(0)};
    log('   ',JSON.stringify(metrics.startup)); ok(metrics.startup.medianFcpMs<1500,'PF1 ilk boyama < 1,5 sn (masaüstü Chromium, kısıtsız)'); }
  log('PF2 4x CPU kısıtlamasında açılış + tick maliyeti (düşük seviye Android yaklaşımı)');
- { const ctx=await b.newContext({viewport:{width:390,height:844}}); const q=await ctx.newPage(); const cdp=await ctx.newCDPSession(q); await cdp.send('Emulation.setCPUThrottlingRate',{rate:4}); await cdp.send('Performance.enable');
+ { const ctx=await b.newContext({viewport:{width:390,height:844}}); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{}}));`); const q=await ctx.newPage(); const cdp=await ctx.newCDPSession(q); await cdp.send('Emulation.setCPUThrottlingRate',{rate:4}); await cdp.send('Performance.enable');
    const t0=Date.now(); await q.goto(URL); await q.waitForSelector('.lot'); const fcp=await q.evaluate(()=>{const f=performance.getEntriesByName('first-contentful-paint')[0]; return f?f.startTime:null;}); const wall=Date.now()-t0;
    if(await q.isVisible('#modal .citycard')){ await q.click('#modal .cityopt[data-a="ist"]',{force:true}); await q.waitForTimeout(800); }
    await q.evaluate(()=>{ const S=window.__tapuState(); const T=['ev','kafe','dukkan','ofis']; for(const k of ['ist-0','ist-1','ist-2','ist-3','ist-4','izm-0','izm-1','izm-2','izm-3','izm-4','ank-0','ank-1','ank-2','ank-3','ank-4']){ if(!S.own.includes(k)) S.own.push(k); S.d[k]=Array.from({length:20},(_,i)=>({t:T[i%4],lvl:5,buf:0,until:0,dur:1,up:false})); } S.collectMode='auto'; });

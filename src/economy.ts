@@ -131,7 +131,8 @@ export function unlockInfo(k: DistrictKey): Unlock {
   }
   const start = S.city || 'ist';
   const extra = citiesOwned();
-  const fee = extra <= 1 ? CFG.EXTRA_CITY_FEE_1 : CFG.EXTRA_CITY_FEE_2;
+  const fees = [CFG.EXTRA_CITY_FEE_1, CFG.EXTRA_CITY_FEE_2, CFG.EXTRA_CITY_FEE_3, CFG.EXTRA_CITY_FEE_4];
+  const fee = fees[Math.min(fees.length - 1, Math.max(0, extra - 1))]; // 2. şehir … 5. şehir (Global)
   if (!isFull(dkey(start, 0))) return { ok: false, fee, why: 'start-not-full' };
   return { ok: true, fee, why: '' };
 }
