@@ -72,3 +72,7 @@ function applyCssText() {
   r.setProperty('--t-notice', q('TEBLİGAT'));
   r.setProperty('--t-deed', JSON.stringify(t('Tapu Senedi') + ' · '));
 }
+
+/** Çeviri anahtarı işareti (veri tablolarında): metni değiştirmez, yalnızca derleme betiğinin anahtarı bulmasını sağlar.
+ *  Görüntülerken t(x) ile çevrilir. Örn: TYPES = { ev: { n: tk('Ev') } } … t(TYPES.ev.n) */
+export const tk = (s: string) => s;
