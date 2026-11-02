@@ -8,10 +8,10 @@ const log=(...a)=>console.log(...a);
 const st=async p=>{ await p.clock.runFor(300); return await p.evaluate(()=>{const o=JSON.parse(JSON.stringify(window.__tapuState())); o._now=Date.now(); return o;}); };
 const saved=async p=>p.evaluate(()=>{const w=JSON.parse(localStorage.getItem('tapu-save-v2')||'null'); return w&&JSON.parse(w.j);});
 async function page(b,opts={},seed){
-  const ctx=await b.newContext({viewport:opts.vp||{width:390,height:800}}); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{}}));`);
+  const ctx=await b.newContext({viewport:opts.vp||{width:390,height:800}}); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`);
   const p=await ctx.newPage(); p.errs=[]; p.on('pageerror',e=>p.errs.push(e.message)); p.on('console',m=>{if(m.type()==='error')p.errs.push(m.text())});
   await p.clock.install(opts.time ? { time: opts.time } : undefined);
-  await p.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{}}));`); // mevcut testler: Türkçe · Türkiye (ilk açılış akışı tests/yerel.cjs'te)
+  await p.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`); // mevcut testler: Türkçe · Türkiye (ilk açılış akışı tests/yerel.cjs'te)
   if(seed) await p.addInitScript(`if(!sessionStorage.getItem('s')){sessionStorage.setItem('s',1);localStorage.setItem('tapu-save-v1',JSON.stringify((${seed})(Date.now())));}`);
   await p.goto(URL); await p.clock.runFor(500); return p;
 }
@@ -98,7 +98,10 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
  ok(await p.isVisible('#modal .postcard') && (await p.textContent('#modal .postcard')).includes('Çarşı'),'yeni semtte kartpostal + kural (Çarşı semti)');
  await tap(p,'#modal [data-a="ok"]');
  { const n=(await st(p)).d['ist-1'].filter(q=>q&&q.ob).length; ok(n>=3&&n<=4,'yeni semtte '+n+' engelli arsa'); }
- await tap(p,'#menuBtn'); await tap(p,'[data-a="set"]'); await p.clock.runFor(300); await tap(p,'[data-a="reset"]'); await tap(p,'[data-a="reset"]'); s=await st(p); ok(s.own.length===1&&s.cash===150&&s.city===null,'oyun sıfırlandı');
+ await tap(p,'#menuBtn'); await tap(p,'[data-a="set"]'); await p.clock.runFor(300); await tap(p,'[data-a="reset"]'); await tap(p,'[data-a="reset"]');
+ ok(await p.isVisible('#modal .cityopt[data-a="en"]'),'yeni oyun: önce dil seçimi');
+ await tap(p,'#modal .cityopt[data-a="tr"]'); ok(await p.isVisible('#modal .cityopt[data-a="gl"]'),'yeni oyun: bölge seçimi');
+ await tap(p,'#modal .cityopt[data-a="tr"]'); await p.waitForTimeout(300); s=await st(p); ok(s.own.length===1&&s.cash===150&&s.city===null,'oyun sıfırlandı');
  ok(await p.isVisible('#modal .citycard'),'sıfırlamadan sonra il seçimi soruluyor');
  await tap(p,'#modal .cityopt[data-a="ank"]'); s=await st(p); ok(s.cur==='ank-0','Ankara · Bahçelievler ile yeniden başlandı');
  ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
@@ -163,7 +166,7 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
  log('H) Android dokunmatik (Pixel 7, gerçek dokunuş olayları)');
  {
    const { devices } = require('playwright');
-   const ctx = await b.newContext({ ...devices['Pixel 7'] }); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{}}));`); const p = await ctx.newPage(); p.errs = [];
+   const ctx = await b.newContext({ ...devices['Pixel 7'] }); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`); const p = await ctx.newPage(); p.errs = [];
    p.on('pageerror', e => p.errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') p.errs.push(m.text()); });
    await p.goto(URL); await p.waitForTimeout(800);
    const cdp = await ctx.newCDPSession(p);
@@ -192,7 +195,7 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
 
  log('I) haftalık lig (paylaşılan veritabanı taklidiyle)');
  {
-   const ctx = await b.newContext({ viewport: { width: 390, height: 844 } }); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{}}));`); const p = await ctx.newPage(); p.errs = [];
+   const ctx = await b.newContext({ viewport: { width: 390, height: 844 } }); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`); const p = await ctx.newPage(); p.errs = [];
    p.on('pageerror', e => p.errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') p.errs.push(m.text()); });
    await p.addInitScript(() => {
      const wk = d => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const wd = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - wd); const y = t.getUTCFullYear(); return y + '-H' + String(Math.ceil(((t - Date.UTC(y, 0, 1)) / 864e5 + 1) / 7)).padStart(2, '0'); };

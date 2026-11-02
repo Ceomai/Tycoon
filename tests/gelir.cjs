@@ -4,7 +4,7 @@
 const {chromium}=require('playwright'); const path=require('path'); const fs=require('fs');
 const URL='file://'+path.resolve(__dirname,'../dist-preview/index.html'); const out=path.resolve(__dirname,'out')+'/'; fs.mkdirSync(out,{recursive:true});
 const fails=[]; const ok=(c,m)=>{ if(!c) fails.push(m); console.log(c?'  ✓':'  ✗',m); };
-async function open(b,vp={width:390,height:844}){ const ctx=await b.newContext({viewport:vp}); const p=await ctx.newPage(); p.errs=[]; p.on('pageerror',e=>p.errs.push(e.message)); await p.clock.install(); await p.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{}}));`); await p.goto(URL); await p.clock.runFor(500);
+async function open(b,vp={width:390,height:844}){ const ctx=await b.newContext({viewport:vp}); const p=await ctx.newPage(); p.errs=[]; p.on('pageerror',e=>p.errs.push(e.message)); await p.clock.install(); await p.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`); await p.goto(URL); await p.clock.runFor(500);
   await p.click('#modal .cityopt[data-a="ist"]',{force:true}); await p.clock.runFor(400); await p.waitForTimeout(300); await dismiss(p); return p; }
 const S=p=>p.evaluate(()=>{ const o=JSON.parse(JSON.stringify(window.__tapuState())); o._now=Date.now(); return o; });
 const mut=(p,f,a)=>p.evaluate(([f,a])=>{ (0,eval)('('+f+')')(window.__tapuState(),a); },[f.toString(),a]);

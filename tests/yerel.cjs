@@ -66,6 +66,7 @@ async function turkishLeft(p){ return p.evaluate(([re,names])=>{ const R=new Reg
  ok((await p.textContent('#cash')).startsWith('¥'),'¥ para birimi'); ok((await p.textContent('#dname')).includes('東京'),'東京 · 足立');
  const sw=await p.evaluate(()=>document.documentElement.scrollWidth-innerWidth); ok(sw<=0,'320px yatay taşma yok ('+sw+')');
  for(const a of ['store','set']){ await dismiss(p); await tap(p,'#menuBtn'); await tap(p,`#sheet [data-a="${a}"]`); const ov=await p.evaluate(()=>[...document.querySelectorAll('#sheetBody *')].filter(e=>{const r=e.getBoundingClientRect(); return r.width>0&&r.right>innerWidth+1;}).length); ok(ov===0,`${a} 320px'e sığıyor (ja)`); await p.keyboard.press('Escape'); await p.clock.runFor(300); await p.waitForTimeout(450); }
+ { const lay=await p.evaluate(()=>({dock:document.querySelector('.dock').getBoundingClientRect().top,last:Math.max(...[...document.querySelectorAll('.lot')].map(e=>e.getBoundingClientRect().bottom))})); ok(lay.last<=lay.dock,'320px: arsalar alt çubuğun üstünde ('+Math.round(lay.last)+' ≤ '+Math.round(lay.dock)+')'); }
  await p.screenshot({path:out+'yerel-ana-ja-320.png'});
  ok(p.errs.length===0,'konsol temiz '+p.errs.join('|')); await p.context().close();
 
@@ -94,12 +95,30 @@ async function turkishLeft(p){ return p.evaluate(([re,names])=>{ const R=new Reg
  await dismiss(p); await tap(p,'#mapBtn'); ok((await p.textContent('#sheetBody')).includes('$60M'),'5. şehir bedeli $60M'); await p.keyboard.press('Escape'); await p.waitForTimeout(450);
  ok(p.errs.length===0,'konsol temiz '+p.errs.join('|')); await p.context().close();
 
+ console.log('Yeni oyun: dil ve bölge seçimi yeniden gelir, diğer bölgenin kaydı korunur');
+ p=await fresh(b); await tap(p,'#modal .cityopt[data-a="en"]'); await tap(p,'#modal .cityopt[data-a="us"]'); await tap(p,'#modal .cityopt[data-a="nyc"]'); await p.waitForTimeout(400); await dismiss(p);
+ await p.evaluate(()=>{ window.__tapuState().cash=4242; }); await p.clock.runFor(11000);
+ await tap(p,'#menuBtn'); await tap(p,'#sheet [data-a="set"]'); await tap(p,'#sheet [data-a="reset"]'); await tap(p,'#sheet [data-a="reset"]');
+ ok(await vis(p,'#modal .cityopt[data-a="de"]'),'Yeni oyun → dil seçimi');
+ await tap(p,'#modal .cityopt[data-a="en"]'); ok(await vis(p,'#modal .cityopt[data-a="gl"]'),'Yeni oyun → bölge seçimi');
+ await tap(p,'#modal .cityopt[data-a="uk"]'); ok(await vis(p,'#modal .cityopt[data-a="lon"]'),'İngiltere şehirleri');
+ await tap(p,'#modal .cityopt[data-a="lon"]'); await p.waitForTimeout(1200); await p.clock.runFor(1500); await p.waitForTimeout(400); await dismiss(p);
+ let s2=await S(p); ok(s2.city==='lon','İngiltere · Londra ile yeni oyun');
+ const us=await p.evaluate(()=>{ const w=localStorage.getItem('tapu-save-v2-us'); return w?JSON.parse(JSON.parse(w).j).cash:null; }); ok(us!==null && Math.round(us)>=4242,'ABD kaydı korundu ('+Math.round(us||0)+')');
+ ok(p.errs.length===0,'konsol temiz '+p.errs.join('|')); await p.context().close();
+
  console.log('Mevcut oyuncu: kaydı olan ve tercihi olmayan → Türkçe/Türkiye, seçim ekranı yok');
  { const ctx=await b.newContext({locale:'en-US'}); const q=await ctx.newPage(); await q.clock.install();
    await q.addInitScript(()=>{ if(!sessionStorage.s){ sessionStorage.s=1; localStorage.setItem('tapu-save-v2',JSON.stringify({v:2,city:'izm',own:['izm-0'],cur:'izm-0',d:{'izm-0':[]},cash:777})); } });
    await q.goto(URL); await q.clock.runFor(800); await q.waitForTimeout(300);
    ok(!(await vis(q,'#modal .cityopt[data-a="en"]')),'dil seçimi sorulmadı');
    ok(await q.evaluate(()=>document.documentElement.lang)==='tr' && (await q.textContent('#cash')).startsWith('₺'),'Türkçe ve ₺ ile devam');
+   await q.clock.runFor(2000); await q.waitForTimeout(400);
+   ok((await q.textContent('#modal .card').catch(()=>'')).includes('Yeni: diller ve ülkeler'),'mevcut oyuncuya bir kez yeni diller/ülkeler kartı');
+   await q.click('#modal [data-a="pick"]',{force:true}); await q.clock.runFor(400); await q.waitForTimeout(300);
+   ok(await vis(q,'#modal .cityopt[data-a="en"]'),'karttan dil seçimine geçildi');
+   await q.click('#modal .cityopt[data-a="tr"]',{force:true}); await q.clock.runFor(400); await q.waitForTimeout(300);
+   ok(await vis(q,'#modal .cityopt[data-a="us"]'),'ardından bölge seçimi (ABD, Almanya, Global…)');
    await ctx.close(); }
 
  console.log('\nSONUÇ:',fails.length?fails.length+' sorun':'hepsi geçti'); await b.close(); process.exit(fails.length?1:0);

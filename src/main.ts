@@ -39,7 +39,7 @@ import { catchUp } from './game/events';
 import { collectAll } from './game/actions';
 import { toast } from './ui/modal';
 import { persist, persistSync } from './game/persist';
-import { tick, pickCity, firstRun, applyRegion } from './game/loop';
+import { tick, pickCity, firstRun, applyRegion, showRegionNews } from './game/loop';
 import { P, loadPrefs, savePrefs } from './prefs';
 import { anySave, loadRegionInfo } from './storage';
 import { setLang, deviceLang, t } from './i18n';
@@ -131,7 +131,8 @@ async function boot() {
   await applyRemoteConfig();
   // dil ve bölge: mevcut oyuncu (kaydı var, tercihi yok) Türkçe/Türkiye ile devam eder
   await loadPrefs();
-  if (!P.region && await anySave()) { P.region = 'tr'; P.lang = P.lang || 'tr'; savePrefs(); }
+  let migrated = false;
+  if (!P.region && await anySave()) { P.region = 'tr'; P.lang = P.lang || 'tr'; savePrefs(); migrated = true; }
   const first = !P.region;
   setLang(P.lang || deviceLang());
   localizeStatic();
@@ -153,6 +154,7 @@ async function boot() {
   const cloud = Cloud.init();
   if (first) firstRun(() => { void Notify.ask(); }, localizeStatic); // dil ilk açılışta seçilir
   else if (!S.city) pickCity(() => { void Notify.ask(); });
+  else if (!P.news && (migrated || P.region === 'tr')) setTimeout(() => { if (!ui.modal) showRegionNews(); }, 1200); // mevcut oyuncuya bir kez
   else { catchUp(awayMs()); S.lastSeen = now(); }
   void loadRegionInfo();
   await cloud;

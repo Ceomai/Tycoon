@@ -34,7 +34,7 @@ export function render() {
   const dh = !S.city ? '' : pi.lien
     ? `<span class="dl"><b>${t('{d} · kaporalı', { d: nm(d.n) })}</b><i>${t('borç {x}', { x: fmt(pi.lien) })}</i></span><span class="dp"><u style="width:${Math.round(100 * (1 - pi.lien / Math.max(pi.lien, S.lienT[k] || pi.lien)))}%" class="kp"></u></span><small>${t('{n}/{m} arsa açık · borç {d} kirasının yarısıyla ödeniyor', { n: builtCount(k), m: CFG.KAPORA_LOTS, d: nm(d.n) })}</small>`
     : `<span class="dl"><b>${nm(d.n)} · ${pctTxt(pi.pct)}</b><i>${pi.f >= N ? t('tamamlandı') : t('bitirmeye {n} arsa kaldı', { n: N - pi.f })}</i></span><span class="dp"><u style="width:${pi.pct}%"></u></span>${pi.sub ? `<small>${pi.sub}</small>` : ''}`;
-  if (db.dataset.v !== dh) { db.dataset.v = dh; db.innerHTML = dh; db.hidden = !dh; }
+  if (db.dataset.v !== dh) { const was = db.hidden; db.dataset.v = dh; db.innerHTML = dh; db.hidden = !dh; if (was !== db.hidden) requestAnimationFrame(() => fit()); } // çubuk belirince ızgara yeniden boyutlanır
   const rateHtml = `${t('{rate}/sn', { rate: fmt(totalRate(true), true) })}${boosted ? '<span class="x2">2x</span>' : ''}${S.premium ? '<span class="x2">PRO</span>' : ''}<span class="x2 mk">${marketChip()}</span>${S.shares ? `<span class="x2">${I.crown.replace('<svg', '<svg width="10" height="10"')} ${fmtX(1 + 0.1 * S.shares)}</span>` : ''}`;
   if (ui.rateHtml !== rateHtml) { ui.rateHtml = rateHtml; $('#rate').innerHTML = rateHtml; }
   const op = $('#offerPill'), o = S.offer;
@@ -138,8 +138,10 @@ function renderBubble() {
 /* ---------- ızgara: arsalar ekrana göre büyür (en fazla %30 dikey uzar) ---------- */
 export function fit() {
   const b = $('#board').getBoundingClientRect(), g = ui.gap, pad = 36;
-  const byW = Math.floor((b.width - pad - g * (COLS - 1)) / COLS), byH = Math.floor((b.height - pad - 4 - g * (ROWS - 1)) / ROWS);
-  const sw = Math.max(40, Math.min(byW, byH)), sh = Math.max(40, Math.min(byH, Math.round(sw * 1.3)));
+  // kullanılabilir yükseklik: alt çubuğun üstüne kadar (ilerleme çubuğu sonradan belirince ızgara taşmasın)
+  const dock = document.querySelector('.dock'), availH = dock ? Math.min(b.height, dock.getBoundingClientRect().top - b.top - 6) : b.height;
+  const byW = Math.floor((b.width - pad - g * (COLS - 1)) / COLS), byH = Math.floor((availH - pad - 4 - g * (ROWS - 1)) / ROWS);
+  const sw = Math.max(40, Math.min(byW, Math.max(byH, 30))), sh = Math.max(30, Math.min(byH, Math.round(sw * 1.3))); // kısa ekranda satır yüksekliği 30px'e kadar iner (alt çubuğa taşmasın)
   ui.size = sw; ui.sw = sw; ui.sh = sh; const grid = $('#grid'); grid.style.gridTemplateColumns = `repeat(${COLS},${sw}px)`; grid.style.gridAutoRows = sh + 'px';
   grid.querySelectorAll('.lane').forEach((n: Element) => n.remove());
   const Wd = COLS * sw + (COLS - 1) * g, Ht = ROWS * sh + (ROWS - 1) * g;

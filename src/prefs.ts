@@ -8,8 +8,8 @@ import type { RegionId } from './config';
 import type { Lang } from './i18n';
 
 const KEY = 'tapu-prefs';
-export interface Prefs { lang: Lang | ''; region: RegionId | ''; ent: { premium: boolean; noAds: boolean; club: boolean } }
-export const P: Prefs = { lang: '', region: '', ent: { premium: false, noAds: false, club: false } };
+export interface Prefs { lang: Lang | ''; region: RegionId | ''; ent: { premium: boolean; noAds: boolean; club: boolean }; news: boolean }
+export const P: Prefs = { lang: '', region: '', ent: { premium: false, noAds: false, club: false }, news: false };
 const native = () => Capacitor.isNativePlatform();
 
 export async function loadPrefs(): Promise<Prefs> {
@@ -19,6 +19,7 @@ export async function loadPrefs(): Promise<Prefs> {
     if (o && typeof o === 'object') {
       if (typeof o.lang === 'string') P.lang = o.lang;
       if (typeof o.region === 'string') P.region = o.region;
+      if (o.news === true) P.news = true;
       if (o.ent && typeof o.ent === 'object') P.ent = { premium: o.ent.premium === true, noAds: o.ent.noAds === true, club: o.ent.club === true };
     }
   } catch { /* varsayılanlar */ }
