@@ -3,11 +3,13 @@
    ÖZEL YAPILAR — haftanın özel tapusu (Han, Pasaj, Yalı Köşkü, Bahçeli Köşk)
    Diğer binalarla aynı 3/4 bakış (taban Y=90, derinlik 14×10), mürekkep çizgi.
    ========================================================= */
+import { tk } from './i18n';
+
 export const SPECIALS = [
-  { id: 'han', n: 'Tarihi Han', d: 'Kemerli avlusu ve kubbesiyle taş han' },
-  { id: 'pasaj', n: 'Pasaj', d: 'Cam çatılı, dükkânlı tarihi çarşı' },
-  { id: 'yali', n: 'Yalı Köşkü', d: 'Cumbalı, ahşap saçaklı sahil köşkü' },
-  { id: 'kosk', n: 'Bahçeli Köşk', d: 'Piramit çatılı, bahçe içinde köşk' },
+  { id: 'han', n: tk('Tarihi Han'), d: tk('Kemerli avlusu ve kubbesiyle taş han') },
+  { id: 'pasaj', n: tk('Pasaj'), d: tk('Cam çatılı, dükkânlı tarihi çarşı') },
+  { id: 'yali', n: tk('Yalı Köşkü'), d: tk('Cumbalı, ahşap saçaklı sahil köşkü') },
+  { id: 'kosk', n: tk('Bahçeli Köşk'), d: tk('Piramit çatılı, bahçe içinde köşk') },
 ];
 export const specialOf = (id) => SPECIALS.find(s => s.id === id) || SPECIALS[0];
 /** Haftanın yapısı hafta numarasına göre sırayla döner. */

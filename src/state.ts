@@ -65,7 +65,7 @@ export function makeCode(): string {
 }
 
 export function newState(now: number, weekKey: string, city: CityId | null = null): State {
-  const start = city || 'ist';
+  const start = city || CITY_ORDER[0];
   return {
     v: SCHEMA, city, own: [dkey(start, 0)], cur: dkey(start, 0), d: { [dkey(start, 0)]: emptyLots() },
     cash: 150, earned: 0, boostUntil: 0, lastSeen: now, maxSeen: now, savedAt: 0,
@@ -126,7 +126,7 @@ function cleanLot(q: unknown): Lot {
 }
 const cleanLots = (x: unknown): Lot[] => { const a = Array.isArray(x) ? x.slice(0, N).map(cleanLot) : []; while (a.length < N) a.push(null); return a; };
 function sanitize(s: any, now: number, weekKey: string): State {
-  const own = [...new Set(strs(s.own).filter(isD))];
+  const own = [...new Set(strs(s.own).filter(isD))].filter(k => CITY_ORDER.includes(DMAP[k].city)); // yalnızca etkin bölgenin semtleri
   const city: CityId | null = CITY_ORDER.includes(s.city) ? s.city : own.length ? DMAP[own[0]].city : null;
   const base = newState(now, weekKey, city) as any;
   const out: any = {};

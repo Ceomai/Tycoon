@@ -1,0 +1,32 @@
+{
+ "en": {
+  "Dil ve bölge": "Language & region",
+  "Her bölgenin ilerlemesi, tapuları ve sırası ayrıdır. Dil yalnızca metinleri değiştirir; şehirleri ve para birimini bölge belirler. Satın aldığın paketler tüm bölgelerde geçerli.": "Every region keeps its own progress, deeds and rank. Language changes only the text; the region decides the cities and the currency. Packs you buy work in every region.",
+  "başlanmadı": "not started",
+  "kayıtlı · {n} semt": "saved · {n} districts",
+  "şu an oynanıyor": "playing now",
+  "Tapu Senedi": "Title deed",
+  "TEBLİGAT": "NOTICE",
+  "Cihaz dilin seçili geldi. İstediğin zaman Ayarlar’dan değiştirebilirsin.": "Your device language is preselected. You can change it any time in Settings."
+ },
+ "de": {
+  "Dil ve bölge": "Sprache & Region",
+  "Her bölgenin ilerlemesi, tapuları ve sırası ayrıdır. Dil yalnızca metinleri değiştirir; şehirleri ve para birimini bölge belirler. Satın aldığın paketler tüm bölgelerde geçerli.": "Jede Region hat ihren eigenen Fortschritt, eigene Urkunden und Ränge. Die Sprache ändert nur die Texte; Städte und Währung bestimmt die Region. Gekaufte Pakete gelten in allen Regionen.",
+  "başlanmadı": "nicht begonnen",
+  "kayıtlı · {n} semt": "gespeichert · {n} Viertel",
+  "şu an oynanıyor": "wird gespielt",
+  "Tapu Senedi": "Urkunde",
+  "TEBLİGAT": "MITTEILUNG",
+  "Cihaz dilin seçili geldi. İstediğin zaman Ayarlar’dan değiştirebilirsin.": "Deine Gerätesprache ist vorausgewählt. Du kannst sie jederzeit in den Einstellungen ändern."
+ },
+ "ja": {
+  "Dil ve bölge": "言語と地域",
+  "Her bölgenin ilerlemesi, tapuları ve sırası ayrıdır. Dil yalnızca metinleri değiştirir; şehirleri ve para birimini bölge belirler. Satın aldığın paketler tüm bölgelerde geçerli.": "地域ごとに進行状況・権利書・順位は別々です。言語はテキストだけを変え、都市と通貨は地域で決まります。購入したパックはすべての地域で有効です。",
+  "başlanmadı": "未開始",
+  "kayıtlı · {n} semt": "保存済み · {n}地区",
+  "şu an oynanıyor": "プレイ中",
+  "Tapu Senedi": "権利書",
+  "TEBLİGAT": "お知らせ",
+  "Cihaz dilin seçili geldi. İstediğin zaman Ayarlar’dan değiştirebilirsin.": "端末の言語が選択されています。設定からいつでも変更できます。"
+ }
+}

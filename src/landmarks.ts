@@ -1,11 +1,12 @@
 // @ts-nocheck — tarihi yapı çizimleri (SVG metni)
 /* KOLEKSİYON — etkinliklerden ve altın taksiden düşen tarihi yapılar. Her biri tüm kiralara +%5, tamamı ek +%10. */
+import { tk } from './i18n';
 export interface Landmark { id: string; n: string; city: 'ist' | 'izm' | 'ank'; }
 export const LM: Landmark[] = [
-  { id: 'galata', n: 'Galata Kulesi', city: 'ist' }, { id: 'kiz', n: 'Kız Kulesi', city: 'ist' }, { id: 'saat', n: 'Dolmabahçe Saat Kulesi', city: 'ist' },
-  { id: 'rumeli', n: 'Rumeli Hisarı', city: 'ist' }, { id: 'tramvay', n: 'Nostaljik Tramvay', city: 'ist' }, { id: 'haydarpasa', n: 'Haydarpaşa Garı', city: 'ist' },
-  { id: 'konak', n: 'Konak Saat Kulesi', city: 'izm' }, { id: 'asansor', n: 'Tarihi Asansör', city: 'izm' },
-  { id: 'atakule', n: 'Atakule', city: 'ank' }, { id: 'kale', n: 'Ankara Kalesi', city: 'ank' },
+  { id: 'galata', n: tk('Galata Kulesi'), city: 'ist' }, { id: 'kiz', n: tk('Kız Kulesi'), city: 'ist' }, { id: 'saat', n: tk('Dolmabahçe Saat Kulesi'), city: 'ist' },
+  { id: 'rumeli', n: tk('Rumeli Hisarı'), city: 'ist' }, { id: 'tramvay', n: tk('Nostaljik Tramvay'), city: 'ist' }, { id: 'haydarpasa', n: tk('Haydarpaşa Garı'), city: 'ist' },
+  { id: 'konak', n: tk('Konak Saat Kulesi'), city: 'izm' }, { id: 'asansor', n: tk('Tarihi Asansör'), city: 'izm' },
+  { id: 'atakule', n: tk('Atakule'), city: 'ank' }, { id: 'kale', n: tk('Ankara Kalesi'), city: 'ank' },
 ];
 export function lmSvg(id){
   const sh='<ellipse class="sh" cx="54" cy="92" rx="30" ry="4"/>';

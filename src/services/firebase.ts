@@ -19,6 +19,7 @@ import {
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable, type Functions } from 'firebase/functions';
 import type { Backend, LbRow, RedeemResult } from './cloud';
+import { t } from '../i18n';
 import { GROUP_SIZE } from '../config';
 
 export function createFirebaseBackend(): Backend {
@@ -107,7 +108,7 @@ export function createFirebaseBackend(): Backend {
       if (!mine.exists()) return null; // bu hafta henüz skor gönderilmedi → grup yok
       const m = mine.data() as any;
       const snap = await getDocs(query(collection(fs, 'lb'), where('group', '==', m.group), orderBy('earned', 'desc'), limit(GROUP_SIZE * 2)));
-      const rows: LbRow[] = snap.docs.map(d => { const x = d.data() as any; return { name: x.name || 'Emlakçı', district: x.district, earned: x.earned, me: x.uid === be.uid }; });
+      const rows: LbRow[] = snap.docs.map(d => { const x = d.data() as any; return { name: x.name || t('Emlakçı'), district: x.district, earned: x.earned, me: x.uid === be.uid }; });
       const i = rows.findIndex(r => r.me);
       return { tier: m.tier || 0, group: m.group, rows, myRank: i >= 0 ? i + 1 : null, size: rows.length };
     },

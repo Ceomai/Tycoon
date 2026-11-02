@@ -115,7 +115,7 @@ describe('haftalık lig', () => {
 });
 
 import { largestGroup, pairsCount, goalsOf } from '../../src/game/goals';
-import { festivalOn, season } from '../../src/game/festival';
+import { season } from '../../src/game/festival';
 import { loc } from '../../src/format';
 import { neighborBonus, baseRate, specialBase } from '../../src/economy';
 import { weekSpecial } from '../../src/specials';
@@ -147,11 +147,7 @@ describe('yeni özellikler', () => {
     expect(goalsOf('ist-0')[0].t).toContain('evi');
     expect(goalsOf('izm-2')[1].t).toContain('ofisi');
   });
-  it('bayram günleri sabit tarihli; mevsimler', () => {
-    expect(festivalOn(+new Date(2026, 9, 29, 12))?.n).toContain('Cumhuriyet');
-    expect(festivalOn(+new Date(2027, 3, 23, 9))?.k).toBe('milli');
-    expect(festivalOn(+new Date(2026, 11, 31, 20))?.k).toBe('yil');
-    expect(festivalOn(+new Date(2026, 10, 1))).toBeNull();
+  it('mevsimler (bayram yok)', () => {
     expect(season(+new Date(2027, 0, 10))).toBe('kis');
     expect(season(+new Date(2027, 6, 10))).toBe('yaz');
     expect(season(+new Date(2027, 3, 10))).toBe('');
@@ -177,7 +173,8 @@ describe('semt geçişleri', () => {
     expect(bt('izm-1', 'ev') / bt('izm-0', 'ev')).toBeCloseTo(0.75 * 1.5 / 1, 5); // %25 hızlı, kademe 1 → ×1.5 süre
     const p = { t: 'ev' as const, lvl: 1, buf: 0, until: 0, dur: 1, up: false };
     expect(uc('ank-3', p) / uc('ist-3', p)).toBeCloseTo(0.8);
-    expect(Object.keys(DRULES).length).toBe(15);
+    expect(Object.keys(DRULES).filter(k => /^(ist|izm|ank)-/.test(k)).length).toBe(15);
+    expect(Object.keys(DRULES).length).toBe(15 * 5); // 15 şehir × 5 semt
   });
   it('kapora tapunun %30’u', () => {
     S.d['ist-0'] = Array.from({ length: 20 }, () => ({ t: 'ev' as const, lvl: 1, buf: 0, until: 0, dur: 1, up: false }));

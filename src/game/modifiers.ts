@@ -4,14 +4,15 @@
    ========================================================= */
 import { ORDER, BuildingType, DistrictKey } from '../config';
 import { S } from '../state';
+import { tk } from '../i18n';
 
 /* ---------- 2 · haftalık piyasa raporu (herkes için aynı; hafta numarasına göre) ---------- */
 export const MARKET_UP = 0.3, MARKET_DOWN = 0.1;
 const HEAD: Record<BuildingType, [string, string]> = {
-  ofis: ['Ofis talebi patladı', 'Şirketler yeni merkez arıyor; plazalar dolup taşıyor.'],
-  kafe: ['Kahve çılgınlığı', 'Herkes yeni açılan kahvecilerin peşinde.'],
-  dukkan: ['Alışveriş sezonu', 'Vitrinler dolu, kasalar şakır şakır.'],
-  ev: ['Konut talebi rekorda', 'Kiralık ev bulmak hiç bu kadar zor olmamıştı.'],
+  ofis: [tk('Ofis talebi patladı'), tk('Şirketler yeni merkez arıyor; plazalar dolup taşıyor.')],
+  kafe: [tk('Kahve çılgınlığı'), tk('Herkes yeni açılan kahvecilerin peşinde.')],
+  dukkan: [tk('Alışveriş sezonu'), tk('Vitrinler dolu, kasalar şakır şakır.')],
+  ev: [tk('Konut talebi rekorda'), tk('Kiralık ev bulmak hiç bu kadar zor olmamıştı.')],
 };
 export function marketOf(week: string) {
   const n = parseInt(String(week || '').split('H')[1] || '0', 10) || 0;
@@ -27,10 +28,10 @@ export function marketMult(t: BuildingType, week: string): number {
 export interface CivicOpt { id: string; n: string; t: BuildingType; d: string; }
 export const CIVIC_X = 0.15;
 export const CIVIC: { id: string; title: string; q: string; a: CivicOpt; b: CivicOpt }[] = [
-  { id: 'arsa', title: 'Boş belediye arsası', q: 'Belediye semtine bir yatırım yapacak ve senin fikrini soruyor.',
-    a: { id: 'park', n: 'Park', t: 'ev', d: 'Çocuklar, ağaçlar, huzur' }, b: { id: 'otopark', n: 'Otopark', t: 'dukkan', d: 'Müşteri kolay gelir' } },
-  { id: 'ulasim', title: 'Ulaşım yatırımı', q: 'Semte hangi ulaşım yatırımı yapılsın?',
-    a: { id: 'metro', n: 'Metro durağı', t: 'ofis', d: 'Çalışanlar dakikasında işte' }, b: { id: 'bisiklet', n: 'Bisiklet yolu', t: 'kafe', d: 'Yol boyu kahve molası' } },
+  { id: 'arsa', title: tk('Boş belediye arsası'), q: tk('Belediye semtine bir yatırım yapacak ve senin fikrini soruyor.'),
+    a: { id: 'park', n: tk('Park'), t: 'ev', d: tk('Çocuklar, ağaçlar, huzur') }, b: { id: 'otopark', n: tk('Otopark'), t: 'dukkan', d: tk('Müşteri kolay gelir') } },
+  { id: 'ulasim', title: tk('Ulaşım yatırımı'), q: tk('Semte hangi ulaşım yatırımı yapılsın?'),
+    a: { id: 'metro', n: tk('Metro durağı'), t: 'ofis', d: tk('Çalışanlar dakikasında işte') }, b: { id: 'bisiklet', n: tk('Bisiklet yolu'), t: 'kafe', d: tk('Yol boyu kahve molası') } },
 ];
 const OPT: Record<string, CivicOpt> = Object.fromEntries(CIVIC.flatMap(c => [[c.a.id, c.a], [c.b.id, c.b]]));
 export const civicOpt = (id: string) => OPT[id];

@@ -8,9 +8,10 @@ const log=(...a)=>console.log(...a);
 const st=async p=>{ await p.clock.runFor(300); return await p.evaluate(()=>{const o=JSON.parse(JSON.stringify(window.__tapuState())); o._now=Date.now(); return o;}); };
 const saved=async p=>p.evaluate(()=>{const w=JSON.parse(localStorage.getItem('tapu-save-v2')||'null'); return w&&JSON.parse(w.j);});
 async function page(b,opts={},seed){
-  const ctx=await b.newContext({viewport:opts.vp||{width:390,height:800}});
+  const ctx=await b.newContext({viewport:opts.vp||{width:390,height:800}}); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{}}));`);
   const p=await ctx.newPage(); p.errs=[]; p.on('pageerror',e=>p.errs.push(e.message)); p.on('console',m=>{if(m.type()==='error')p.errs.push(m.text())});
   await p.clock.install(opts.time ? { time: opts.time } : undefined);
+  await p.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{}}));`); // mevcut testler: Türkçe · Türkiye (ilk açılış akışı tests/yerel.cjs'te)
   if(seed) await p.addInitScript(`if(!sessionStorage.getItem('s')){sessionStorage.setItem('s',1);localStorage.setItem('tapu-save-v1',JSON.stringify((${seed})(Date.now())));}`);
   await p.goto(URL); await p.clock.runFor(500); return p;
 }
@@ -162,7 +163,7 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
  log('H) Android dokunmatik (Pixel 7, gerçek dokunuş olayları)');
  {
    const { devices } = require('playwright');
-   const ctx = await b.newContext({ ...devices['Pixel 7'] }); const p = await ctx.newPage(); p.errs = [];
+   const ctx = await b.newContext({ ...devices['Pixel 7'] }); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{}}));`); const p = await ctx.newPage(); p.errs = [];
    p.on('pageerror', e => p.errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') p.errs.push(m.text()); });
    await p.goto(URL); await p.waitForTimeout(800);
    const cdp = await ctx.newCDPSession(p);
@@ -191,7 +192,7 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
 
  log('I) haftalık lig (paylaşılan veritabanı taklidiyle)');
  {
-   const ctx = await b.newContext({ viewport: { width: 390, height: 844 } }); const p = await ctx.newPage(); p.errs = [];
+   const ctx = await b.newContext({ viewport: { width: 390, height: 844 } }); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{}}));`); const p = await ctx.newPage(); p.errs = [];
    p.on('pageerror', e => p.errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') p.errs.push(m.text()); });
    await p.addInitScript(() => {
      const wk = d => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const wd = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - wd); const y = t.getUTCFullYear(); return y + '-H' + String(Math.ceil(((t - Date.UTC(y, 0, 1)) / 864e5 + 1) / 7)).padStart(2, '0'); };
@@ -306,15 +307,8 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
    await tap(p,'[data-a="del"]'); await tap(p,'[data-a="del"]'); s2=await st(p); ok(s2.d['ist-0'][15]===null && s2.inv.length===1,'yıkılan özel yapı depoya döndü');
    ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
 
-   // bayram (29 Ekim)
-   p=await page(b,{time:new Date('2026-10-29T12:00:00')},baseSeed(`{rifki:false,guideHint:true}`));
-   const titles=[]; for(let k=0;k<5&&await p.isVisible('#modal .card');k++){ titles.push(await p.textContent('#modal .card h3')); await tap(p, await p.isVisible('#modal .card .txt') ? '#modal .card .txt' : '#modal .card [data-a]'); await p.clock.runFor(3000); }
-   for(let k=0;k<8;k++){ await p.clock.runFor(1500); if(await p.isVisible('#modal .card')){ titles.push(await p.textContent('#modal .card h3')); await tap(p, await p.isVisible('#modal .card .txt') ? '#modal .card .txt' : '#modal .card [data-a]'); } }
-   ok(titles.some(x=>x.includes('Bayram ikramiyesi')),'bayram ikramiyesi kartı çıktı');
-   ok(await p.isVisible('#festBar') && (await p.textContent('#festBar')).includes('Cumhuriyet'),'29 Ekim: bayram şeridi görünüyor');
-      ok((await p.textContent('#rate')).includes('+%20'),'kira göstergesinde +%20');
-   ok(await p.evaluate(()=>document.body.classList.contains('fest-milli')),'harita bayrak zinciriyle süslendi');
-   ok(p.errs.length===0,'konsol hatası yok '+p.errs.join('|')); await p.context().close();
+   // bayram yok: 29 Ekim'de de bayram kartı/şeridi çıkmaz
+   p=await page(b,{time:new Date('2026-10-29T12:00:00')},baseSeed(`{rifki:false,guideHint:true}`)); await p.clock.runFor(8000); ok(!(await p.$('#festBar')) && !(await p.evaluate(()=>document.body.className.includes('fest-'))),'bayram ve özel gün yok'); await p.context().close();
 
    // Rıfkı Abi
    p=await page(b,{},baseSeed(`{guideHint:true}`));

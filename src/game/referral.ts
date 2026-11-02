@@ -6,6 +6,7 @@ import { ui } from '../ui/ctx';
 import { toast, bump } from '../ui/modal';
 import { addCash } from './actions';
 import { fmt } from '../format';
+import { t } from '../i18n';
 import { persist } from './persist';
 import { Cloud } from '../services/cloud';
 
@@ -16,13 +17,13 @@ export const validCode = (c: string) => /^TP[A-Z0-9]{4}$/.test(c);
 
 export async function useCode(raw: string) {
   const c = normalizeCode(raw);
-  if (S.ref.used) return toast('Zaten bir davet kodu kullandın');
-  if (!validCode(c)) return toast('Kod TP ile başlayan 6 karakter olmalı');
-  if (c === S.ref.code) return toast('Kendi kodunu kullanamazsın');
+  if (S.ref.used) return toast(t('Zaten bir davet kodu kullandın'));
+  if (!validCode(c)) return toast(t('Kod TP ile başlayan 6 karakter olmalı'));
+  if (c === S.ref.code) return toast(t('Kendi kodunu kullanamazsın'));
   const res = await Cloud.redeemInvite(c);
-  if (res === 'invalid') return toast('Bu kod bulunamadı');
-  if (res === 'used') return toast('Bu hesapla daha önce kod kullanıldı');
-  if (res === 'error') return toast('Şu an doğrulanamadı, sonra tekrar dene');
+  if (res === 'invalid') return toast(t('Bu kod bulunamadı'));
+  if (res === 'used') return toast(t('Bu hesapla daha önce kod kullanıldı'));
+  if (res === 'error') return toast(t('Şu an doğrulanamadı, sonra tekrar dene'));
   const gift = inviteGift(); S.ref.used = c; addCash(gift); bump(); Snd.reward(); persist();
-  toast(`Hoş geldin hediyesi: ${fmt(gift)}`); ui.sheetSig = '';
+  toast(t('Hoş geldin hediyesi: {amt}', { amt: fmt(gift) })); ui.sheetSig = '';
 }
