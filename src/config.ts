@@ -2,14 +2,16 @@
    AYARLAR — oyunun hızı, reklam dengesi ve harita
    CFG içindeki değerler Remote Config ile uygulamayı güncellemeden değiştirilebilir.
    ========================================================= */
+import { tk } from './i18n';
+
 export const COLS = 4, ROWS = 5, N = COLS * ROWS;
 
 export type BuildingType = 'ev' | 'kafe' | 'dukkan' | 'ofis';
 export const TYPES: Record<BuildingType, { n: string; cost: number; inc: number; time: number; unlock: number }> = {
-  ev: { n: 'Ev', cost: 100, inc: 1, time: 20, unlock: 0 },
-  kafe: { n: 'Kafe', cost: 1500, inc: 9, time: 90, unlock: 1000 },
-  dukkan: { n: 'Dükkân', cost: 20000, inc: 80, time: 300, unlock: 15000 },
-  ofis: { n: 'Ofis', cost: 250000, inc: 700, time: 900, unlock: 200000 },
+  ev: { n: tk('Ev'), cost: 100, inc: 1, time: 20, unlock: 0 },
+  kafe: { n: tk('Kafe'), cost: 1500, inc: 9, time: 90, unlock: 1000 },
+  dukkan: { n: tk('Dükkân'), cost: 20000, inc: 80, time: 300, unlock: 15000 },
+  ofis: { n: tk('Ofis'), cost: 250000, inc: 700, time: 900, unlock: 200000 },
 };
 export const ORDER: BuildingType[] = ['ev', 'kafe', 'dukkan', 'ofis'];
 export const LV_INC = [0, 1, 2.5, 6, 14, 32];
@@ -24,47 +26,47 @@ export type CityId = string;
 /** Şehirler. n: varsayılan ad (dile göre i18n'de çevrilir), tagline: Türkçe kaynak metin (i18n anahtarı).
  *  Semtler ucuzdan pahalıya; aynı sıradaki semtler aynı ekonomik kademede (tüm bölgelerde ekonomi aynı). */
 export const CITIES: Record<CityId, { n: string; districts: { n: string; v: number }[]; tagline: string }> = {
-  ist: { n: 'İstanbul', tagline: 'Boğaz manzaralı semtler, yalılar ve plazalar', districts: [
+  ist: { n: 'İstanbul', tagline: tk('Boğaz manzaralı semtler, yalılar ve plazalar'), districts: [
     { n: 'Kadıköy', v: 0 }, { n: 'Beşiktaş', v: 1 }, { n: 'Şişli', v: 2 }, { n: 'Nişantaşı', v: 3 }, { n: 'Bebek', v: 4 }] },
-  izm: { n: 'İzmir', tagline: 'Körfez, Levanten evleri ve Ege taş evleri', districts: [
+  izm: { n: 'İzmir', tagline: tk('Körfez, Levanten evleri ve Ege taş evleri'), districts: [
     { n: 'Karşıyaka', v: 0 }, { n: 'Bornova', v: 1 }, { n: 'Alsancak', v: 3 }, { n: 'Göztepe', v: 2 }, { n: 'Çeşme', v: 5 }] },
-  ank: { n: 'Ankara', tagline: 'Bahçeli evler, bulvarlar ve yeni yerleşimler', districts: [
+  ank: { n: 'Ankara', tagline: tk('Bahçeli evler, bulvarlar ve yeni yerleşimler'), districts: [
     { n: 'Bahçelievler', v: 0 }, { n: 'Kızılay', v: 1 }, { n: 'Çankaya', v: 3 }, { n: 'Ümitköy', v: 2 }, { n: 'İncek', v: 0 }] },
-  nyc: { n: 'New York', tagline: 'Gökdelenler, kahverengi taş evler ve çatı katları', districts: [
+  nyc: { n: 'New York', tagline: tk('Gökdelenler, kahverengi taş evler ve çatı katları'), districts: [
     { n: 'Queens', v: 0 }, { n: 'Brooklyn', v: 1 }, { n: 'Harlem', v: 3 }, { n: 'Upper West Side', v: 3 }, { n: 'Tribeca', v: 2 }] },
-  la: { n: 'Los Angeles', tagline: 'Palmiyeli bulvarlar, plajlar ve tepe villaları', districts: [
+  la: { n: 'Los Angeles', tagline: tk('Palmiyeli bulvarlar, plajlar ve tepe villaları'), districts: [
     { n: 'Long Beach', v: 0 }, { n: 'Downtown', v: 2 }, { n: 'Santa Monica', v: 5 }, { n: 'Hollywood Hills', v: 0 }, { n: 'Beverly Hills', v: 4 }] },
-  chi: { n: 'Chicago', tagline: 'Göl kıyısı, tuğla apartmanlar ve kuleler', districts: [
+  chi: { n: 'Chicago', tagline: tk('Göl kıyısı, tuğla apartmanlar ve kuleler'), districts: [
     { n: 'Pilsen', v: 1 }, { n: 'Wicker Park', v: 1 }, { n: 'Lincoln Park', v: 3 }, { n: 'River North', v: 2 }, { n: 'Gold Coast', v: 4 }] },
-  lon: { n: 'London', tagline: 'Sıra evler, ara sokaklar ve rıhtımlar', districts: [
+  lon: { n: 'London', tagline: tk('Sıra evler, ara sokaklar ve rıhtımlar'), districts: [
     { n: 'Croydon', v: 0 }, { n: 'Camden', v: 1 }, { n: 'Shoreditch', v: 2 }, { n: 'Notting Hill', v: 3 }, { n: 'Mayfair', v: 3 }] },
-  man: { n: 'Manchester', tagline: 'Tuğla fabrikalar, kanallar ve yeni kuleler', districts: [
+  man: { n: 'Manchester', tagline: tk('Tuğla fabrikalar, kanallar ve yeni kuleler'), districts: [
     { n: 'Salford', v: 0 }, { n: 'Ancoats', v: 1 }, { n: 'Northern Quarter', v: 1 }, { n: 'Spinningfields', v: 2 }, { n: 'Didsbury', v: 3 }] },
-  edi: { n: 'Edinburgh', tagline: 'Taş konaklar, kale ve liman', districts: [
+  edi: { n: 'Edinburgh', tagline: tk('Taş konaklar, kale ve liman'), districts: [
     { n: 'Leith', v: 1 }, { n: 'Gorgie', v: 0 }, { n: 'Marchmont', v: 3 }, { n: 'Stockbridge', v: 3 }, { n: 'New Town', v: 4 }] },
-  muc: { n: 'Munich', tagline: 'Bira bahçeleri, eski apartmanlar ve Alp villaları', districts: [
+  muc: { n: 'Munich', tagline: tk('Bira bahçeleri, eski apartmanlar ve Alp villaları'), districts: [
     { n: 'Neuperlach', v: 0 }, { n: 'Sendling', v: 1 }, { n: 'Maxvorstadt', v: 3 }, { n: 'Schwabing', v: 3 }, { n: 'Bogenhausen', v: 4 }] },
-  ber: { n: 'Berlin', tagline: 'Sokak sanatı, avlulu apartmanlar ve göl villaları', districts: [
+  ber: { n: 'Berlin', tagline: tk('Sokak sanatı, avlulu apartmanlar ve göl villaları'), districts: [
     { n: 'Marzahn', v: 2 }, { n: 'Neukölln', v: 1 }, { n: 'Kreuzberg', v: 1 }, { n: 'Prenzlauer Berg', v: 3 }, { n: 'Grunewald', v: 4 }] },
-  ham: { n: 'Hamburg', tagline: 'Liman lofları, kanallar ve Elbe konakları', districts: [
+  ham: { n: 'Hamburg', tagline: tk('Liman lofları, kanallar ve Elbe konakları'), districts: [
     { n: 'Wilhelmsburg', v: 0 }, { n: 'Altona', v: 1 }, { n: 'St. Pauli', v: 2 }, { n: 'Eppendorf', v: 3 }, { n: 'Blankenese', v: 4 }] },
-  tyo: { n: 'Tokyo', tagline: 'Neon kuleler, ara sokaklar ve sakin tapınaklar', districts: [
+  tyo: { n: 'Tokyo', tagline: tk('Neon kuleler, ara sokaklar ve sakin tapınaklar'), districts: [
     { n: 'Adachi', v: 0 }, { n: 'Nakano', v: 1 }, { n: 'Shibuya', v: 2 }, { n: 'Ginza', v: 2 }, { n: 'Azabu', v: 4 }] },
-  osa: { n: 'Osaka', tagline: 'Sokak lezzetleri, kanallar ve iş kuleleri', districts: [
+  osa: { n: 'Osaka', tagline: tk('Sokak lezzetleri, kanallar ve iş kuleleri'), districts: [
     { n: 'Nishinari', v: 0 }, { n: 'Tennoji', v: 1 }, { n: 'Namba', v: 2 }, { n: 'Umeda', v: 2 }, { n: 'Kitashinchi', v: 3 }] },
-  kyo: { n: 'Kyoto', tagline: 'Ahşap evler, bahçeler ve tapınaklar', districts: [
+  kyo: { n: 'Kyoto', tagline: tk('Ahşap evler, bahçeler ve tapınaklar'), districts: [
     { n: 'Fushimi', v: 0 }, { n: 'Nakagyo', v: 1 }, { n: 'Higashiyama', v: 3 }, { n: 'Arashiyama', v: 5 }, { n: 'Gion', v: 4 }] },
 };
 
 /* ---------- bölgeler: dil ayrı seçilir; bölge şehirleri ve para birimini belirler ---------- */
 export type RegionId = 'tr' | 'us' | 'uk' | 'de' | 'jp' | 'gl';
 export const REGIONS: Record<RegionId, { n: string; cur: string; cities: CityId[]; lang: string; tagline: string }> = {
-  tr: { n: 'Türkiye', cur: '₺', cities: ['ist', 'izm', 'ank'], lang: 'tr', tagline: 'Boğaz, Ege ve başkent' },
-  us: { n: 'ABD', cur: '$', cities: ['nyc', 'la', 'chi'], lang: 'en', tagline: 'Gökdelenler ve gün batımı bulvarları' },
-  uk: { n: 'Birleşik Krallık', cur: '£', cities: ['lon', 'man', 'edi'], lang: 'en', tagline: 'Sıra evler, ara sokaklar ve rıhtımlar' },
-  de: { n: 'Almanya', cur: '€', cities: ['muc', 'ber', 'ham'], lang: 'de', tagline: 'Eski apartmanlar, villalar ve limanlar' },
-  jp: { n: 'Japonya', cur: '¥', cities: ['tyo', 'osa', 'kyo'], lang: 'ja', tagline: 'Neon kuleler ve sakin tapınaklar' },
-  gl: { n: 'GLOBAL', cur: '$', cities: ['ist', 'nyc', 'lon', 'muc', 'tyo'], lang: 'en', tagline: 'Her ülkenin en pahalı şehri' },
+  tr: { n: tk('Türkiye'), cur: '₺', cities: ['ist', 'izm', 'ank'], lang: 'tr', tagline: tk('Boğaz, Ege ve başkent') },
+  us: { n: tk('ABD'), cur: '$', cities: ['nyc', 'la', 'chi'], lang: 'en', tagline: tk('Gökdelenler ve gün batımı bulvarları') },
+  uk: { n: tk('Birleşik Krallık'), cur: '£', cities: ['lon', 'man', 'edi'], lang: 'en', tagline: tk('Sıra evler, ara sokaklar ve rıhtımlar') },
+  de: { n: tk('Almanya'), cur: '€', cities: ['muc', 'ber', 'ham'], lang: 'de', tagline: tk('Eski apartmanlar, villalar ve limanlar') },
+  jp: { n: tk('Japonya'), cur: '¥', cities: ['tyo', 'osa', 'kyo'], lang: 'ja', tagline: tk('Neon kuleler ve sakin tapınaklar') },
+  gl: { n: tk('GLOBAL'), cur: '$', cities: ['ist', 'nyc', 'lon', 'muc', 'tyo'], lang: 'en', tagline: tk('Her ülkenin en pahalı şehri') },
 };
 export const REGION_ORDER: RegionId[] = ['tr', 'us', 'uk', 'de', 'jp', 'gl'];
 /** Etkin bölgenin şehirleri (setRegion yerinde günceller; içe aktaranlar aynı diziyi görür). */
@@ -141,11 +143,11 @@ export const PRIVACY_URL = (import.meta.env.VITE_PRIVACY_URL as string) || 'http
 
 /* ---------- haftalık lig ---------- */
 export const LEAGUES = [
-  { id: 'arsa', n: 'Arsa Ligi', short: 'ARSA' },
-  { id: 'kat', n: 'Kat Ligi', short: 'KAT' },
-  { id: 'apartman', n: 'Apartman Ligi', short: 'APARTMAN' },
-  { id: 'plaza', n: 'Plaza Ligi', short: 'PLAZA' },
-  { id: 'gokdelen', n: 'Gökdelen Ligi', short: 'GÖKDELEN' },
+  { id: 'arsa', n: tk('Arsa Ligi'), short: tk('ARSA') },
+  { id: 'kat', n: tk('Kat Ligi'), short: tk('KAT') },
+  { id: 'apartman', n: tk('Apartman Ligi'), short: tk('APARTMAN') },
+  { id: 'plaza', n: tk('Plaza Ligi'), short: tk('PLAZA') },
+  { id: 'gokdelen', n: tk('Gökdelen Ligi'), short: tk('GÖKDELEN') },
 ] as const;
 export const LEAGUE_TOP = LEAGUES.length - 1;
 export const GROUP_SIZE = 30;
@@ -155,28 +157,28 @@ export const GROUP_SIZE = 30;
    upDisc: tadilat x kadar ucuz · pair: akıllı ikili bonusu +x (ek) */
 export interface DRule { n: string; t: string; kind: 'type' | 'row' | 'speed' | 'upDisc' | 'pair'; type?: BuildingType; x: number; }
 export const DRULES: Record<string, DRule> = {
-  'ist-0': { n: 'Bahçeli evler', t: 'Evler +%15', kind: 'type', type: 'ev', x: 0.15 },
-  'ist-1': { n: 'Çarşı semti', t: 'Kafeler +%20', kind: 'type', type: 'kafe', x: 0.2 },
-  'ist-2': { n: 'İş merkezi', t: 'Ofisler +%15', kind: 'type', type: 'ofis', x: 0.15 },
-  'ist-3': { n: 'Butik caddesi', t: 'Dükkânlar +%25', kind: 'type', type: 'dukkan', x: 0.25 },
-  'ist-4': { n: 'Boğaz kıyısı', t: 'Sahil sırası (en alt sıra) +%30', kind: 'row', x: 0.3 },
-  'izm-0': { n: 'Çarşı ve sahil', t: 'Evler +%15', kind: 'type', type: 'ev', x: 0.15 },
-  'izm-1': { n: 'Genç ve hareketli', t: 'İnşaatlar %25 hızlı', kind: 'speed', x: 0.25 },
-  'izm-2': { n: 'Kordon boyu', t: 'Kafeler +%25', kind: 'type', type: 'kafe', x: 0.25 },
-  'izm-3': { n: 'Mahalle kültürü', t: 'Akıllı ikililer +%20', kind: 'pair', x: 0.1 },
-  'izm-4': { n: 'Ege kıyısı', t: 'Sahil sırası (en alt sıra) +%30', kind: 'row', x: 0.3 },
-  'ank-0': { n: 'Bahçeli evler', t: 'Evler +%20', kind: 'type', type: 'ev', x: 0.2 },
-  'ank-1': { n: 'Bulvar etkisi', t: 'Dükkânlar +%25', kind: 'type', type: 'dukkan', x: 0.25 },
-  'ank-2': { n: 'Elçilikler semti', t: 'Ofisler +%20', kind: 'type', type: 'ofis', x: 0.2 },
-  'ank-3': { n: 'Yeni yerleşim', t: 'Tadilat %20 ucuz', kind: 'upDisc', x: 0.2 },
-  'ank-4': { n: 'Yükselen bölge', t: 'İnşaatlar %25 hızlı', kind: 'speed', x: 0.25 },
+  'ist-0': { n: tk('Bahçeli evler'), t: tk('Evler +%15'), kind: 'type', type: 'ev', x: 0.15 },
+  'ist-1': { n: tk('Çarşı semti'), t: tk('Kafeler +%20'), kind: 'type', type: 'kafe', x: 0.2 },
+  'ist-2': { n: tk('İş merkezi'), t: tk('Ofisler +%15'), kind: 'type', type: 'ofis', x: 0.15 },
+  'ist-3': { n: tk('Butik caddesi'), t: tk('Dükkânlar +%25'), kind: 'type', type: 'dukkan', x: 0.25 },
+  'ist-4': { n: tk('Boğaz kıyısı'), t: tk('Sahil sırası (en alt sıra) +%30'), kind: 'row', x: 0.3 },
+  'izm-0': { n: tk('Çarşı ve sahil'), t: tk('Evler +%15'), kind: 'type', type: 'ev', x: 0.15 },
+  'izm-1': { n: tk('Genç ve hareketli'), t: tk('İnşaatlar %25 hızlı'), kind: 'speed', x: 0.25 },
+  'izm-2': { n: tk('Kordon boyu'), t: tk('Kafeler +%25'), kind: 'type', type: 'kafe', x: 0.25 },
+  'izm-3': { n: tk('Mahalle kültürü'), t: tk('Akıllı ikililer +%20'), kind: 'pair', x: 0.1 },
+  'izm-4': { n: tk('Ege kıyısı'), t: tk('Sahil sırası (en alt sıra) +%30'), kind: 'row', x: 0.3 },
+  'ank-0': { n: tk('Bahçeli evler'), t: tk('Evler +%20'), kind: 'type', type: 'ev', x: 0.2 },
+  'ank-1': { n: tk('Bulvar etkisi'), t: tk('Dükkânlar +%25'), kind: 'type', type: 'dukkan', x: 0.25 },
+  'ank-2': { n: tk('Elçilikler semti'), t: tk('Ofisler +%20'), kind: 'type', type: 'ofis', x: 0.2 },
+  'ank-3': { n: tk('Yeni yerleşim'), t: tk('Tadilat %20 ucuz'), kind: 'upDisc', x: 0.2 },
+  'ank-4': { n: tk('Yükselen bölge'), t: tk('İnşaatlar %25 hızlı'), kind: 'speed', x: 0.25 },
 };
 
 /** Yeni şehirlerin semt kuralları: bölgedeki sırasına göre İstanbul / İzmir / Ankara şablonu (aynı denge). */
 const SLOT_TPL = ['ist', 'izm', 'ank'];
-const TYPE_RULE: Record<BuildingType, string> = { ev: 'Bahçeli evler', kafe: 'Kafe semti', dukkan: 'Alışveriş caddesi', ofis: 'İş merkezi' };
+const TYPE_RULE: Record<BuildingType, string> = { ev: tk('Bahçeli evler'), kafe: tk('Kafe semti'), dukkan: tk('Alışveriş caddesi'), ofis: tk('İş merkezi') };
 /** Yeni şehirlerde şehre özgü olmayan, türüne göre genel kural adı. */
-const ruleName = (r: DRule) => r.kind === 'type' ? TYPE_RULE[r.type!] : r.kind === 'row' ? 'Kıyı şeridi' : r.kind === 'speed' ? 'Yükselen bölge' : r.kind === 'upDisc' ? 'Yenilenen bölge' : 'Mahalle kültürü';
+const ruleName = (r: DRule) => r.kind === 'type' ? TYPE_RULE[r.type!] : r.kind === 'row' ? tk('Kıyı şeridi') : r.kind === 'speed' ? tk('Yükselen bölge') : r.kind === 'upDisc' ? tk('Yenilenen bölge') : tk('Mahalle kültürü');
 for (const [r, reg] of Object.entries(REGIONS)) {
   if (r === 'tr' || r === 'gl') continue;
   reg.cities.forEach((c, slot) => { for (let i = 0; i < 5; i++) { const src = DRULES[`${SLOT_TPL[slot % 3]}-${i}`]; if (src && !DRULES[`${c}-${i}`]) DRULES[`${c}-${i}`] = { ...src, n: ruleName(src) }; } });

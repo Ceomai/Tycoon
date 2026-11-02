@@ -9,16 +9,17 @@ import { addCash, addBoost } from './actions';
 import { persist } from './persist';
 import { offerComplete } from './offers';
 import { addXp } from './fun';
+import { t } from '../i18n';
 
 export const TASKS: Record<string, { t: (n: number) => string; n: () => number }> = {
-  collect: { t: n => `Kiraları ${n} kez topla`, n: () => 8 },
-  lotboost: { t: () => 'Bir mülke 2x ver', n: () => 1 },
-  build: { t: n => `${n} yeni bina kur`, n: () => 2 },
-  upgrade: { t: n => `${n} kez kat çık`, n: () => 2 },
-  ad: { t: () => 'Bir ödüllü reklam izle', n: () => 1 },
-  earn: { t: n => `${fmt(n)} kira kazan`, n: () => Math.max(1000, Math.round(totalRate(false) * 600)) },
-  taxi: { t: () => 'Altın taksiyi yakala', n: () => 1 },
-  event: { t: n => `${n} etkinlik kartı değerlendir`, n: () => 2 },
+  collect: { t: n => t('Kiraları {n} kez topla', { n }), n: () => 8 },
+  lotboost: { t: () => t('Bir mülke 2x ver'), n: () => 1 },
+  build: { t: n => t('{n} yeni bina kur', { n }), n: () => 2 },
+  upgrade: { t: n => t('{n} kez kat çık', { n }), n: () => 2 },
+  ad: { t: () => t('Bir ödüllü reklam izle'), n: () => 1 },
+  earn: { t: n => t('{n} kira kazan', { n: fmt(n) }), n: () => Math.max(1000, Math.round(totalRate(false) * 600)) },
+  taxi: { t: () => t('Altın taksiyi yakala'), n: () => 1 },
+  event: { t: n => t('{n} etkinlik kartı değerlendir', { n }), n: () => 2 },
 };
 export const taskText = (q: { k: string; goal: number }) => TASKS[q.k] ? TASKS[q.k].t(q.goal) : q.k;
 export const taskReward = () => Math.max(300, totalRate(false) * 150);
@@ -35,7 +36,7 @@ export function track(k: string, amt = 1) {
   ensureTasks();
   for (const q of S.tasks!.list) if (q.k === k && q.prog < q.goal) {
     q.prog = Math.min(q.goal, q.prog + amt);
-    if (q.prog >= q.goal) { toast('Görev tamam: ' + taskText(q)); Snd.unlock(); }
+    if (q.prog >= q.goal) { toast(t('Görev tamam: {task}', { task: taskText(q) })); Snd.unlock(); }
   }
   const o = S.offer;
   if (o && !o.done && o.k === k && o.until > now()) { o.prog = Math.min(o.goal, o.prog + amt); if (o.prog >= o.goal) { o.done = true; offerComplete(); } }
@@ -46,6 +47,6 @@ export function claimTask(i: number) {
 }
 export function claimBonus() {
   const T = S.tasks; if (!T || T.bonus || !T.list.every(q => q.claimed)) return;
-  T.bonus = true; addXp(100); addCash(bonusReward()); addBoost(CFG.TASK_BOOST); bump(); Snd.reward(); toast('Günün büyük ödülü: tüm mülklere 2x · 1 saat'); persist();
+  T.bonus = true; addXp(100); addCash(bonusReward()); addBoost(CFG.TASK_BOOST); bump(); Snd.reward(); toast(t('Günün büyük ödülü: tüm mülklere 2x · 1 saat')); persist();
 }
 export function tasksClaimable() { ensureTasks(); const T = S.tasks!; return T.list.some(q => !q.claimed && q.prog >= q.goal) || (!T.bonus && T.list.every(q => q.claimed)); }

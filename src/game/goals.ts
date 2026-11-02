@@ -12,7 +12,9 @@ import { addCash } from './actions';
 import { addXp } from './fun';
 import { persist } from './persist';
 import { Analytics } from '../services/analytics';
+import { t, tk, nm, pctTxt } from '../i18n';
 
+/** t: görüntülenecek metin (getter, okunduğu anda seçili dilde). */
 export interface Goal { t: string; f: (k: DistrictKey) => [number, number]; }
 
 /** Aynı türden, yan yana duran en büyük bina grubu. */
@@ -42,17 +44,18 @@ export function pairsCount(k: DistrictKey): number {
 const maxLvl = (k: DistrictKey, t: BuildingType) => lotsOf(S, k).reduce((m, p) => (p && !p.sp && p.t === t ? Math.max(m, p.lvl) : m), 0);
 const atLeast = (k: DistrictKey, lv: number) => lotsOf(S, k).filter(p => p && p.lvl >= lv && !p.until).length;
 
-const group = (t: BuildingType, n: number, name: string): Goal => ({ t: `${n} ${name} yan yana diz`, f: k => [Math.min(n, largestGroup(k, t)), n] });
-const level = (t: BuildingType, lv: number, name: string): Goal => ({ t: `Bir ${name} ${lv}. kata çıkar`, f: k => [Math.min(lv, maxLvl(k, t)), lv] });
-const full: Goal = { t: 'Semti doldur', f: k => [filled(k), 20] };
+/** key: tk() ile işaretli kaynak metin; {n}/{lv} okunurken doldurulur. */
+const group = (ty: BuildingType, n: number, key: string): Goal => ({ get t() { return t(key, { n }); }, f: k => [Math.min(n, largestGroup(k, ty)), n] });
+const level = (ty: BuildingType, lv: number, key: string): Goal => ({ get t() { return t(key, { lv }); }, f: k => [Math.min(lv, maxLvl(k, ty)), lv] });
+const full: Goal = { get t() { return t('Semti doldur'); }, f: k => [filled(k), 20] };
 
 /** Kademe (semtin il içindeki sırası) başına hedefler. */
 const BY_TIER: Goal[][] = [
-  [group('ev', 4, 'evi'), level('ev', 5, 'evi'), full],
-  [group('kafe', 4, 'kafeyi'), level('dukkan', 3, 'dükkânı'), full],
-  [group('dukkan', 4, 'dükkânı'), level('ofis', 5, 'ofisi'), full],
-  [group('ofis', 6, 'ofisi'), { t: '3 akıllı ikili kur', f: k => [Math.min(3, pairsCount(k)), 3] }, full],
-  [group('ofis', 8, 'ofisi'), { t: 'Tüm binaları en az 3. kata çıkar', f: k => [atLeast(k, 3), 20] }, full],
+  [group('ev', 4, tk('{n} evi yan yana diz')), level('ev', 5, tk('Bir evi {lv}. kata çıkar')), full],
+  [group('kafe', 4, tk('{n} kafeyi yan yana diz')), level('dukkan', 3, tk('Bir dükkânı {lv}. kata çıkar')), full],
+  [group('dukkan', 4, tk('{n} dükkânı yan yana diz')), level('ofis', 5, tk('Bir ofisi {lv}. kata çıkar')), full],
+  [group('ofis', 6, tk('{n} ofisi yan yana diz')), { get t() { return t('3 akıllı ikili kur'); }, f: k => [Math.min(3, pairsCount(k)), 3] }, full],
+  [group('ofis', 8, tk('{n} ofisi yan yana diz')), { get t() { return t('Tüm binaları en az 3. kata çıkar'); }, f: k => [atLeast(k, 3), 20] }, full],
 ];
 export const goalsOf = (k: DistrictKey): Goal[] => BY_TIER[DMAP[k].idx] || BY_TIER[0];
 export const starsOf = (k: DistrictKey): number[] => (S.stars && S.stars[k]) || [];
@@ -69,8 +72,8 @@ export function checkGoals() {
       S.stars[k] = [...got, gi]; got.push(gi);
       const cash = prize(k); addCash(cash); addXp(80); bump(); Snd.unlock(); buzz(20);
       Analytics.log('district_star', { district: k, goal: gi, stars: got.length });
-      if (got.length >= 3) toast(`${DMAP[k].n}: 3 yıldız! Altın mühür · kiralar kalıcı +%${Math.round(CFG.STAR_BONUS * 100)}`);
-      else toast(`★ ${DMAP[k].n}: ${g.t} · ${fmt(cash)}`);
+      if (got.length >= 3) toast(t('{d}: 3 yıldız! Altın mühür · kiralar kalıcı +{p}', { d: nm(DMAP[k].n), p: pctTxt(Math.round(CFG.STAR_BONUS * 100)) }));
+      else toast(t('★ {d}: {goal} · {cash}', { d: nm(DMAP[k].n), goal: g.t, cash: fmt(cash) }));
       persist();
     });
   }
