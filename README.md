@@ -106,3 +106,8 @@ npx cap add android && npx cap add ios
 npm run android           # derle, eşitle, Android Studio'yu aç
 npm run ios
 ```
+
+## Dil ve bölge
+- 4 arayüz dili (Türkçe, English, Deutsch, 日本語) ve 6 bölge (Türkiye ₺, ABD $, Birleşik Krallık £, Almanya €, Japonya ¥, Global $). Dil ve bölge ayrı seçilir; her bölgenin kaydı ayrıdır.
+- Metinler `t('Türkçe kaynak', { yer_tutucu })` ile çevrilir; veri tablolarındaki metinler `tk()` ile işaretlenir. Yeni metin ekledikten sonra: `npm run i18n` (anahtarları toplar, `scripts/i18n/{en,de,ja}.json` + `scripts/i18n/extra.json` üzerinden `src/locales/*.ts` üretir). Eksik çeviri birim testinde yakalanır.
+- Testler: `npm run test:yerel` (ilk açılış, bölge/dil değiştirme, Türkçe kalıntı taraması, 320px taşma).

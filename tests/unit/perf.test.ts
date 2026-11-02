@@ -2,7 +2,8 @@
 import { it, expect } from 'vitest';
 import { newState, setS, S } from '../../src/state';
 import { totalRate, pending, baseRate } from '../../src/economy';
-import { DLIST, ORDER } from '../../src/config';
+import { DLIST as ALL, ORDER, CITY_ORDER } from '../../src/config';
+const DLIST = ALL.filter(d => CITY_ORDER.includes(d.city)); // etkin bölge: 15 semt
 it('15 semt × 20 bina: totalRate/pending/baseRate süresi', () => {
   setS(newState(Date.now(), '2026-H44', 'ist'));
   S.own = DLIST.map(d => d.key);

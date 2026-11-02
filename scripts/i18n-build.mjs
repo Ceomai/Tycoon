@@ -7,7 +7,8 @@ const keys = JSON.parse(fs.readFileSync(path.join(root, 'scripts/i18n-keys.json'
 const q = s => JSON.stringify(s);
 for (const l of ['en', 'de', 'ja']) {
   const f = path.join(root, `scripts/i18n/${l}.json`);
-  const tr = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : {};
+  const ex = path.join(root, 'scripts/i18n/extra.json');
+  const tr = { ...(fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : {}), ...(fs.existsSync(ex) ? JSON.parse(fs.readFileSync(ex, 'utf8'))[l] || {} : {}) };
   const used = keys.filter(k => tr[k]);
   const U = l.toUpperCase();
   const body = `import type { Dict } from '../i18n';\n/* Otomatik üretildi: node scripts/i18n-build.mjs (kaynak: scripts/i18n/${l}.json, scripts/names.json). Elle düzenlemeyin. */\nexport const ${U}: Dict = {\n  s: {\n${used.map(k => `    ${q(k)}: ${q(tr[k])},`).join('\n')}\n  },\n  names: ${JSON.stringify(names[l] || {})},\n};\n`;

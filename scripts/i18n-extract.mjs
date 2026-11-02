@@ -3,7 +3,7 @@
 //           node scripts/i18n-extract.mjs --check    → eksik çeviri varsa çıkış kodu 1 (CI/test için)
 import fs from 'node:fs'; import path from 'node:path';
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
-const files = []; (function walk(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) { if (f !== 'locales') walk(p); } else if (/\.ts$/.test(f) && f !== 'i18n.ts') files.push(p); } })(path.join(root, 'src'));
+const files = []; (function walk(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) { if (f !== 'locales') walk(p); } else if (/\.ts$/.test(f)) files.push(p); } })(path.join(root, 'src'));
 const re = /\bt[k]?\(\s*'((?:[^'\\]|\\.)*)'/g;
 const keys = new Map();
 for (const f of files) { const s = fs.readFileSync(f, 'utf8'); let m; while ((m = re.exec(s))) { const k = m[1].replace(/\\'/g, "'").replace(/\\\\/g, '\\'); if (!keys.has(k)) keys.set(k, path.relative(root, f)); } }

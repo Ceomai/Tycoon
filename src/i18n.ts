@@ -1,6 +1,6 @@
 /* =========================================================
    DİL (i18n) — arayüz dili bölgeden bağımsız seçilir.
-   Anahtar = Türkçe kaynak metin. t('… {n} …', { n }) → seçili dildeki karşılığı; yoksa Türkçe.
+   Anahtar = Türkçe kaynak metin; {ad} yer tutucuları params ile doldurulur. Çeviri yoksa Türkçe görünür.
    Sözlükler: src/locales/{en,de,ja}.ts (scripts/i18n-extract.mjs ile anahtarlar toplanır).
    Özel adlar (şehir, semt) nm() ile çevrilir; yoksa olduğu gibi kalır.
    ========================================================= */
