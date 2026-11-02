@@ -1,7 +1,7 @@
 /* =========================================================
    SEMT GEÇİŞLERİ — kapora, engelli arsalar, il kartpostalı + semt kuralı, semt özeti
    ========================================================= */
-import { CFG, N, TYPES, DMAP, CITIES, DistrictKey, DRULES } from '../config';
+import { CFG, N, TYPES, DMAP, CITIES, DistrictKey, DRULES, OBSTACLE_IDS } from '../config';
 import { S, lotsOf, Plot } from '../state';
 import { fmt, loc } from '../format';
 import { now, costM, unlockInfo, filled } from '../economy';
@@ -45,7 +45,7 @@ export const OBSTACLES: Record<string, { n: string; d: string }> = {
   moloz: { n: 'Moloz yığını', d: 'Eski bir inşaattan kalma tuğla ve beton parçaları.' },
   duvar: { n: 'Yıkık duvar', d: 'Bahçe duvarının ayakta kalan son parçaları.' },
 };
-const OB_KEYS = Object.keys(OBSTACLES);
+const OB_KEYS = OBSTACLE_IDS;
 export const clearCost = (k: DistrictKey) => TYPES.ev.cost * costM(k) * 4;
 /** Yeni alınan semte 3–4 engel yerleştirir. */
 export function placeObstacles(k: DistrictKey) {

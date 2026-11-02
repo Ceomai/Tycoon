@@ -12,13 +12,13 @@ export function fmt(n: number, dec = false): string {
   return '₺' + (n < 100 ? one(n) : Math.floor(n)) + UNITS[i];
 }
 export function fmtTime(ms: number): string {
-  let s = Math.max(0, Math.ceil(ms / 1000)); const h = Math.floor(s / 3600); s %= 3600; const m = Math.floor(s / 60); s %= 60;
+  let s = Math.max(0, Math.ceil(ms / 1000) || 0); const h = Math.floor(s / 3600); s %= 3600; const m = Math.floor(s / 60); s %= 60;
   if (h) return `${h} sa${m ? ' ' + m + ' dk' : ''}`;
   if (m) return `${m} dk${s ? ' ' + s + ' sn' : ''}`;
   return `${s} sn`;
 }
 export function clock(ms: number): string {
-  let s = Math.max(0, Math.ceil(ms / 1000)); const h = Math.floor(s / 3600); s %= 3600; const m = Math.floor(s / 60); s %= 60;
+  let s = Math.max(0, Math.ceil(ms / 1000) || 0); const h = Math.floor(s / 3600); s %= 3600; const m = Math.floor(s / 60); s %= 60;
   const p = (x: number) => String(x).padStart(2, '0');
   return h ? `${h}:${p(m)}:${p(s)}` : `${m}:${p(s)}`;
 }

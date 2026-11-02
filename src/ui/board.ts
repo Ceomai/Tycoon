@@ -1,7 +1,7 @@
 /* ANA EKRAN — üst bilgi, arsalar, birleşik parseller, yönlendirme balonu, sokak hayatı, dokunma */
 import { CFG, COLS, ROWS, N, TYPES, DMAP, CITIES } from '../config';
 import { S, lotsOf } from '../state';
-import { fmt, fmtX, clock, rand } from '../format';
+import { fmt, fmtX, clock, rand, esc } from '../format';
 import { now, totalRate, coinFill, fxMult, producing, buyableDistricts, pending, unlockInfo } from '../economy';
 import { bld, site, emptyLot, svg } from '../draw';
 import { specialSvg, specialOf } from '../specials';
@@ -39,7 +39,7 @@ export function render() {
   const rateHtml = `${fmt(totalRate(true), true)}/sn${boosted ? '<span class="x2">2x</span>' : ''}${S.premium ? '<span class="x2">PRO</span>' : ''}${fest ? `<span class="x2">+%${Math.round(CFG.FEST_BONUS * 100)}</span>` : ''}<span class="x2 mk">${marketChip()}</span>${S.shares ? `<span class="x2">${I.crown.replace('<svg', '<svg width="10" height="10"')} ${fmtX(1 + 0.1 * S.shares)}</span>` : ''}`;
   if (ui.rateHtml !== rateHtml) { ui.rateHtml = rateHtml; $('#rate').innerHTML = rateHtml; }
   const op = $('#offerPill'), o = S.offer;
-  if (o && !o.done) { const h = `${o.title} <i><b style="width:${o.prog / o.goal * 100}%"></b></i> ${o.prog}/${o.goal} <span class="ot">${clock(o.until - t)}</span>`; if (op.dataset.v !== h) { op.dataset.v = h; op.innerHTML = h; } op.hidden = false; } else op.hidden = true;
+  if (o && !o.done) { const h = `${esc(o.title)} <i><b style="width:${o.prog / o.goal * 100}%"></b></i> ${o.prog}/${o.goal} <span class="ot">${clock(o.until - t)}</span>`; if (op.dataset.v !== h) { op.dataset.v = h; op.innerHTML = h; } op.hidden = false; } else op.hidden = true;
   $('#taskDot').hidden = !tasksClaimable();
   $('#menuDot').hidden = !(canHolding() || seasonClaimable());
   // orta mühür: TOPLA (bekleyen kira + kumbara doluluğu) ya da OTO (saniyelik kira)
