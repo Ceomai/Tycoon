@@ -2,6 +2,7 @@
    Gerçek doğrulama yapmaz; yalnızca önizlemede sıralama ve davetleri denemek içindir.
    Uygulamada Firebase arka ucu kullanılır. */
 import type { Backend, LbRow, RedeemResult } from './cloud';
+import { t } from '../i18n';
 
 export async function createArtifactBackend(): Promise<Backend> {
   let db: any = null, user: any = null;
@@ -48,7 +49,7 @@ export async function createArtifactBackend(): Promise<Backend> {
       if (!all.some((r: any) => r.id === be.uid)) return null;
       let ps: Record<string, any> = {};
       try { ps = await user.profiles(all.map((r: any) => r.id)); } catch { /* yok */ }
-      const rows = all.map((r: any): LbRow => ({ name: (ps[r.id] && ps[r.id].name) || 'Emlakçı', district: r.district, earned: r.earned, me: r.id === be.uid }));
+      const rows = all.map((r: any): LbRow => ({ name: (ps[r.id] && ps[r.id].name) || t('Emlakçı'), district: r.district, earned: r.earned, me: r.id === be.uid }));
       const i = rows.findIndex(r => r.me);
       return { tier: -1, group: 'onizleme', rows, myRank: i + 1, size: rows.length }; // -1: lig bilgisi cihazdaki kayıttan
     },

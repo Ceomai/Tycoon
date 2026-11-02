@@ -24,6 +24,7 @@ import { Analytics } from './analytics';
 import { Cloud } from './cloud';
 import { adFree, instantRewards } from './purchases';
 import { rand } from '../format';
+import { t } from '../i18n';
 
 let dueAt = 0; // geçiş reklamı zamanı geldiği an (performance.now); 0 = beklemiyor
 /** Ödüllü reklam izlendi: kısa süre geçiş reklamı gösterilmez (reklam kredisi). */
@@ -38,10 +39,10 @@ const TEST_IDS = {
   ios: { rewarded: 'ca-app-pub-3940256099942544/1712485313', interstitial: 'ca-app-pub-3940256099942544/4411468910' },
 };
 const ids = () => {
-  const t = testing() ? TEST_IDS[isIOS() ? 'ios' : 'android'] : { rewarded: '', interstitial: '' };
+  const tid = testing() ? TEST_IDS[isIOS() ? 'ios' : 'android'] : { rewarded: '', interstitial: '' };
   return {
-    rewarded: (isIOS() ? env.VITE_ADMOB_REWARDED_IOS : env.VITE_ADMOB_REWARDED_ANDROID) || t.rewarded,
-    interstitial: (isIOS() ? env.VITE_ADMOB_INTERSTITIAL_IOS : env.VITE_ADMOB_INTERSTITIAL_ANDROID) || t.interstitial,
+    rewarded: (isIOS() ? env.VITE_ADMOB_REWARDED_IOS : env.VITE_ADMOB_REWARDED_ANDROID) || tid.rewarded,
+    interstitial: (isIOS() ? env.VITE_ADMOB_INTERSTITIAL_IOS : env.VITE_ADMOB_INTERSTITIAL_ANDROID) || tid.interstitial,
   };
 };
 
@@ -78,9 +79,9 @@ export const Ads = {
   /** Ödüllü reklam: izlenirse onReward çalışır. */
   async rewarded(kind: string, label: string, onReward: () => void) {
     Analytics.log('ad_reward_request', { kind });
-    if (instantRewards()) { grantReward(onReward); toast(`${S.club ? 'Kulüp' : 'Holding'}: ödül anında`); return; }
+    if (instantRewards()) { grantReward(onReward); toast(S.club ? t('Kulüp: ödül anında') : t('Holding: ödül anında')); return; }
     if (!this.native()) { showSimulated(true, label, onReward, kind); return; }
-    if (!ready || !canRequest) { toast('Reklam şu an yüklenemedi'); return; }
+    if (!ready || !canRequest) { toast(t('Reklam şu an yüklenemedi')); return; }
     try {
       if (!rewardedLoaded) { await AdMob.prepareRewardVideoAd({ adId: ids().rewarded, isTesting: testing(), ssv: { userId: Cloud.uid() || 'misafir', customData: kind } } as any); }
       rewardedLoaded = false; ui.ad = true;
@@ -90,7 +91,7 @@ export const Ads = {
       h.remove(); ui.ad = false;
       if (got) { credit(); grantReward(onReward); Analytics.log('ad_reward', { kind }); S.ads++; }
       flushQueue(); this.preload();
-    } catch (e) { ui.ad = false; toast('Reklam şu an yüklenemedi'); Analytics.error(e, 'ad_rewarded'); this.preload(); }
+    } catch (e) { ui.ad = false; toast(t('Reklam şu an yüklenemedi')); Analytics.error(e, 'ad_rewarded'); this.preload(); }
   },
   /** Geçiş reklamı (15-20 dk'da bir). */
   /** Oyun döngüsünden çağrılır (kart sırası boşsa): zamanı gelen geçiş reklamını doğal durakta gösterir. */
@@ -118,17 +119,17 @@ export const Ads = {
 /* ---------- web/önizleme simülasyonu ---------- */
 function showSimulated(rewarded: boolean, label: string, onReward: (() => void) | null, kind: string) {
   ui.ad = true; const el = $('#ad'); let left = CFG.AD_SECONDS, done = false;
-  el.innerHTML = `<div class="ad-top"><span>Reklam</span><button class="ad-x" id="adX" disabled>${left}</button></div>
-    <div class="ad-body"><div class="ad-box">Reklam alanı<br>(uygulamada AdMob reklamı oynar)</div>
-    ${rewarded ? `<div class="ad-rw">${small(I.spark, 16)} ${label}</div>` : '<button class="ad-prem" id="adPrem">Reklamları kaldır</button>'}</div>`;
+  el.innerHTML = `<div class="ad-top"><span>${t('Reklam')}</span><button class="ad-x" id="adX" disabled>${left}</button></div>
+    <div class="ad-body"><div class="ad-box">${t('Reklam alanı')}<br>${t('(uygulamada AdMob reklamı oynar)')}</div>
+    ${rewarded ? `<div class="ad-rw">${small(I.spark, 16)} ${label}</div>` : `<button class="ad-prem" id="adPrem">${t('Reklamları kaldır')}</button>`}</div>`;
   el.hidden = false;
   const x = $('#adX');
-  const iv = setInterval(() => { left--; if (left > 0) x.textContent = left; else { clearInterval(iv); done = true; x.disabled = false; x.textContent = rewarded ? 'Ödülü al' : 'Kapat'; } }, 1000);
+  const iv = setInterval(() => { left--; if (left > 0) x.textContent = left; else { clearInterval(iv); done = true; x.disabled = false; x.textContent = rewarded ? t('Ödülü al') : t('Kapat'); } }, 1000);
   x.onclick = () => {
     if (!done) return;
     el.hidden = true; el.innerHTML = ''; ui.ad = false; ui.lastClose = performance.now(); S.ads++;
     if (rewarded) { credit(); grantReward(onReward || undefined); Analytics.log('ad_reward', { kind }); } else { persist(); render(); }
     flushQueue();
   };
-  const pr = $('#adPrem'); if (pr) pr.onclick = () => { if (!done) return toast('Reklam bitince açılır'); x.onclick(); openSheet({ k: 'store' }); };
+  const pr = $('#adPrem'); if (pr) pr.onclick = () => { if (!done) return toast(t('Reklam bitince açılır')); x.onclick(); openSheet({ k: 'store' }); };
 }

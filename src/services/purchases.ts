@@ -15,18 +15,19 @@ import { openModal, closeModal, toast } from '../ui/modal';
 import { Snd } from '../sound';
 import { persist } from '../game/persist';
 import { Analytics } from './analytics';
+import { t, tk } from '../i18n';
 
 export type ProductKey = 'holding' | 'reklamsiz' | 'kulup' | 'baslangic' | 'jeton5' | 'jeton15' | 'sezon' | 'sezonIlk';
 /** Mağaza ürün kimliğini tanıyan desen ve varsayılan fiyat (mağaza yanıt vermezse gösterilir). */
 const PRODUCTS: Record<ProductKey, { re: RegExp; price: string; name: string }> = {
-  holding: { re: /premium|holding/i, price: '₺249,99', name: 'Holding paketi' },
-  reklamsiz: { re: /reklamsiz|noads/i, price: '₺99,99', name: 'Reklamsız paket' },
-  kulup: { re: /kulup|club/i, price: '₺69,99', name: 'Emlak Kulübü' },
-  baslangic: { re: /baslangic|starter/i, price: '₺49,99', name: 'Başlangıç paketi' },
-  jeton5: { re: /jeton_?5$|tokens_?5$/i, price: '₺29,99', name: '5 adet 2x jetonu' },
-  jeton15: { re: /jeton_?15$|tokens_?15$/i, price: '₺69,99', name: '15 adet 2x jetonu' },
-  sezonIlk: { re: /sezon_?ilk|season_?intro/i, price: '₺49,99', name: 'Altın Tapu (ilk sezon)' },
-  sezon: { re: /sezon|season/i, price: '₺99,99', name: 'Altın Tapu' },
+  holding: { re: /premium|holding/i, price: '₺249,99', name: tk('Holding paketi') },
+  reklamsiz: { re: /reklamsiz|noads/i, price: '₺99,99', name: tk('Reklamsız paket') },
+  kulup: { re: /kulup|club/i, price: '₺69,99', name: tk('Emlak Kulübü') },
+  baslangic: { re: /baslangic|starter/i, price: '₺49,99', name: tk('Başlangıç paketi') },
+  jeton5: { re: /jeton_?5$|tokens_?5$/i, price: '₺29,99', name: tk('5 adet 2x jetonu') },
+  jeton15: { re: /jeton_?15$|tokens_?15$/i, price: '₺69,99', name: tk('15 adet 2x jetonu') },
+  sezonIlk: { re: /sezon_?ilk|season_?intro/i, price: '₺49,99', name: tk('Altın Tapu (ilk sezon)') },
+  sezon: { re: /sezon|season/i, price: '₺99,99', name: tk('Altın Tapu') },
 };
 const ORDER_MATCH: ProductKey[] = ['sezonIlk', 'sezon', 'jeton15', 'jeton5', 'baslangic', 'kulup', 'reklamsiz', 'holding'];
 const ENT = { premium: 'premium', reklamsiz: 'reklamsiz', kulup: 'kulup' };
@@ -54,7 +55,7 @@ function grant(key: ProductKey, onOk?: () => void) {
   if (key === 'reklamsiz') S.noAds = true;
   if (key === 'kulup') S.club = true;
   ui.rateHtml = ''; ui.sheetSig = ''; persist(); Snd.unlock();
-  if (onOk) onOk(); else toast(`${PRODUCTS[key].name} aktif`);
+  if (onOk) onOk(); else toast(t('{name} aktif', { name: t(PRODUCTS[key].name) }));
   Analytics.log('iap_purchase', { product: key });
 }
 
@@ -81,15 +82,15 @@ export const Purchases = {
   /** Genel satın alma: başarılıysa onOk çalışır (tüketilen ürünlerde ödülü veren yer). */
   async buyProduct(key: ProductKey, onOk?: () => void) {
     if (!native()) {
-      openModal(`<div class="card"><div class="badge">${I.crown}</div><h3>Test satın alma</h3><p>Önizlemede gerçek ödeme alınmaz. Uygulamada mağazanın ödeme ekranı açılır.</p>
-        <div class="btns"><button class="btn gold" data-a="ok">${PRODUCTS[key].name} · ${prices[key]}</button><button class="txt" data-a="no">Vazgeç</button></div></div>`,
+      openModal(`<div class="card"><div class="badge">${I.crown}</div><h3>${t('Test satın alma')}</h3><p>${t('Önizlemede gerçek ödeme alınmaz. Uygulamada mağazanın ödeme ekranı açılır.')}</p>
+        <div class="btns"><button class="btn gold" data-a="ok">${t(PRODUCTS[key].name)} · ${prices[key]}</button><button class="txt" data-a="no">${t('Vazgeç')}</button></div></div>`,
         a => { closeModal(); if (a === 'ok') grant(key, onOk); });
       return;
     }
     const pkg = pkgs[key] || (key === 'sezonIlk' ? pkgs.sezon : null);
-    if (!configured || !pkg) { toast('Mağaza şu an kullanılamıyor'); return; }
+    if (!configured || !pkg) { toast(t('Mağaza şu an kullanılamıyor')); return; }
     try { const r: any = await RC.purchasePackage({ aPackage: pkg }); apply(r.customerInfo); grant(key, onOk); }
-    catch (e: any) { if (!e?.userCancelled) toast('Satın alma tamamlanamadı'); }
+    catch (e: any) { if (!e?.userCancelled) toast(t('Satın alma tamamlanamadı')); }
   },
   /** Eski çağrı: Holding paketi (önceki "Reklamsız paket" ürünü). */
   buy() { return this.buyProduct('holding'); },
@@ -99,8 +100,8 @@ export const Purchases = {
   },
   async restore() {
     const any = () => S.premium || S.noAds || S.club;
-    if (!native()) { toast(any() ? 'Satın alım geri yüklendi' : 'Geri yüklenecek satın alım yok'); return; }
-    try { const r: any = await RC.restorePurchases(); apply(r.customerInfo); toast(any() ? 'Satın alım geri yüklendi' : 'Geri yüklenecek satın alım yok'); }
-    catch { toast('Geri yükleme başarısız'); }
+    if (!native()) { toast(any() ? t('Satın alım geri yüklendi') : t('Geri yüklenecek satın alım yok')); return; }
+    try { const r: any = await RC.restorePurchases(); apply(r.customerInfo); toast(any() ? t('Satın alım geri yüklendi') : t('Geri yüklenecek satın alım yok')); }
+    catch { toast(t('Geri yükleme başarısız')); }
   },
 };

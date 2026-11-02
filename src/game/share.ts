@@ -14,6 +14,7 @@ import { openModal, closeModal, toast } from '../ui/modal';
 import { closeSheet } from '../ui/sheets';
 import { track } from './tasks';
 import { Analytics } from '../services/analytics';
+import { t, nm, upper, loc } from '../i18n';
 
 function svgCss(): string {
   let txt = '';
@@ -51,32 +52,32 @@ async function genShare(): Promise<Blob> {
   g.fillStyle = v('--bg'); g.fillRect(0, 0, W, H);
   g.fillStyle = v('--stamp'); g.fillRect(0, 0, W, 30); g.fillRect(0, H - 30, W, 30);
   g.textAlign = 'center';
-  g.fillStyle = v('--muted'); g.font = '600 44px "IBM Plex Mono", monospace'; g.fillText(`${CITIES[d.city].n} · ${d.n}`.toLocaleUpperCase('tr-TR'), W / 2, 170);
+  g.fillStyle = v('--muted'); g.font = '600 44px "IBM Plex Mono", monospace'; g.fillText(upper(`${nm(CITIES[d.city].n)} · ${nm(d.n)}`), W / 2, 170);
   g.fillStyle = v('--ink'); g.font = '700 168px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillText(fmt(S.cash), W / 2, 340);
-  g.fillStyle = v('--muted'); g.font = '600 50px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillText(`saniyede ${fmt(totalRate(true), true)} kira`, W / 2, 410);
+  g.fillStyle = v('--muted'); g.font = '600 50px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillText(t('saniyede {n} kira', { n: fmt(totalRate(true), true) }), W / 2, 410);
   const city = citySvg(), im = await loadImg('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(city.str));
   const cw = 920, ch = cw * city.h / city.w; g.drawImage(im, (W - cw) / 2, 470, cw, ch);
   g.save(); g.translate(W / 2, H - 196); g.rotate(-5 * Math.PI / 180); g.strokeStyle = v('--stamp'); g.fillStyle = v('--stamp');
   g.lineWidth = 10; g.strokeRect(-180, -82, 360, 164); g.lineWidth = 3; g.strokeRect(-162, -64, 324, 128);
-  g.font = '600 92px "IBM Plex Mono", monospace'; g.fillText('TAPU', 0, 22); g.font = '500 20px "IBM Plex Mono", monospace'; g.fillText('A D A  ·  P A R S E L', 0, 52); g.restore();
-  g.fillStyle = v('--muted'); g.font = '500 36px "IBM Plex Mono", monospace'; g.fillText(`Davet kodum: ${S.ref.code}`, W / 2, H - 66);
+  g.font = '600 92px "IBM Plex Mono", monospace'; g.fillText('TAPU', 0, 22); g.font = '500 20px "IBM Plex Mono", monospace'; g.fillText(t('A D A  ·  P A R S E L'), 0, 52); g.restore();
+  g.fillStyle = v('--muted'); g.font = '500 36px "IBM Plex Mono", monospace'; g.fillText(t('Davet kodum: {code}', { code: S.ref.code }), W / 2, H - 66);
   return await new Promise<Blob>(r => cv.toBlob(b => r(b!), 'image/png'));
 }
-export const shareText = () => `Tapu'da ${CITIES[DMAP[S.cur].city].n} ${DMAP[S.cur].n}'de ${fmt(S.cash)} kasalı emlak imparatorluğu kurdum. Davet kodum: ${S.ref.code}`;
-export async function copyText(t: string) { try { await navigator.clipboard.writeText(t); toast('Kopyalandı'); } catch { toast(t); } }
+export const shareText = () => t('Tapu\'da {city} {yer} {kasa} kasalı emlak imparatorluğu kurdum. Davet kodum: {code}', { city: nm(CITIES[DMAP[S.cur].city].n), yer: loc(nm(DMAP[S.cur].n)), kasa: fmt(S.cash), code: S.ref.code });
+export async function copyText(txt: string) { try { await navigator.clipboard.writeText(txt); toast(t('Kopyalandı')); } catch { toast(txt); } }
 export async function shareTextOnly() {
-  const t = shareText();
-  if (Capacitor.isNativePlatform()) { try { await Share.share({ title: 'Tapu', text: t }); return; } catch { /* iptal */ } }
-  if (navigator.share) try { await navigator.share({ text: t }); return; } catch { /* iptal */ }
-  copyText(t);
+  const txt = shareText();
+  if (Capacitor.isNativePlatform()) { try { await Share.share({ title: 'Tapu', text: txt }); return; } catch { /* iptal */ } }
+  if (navigator.share) try { await navigator.share({ text: txt }); return; } catch { /* iptal */ }
+  copyText(txt);
 }
 const toBase64 = (b: Blob) => new Promise<string>(ok => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1]); fr.readAsDataURL(b); });
 
 let shareBlob: Blob | null = null, shareUrl = '';
 export async function openShare() {
   closeSheet();
-  openModal(`<div class="card"><h3>Şehrini paylaş</h3><p id="shareMsg">Görsel hazırlanıyor…</p><div id="shareBox"></div>
-    <div class="btns"><button class="btn gold" data-a="share" disabled>${I.share} Paylaş</button><button class="btn soft" data-a="save" disabled>Kaydet</button><button class="txt" data-a="no">Kapat</button></div></div>`,
+  openModal(`<div class="card"><h3>${t('Şehrini paylaş')}</h3><p id="shareMsg">${t('Görsel hazırlanıyor…')}</p><div id="shareBox"></div>
+    <div class="btns"><button class="btn gold" data-a="share" disabled>${I.share} ${t('Paylaş')}</button><button class="btn soft" data-a="save" disabled>${t('Kaydet')}</button><button class="txt" data-a="no">${t('Kapat')}</button></div></div>`,
     async a => {
       if (a === 'no') { closeModal(); return; }
       if (!shareBlob) return;
@@ -95,17 +96,17 @@ export async function openShare() {
       }
       if (a === 'save') {
         try { const dl = window.claude?.use ? await window.claude.use('downloads') : null; if (dl) { await dl.save({ filename: 'tapu-sehrim.png', data: shareBlob }); return; } } catch (e: any) { if (e && e.code === 'declined') return; }
-        toast('Görsele basılı tutup kaydedebilirsin');
+        toast(t('Görsele basılı tutup kaydedebilirsin'));
       }
     });
   try {
     shareBlob = await genShare(); if (shareUrl) URL.revokeObjectURL(shareUrl); shareUrl = URL.createObjectURL(shareBlob);
     const box = $('#shareBox'); if (!box) return;
-    box.innerHTML = `<img class="shareimg" src="${shareUrl}" alt="${DMAP[S.cur].n} şehir görseli">`;
-    $('#shareMsg').textContent = 'Story olarak paylaş ya da kaydet.';
+    box.innerHTML = `<img class="shareimg" src="${shareUrl}" alt="${t('{name} şehir görseli', { name: nm(DMAP[S.cur].n) })}">`;
+    $('#shareMsg').textContent = t('Story olarak paylaş ya da kaydet.');
     document.querySelectorAll<HTMLButtonElement>('#modal [data-a="share"],#modal [data-a="save"]').forEach(b => b.disabled = false);
   } catch {
-    const m = $('#shareMsg'); if (m) m.textContent = 'Görsel hazırlanamadı. Metin olarak paylaşabilirsin.';
+    const m = $('#shareMsg'); if (m) m.textContent = t('Görsel hazırlanamadı. Metin olarak paylaşabilirsin.');
     const b = document.querySelector<HTMLButtonElement>('#modal [data-a="share"]'); if (b) { b.disabled = false; shareBlob = new Blob([]); }
   }
 }

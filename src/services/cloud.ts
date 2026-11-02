@@ -20,6 +20,7 @@ import { Analytics } from './analytics';
 import { showLeagueResult, type LeagueResult } from '../game/league';
 import { addCash } from '../game/actions';
 import { inviteGift } from '../game/referral';
+import { t } from '../i18n';
 
 export type RedeemResult = 'ok' | 'invalid' | 'used' | 'error';
 export interface LbRow { name: string; district: string; earned: number; me: boolean; }
@@ -109,9 +110,9 @@ export const Cloud = {
     if (!r || !r.json) { void this.pushSave(); return; }
     if (r.savedAt <= S.savedAt + 60e3 || r.earned <= S.earned) { if (r.savedAt < S.savedAt) void this.pushSave(); return; }
     if (freshLocal) { await adopt(r.json); return; }
-    openModal(`<div class="card"><div class="badge">${I.users}</div><h3>Buluttaki kayıt</h3>
-      <p>Hesabında daha ileri bir şehir var.<br>Bulut: <b>${fmt(r.earned)}</b> · Bu cihaz: <b>${fmt(S.earned)}</b></p>
-      <div class="btns"><button class="btn gold" data-a="cloud">Buluttakini yükle</button><button class="txt" data-a="local">Bu cihazdakiyle devam et</button></div></div>`,
+    openModal(`<div class="card"><div class="badge">${I.users}</div><h3>${t('Buluttaki kayıt')}</h3>
+      <p>${t('Hesabında daha ileri bir şehir var.')}<br>${t('Bulut: {a} · Bu cihaz: {b}', { a: `<b>${fmt(r.earned)}</b>`, b: `<b>${fmt(S.earned)}</b>` })}</p>
+      <div class="btns"><button class="btn gold" data-a="cloud">${t('Buluttakini yükle')}</button><button class="txt" data-a="local">${t('Bu cihazdakiyle devam et')}</button></div></div>`,
       a => { closeModal(); if (a === 'cloud') void adopt(r!.json); else void this.pushSave(); });
   },
 
@@ -124,9 +125,9 @@ export const Cloud = {
   /** Haftalık skor: değiştiyse en fazla SCORE_POST_MS'de bir gönderilir (sunucu ayrıca doğrular, lig grubuna yerleştirir). */
   maybePostScore(force = false): Promise<void> {
     if (!be || !isReady || !S.city) return Promise.resolve();
-    const e = Math.floor(S.week.earned), t = Date.now();
-    if (e === posted || (!force && t - lastPost < CFG.SCORE_POST_MS)) return Promise.resolve();
-    posted = e; lastPost = t;
+    const e = Math.floor(S.week.earned), tn = Date.now();
+    if (e === posted || (!force && tn - lastPost < CFG.SCORE_POST_MS)) return Promise.resolve();
+    posted = e; lastPost = tn;
     return be.postScore({ week: S.week.key || weekKey(new Date(now())), earned: e, district: S.cur, shares: S.shares || 0, total: Math.floor(S.earned) })
       .catch(err => { posted = -1; Analytics.error(err, 'cloud_score'); });
   },
@@ -169,7 +170,7 @@ export const Cloud = {
 function grantInvites(n: number) {
   S.ref.rewarded += n;
   const gift = inviteGift() * n; addCash(gift);
-  toast(`${n} arkadaşın katıldı: ${fmt(gift)} tapu hediyesi`); Snd.unlock();
+  toast(t('{n} arkadaşın katıldı: {gift} tapu hediyesi', { n, gift: fmt(gift) })); Snd.unlock();
 }
 
 async function adopt(json: string) {
@@ -178,5 +179,5 @@ async function adopt(json: string) {
     await writeSave(obj);
     lockSaves();
     location.reload();
-  } catch (e) { Analytics.error(e, 'cloud_adopt'); toast('Bulut kaydı açılamadı'); }
+  } catch (e) { Analytics.error(e, 'cloud_adopt'); toast(t('Bulut kaydı açılamadı')); }
 }
