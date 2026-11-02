@@ -826,3 +826,11 @@ body.idle .bigstamp,body.idle .gain{animation-play-state:running!important}
 .langs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
 .langs .chip{min-width:0;flex:1 1 calc(50% - 8px)}
 .langs .chip.on{background:var(--stamp)}
+
+/* kısa ekranlar (≤640px yükseklik): üst bilgi sıkışır, arsalara yer kalır */
+@media (max-height: 640px) {
+  .cash{font-size:30px}
+  #guil{display:none}
+  .distbar{padding-top:6px;padding-bottom:6px;margin-top:4px}
+  .board{margin-top:4px}
+}

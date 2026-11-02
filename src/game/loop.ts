@@ -124,8 +124,9 @@ export function applyRegion(r: RegionId) {
 }
 /** İlk açılış akışı: dil → bölge → şehir. */
 export function firstRun(onDone?: () => void, onLang?: () => void) {
-  pickLang(() => { if (onLang) onLang(); pickRegion(r => {
-    P.region = r; savePrefs(); applyRegion(r);
+  pickLang(() => { if (onLang) onLang(); pickRegion(async r => {
+    P.region = r; P.news = true; savePrefs(); applyRegion(r);
+    await clearSave(); // seçilen bölgede yeni oyun (diğer bölgelerin kayıtları korunur)
     const ent = { premium: S.premium, noAds: S.noAds, club: S.club };
     setS(Object.assign(newState(now(), weekKey(new Date(now()))), ent));
     ui.tileSig = []; ui.linkSig = ''; render();
@@ -146,10 +147,18 @@ export function switchLang(l: string) {
   setTimeout(() => location.reload(), 150);
 }
 
+/** Yeni oyun: dil → bölge → şehir seçimi (seçilen bölgede sıfırdan; diğer bölgelerin kayıtları korunur). */
 export async function resetGame() {
-  await clearSave();
-  setS(newState(now(), weekKey(new Date(now()))));
-  ui.tileSig = []; ui.linkSig = ''; closeSheet(); persist(); render();
-  pickCity();
+  closeSheet();
+  firstRun(() => { setTimeout(() => location.reload(), 300); }); // seçim bitince temiz açılış (dil ve bölge tüm metinlere yansısın)
+}
+/** Mevcut oyunculara bir kez: yeni diller ve ülkeler tanıtımı. Türkiye ilerlemesi kayıtlı kalır. */
+export function showRegionNews() {
+  P.news = true; savePrefs();
+  openModal(`<div class="card citycard"><div class="badge">${GLOBE_IC}</div><h3>${t('Yeni: diller ve ülkeler')}</h3>
+    <p>${t('Tapu artık 4 dilde ve 5 ülkede oynanıyor: Türkiye, ABD, Birleşik Krallık, Almanya, Japonya. Bir de her ülkenin en pahalı şehrini içeren Global var. Buradaki ilerlemen kayıtlı kalır.')}</p>
+    <div class="btns"><button class="btn gold" data-a="pick">${t('Dil ve bölge seç')}</button><button class="txt" data-a="stay">${t('Şimdilik burada kal')}</button></div></div>`,
+    a => { closeModal(); if (a !== 'pick') return;
+      pickLang(() => pickRegion(r => { if (r === P.region) { location.reload(); return; } switchRegion(r); }, false)); });
 }
 export { dkey };
