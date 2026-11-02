@@ -36,7 +36,9 @@ export function t(src: string, p?: Record<string, unknown>): string {
   return fill((d && d.s[src]) || src, p);
 }
 /** Özel ad (şehir, semt) çevirisi. */
+const TR_NAMES: Record<string, string> = { Munich: 'Münih', London: 'Londra' };
 export function nm(name: string): string {
+  if (LANG === 'tr') return TR_NAMES[name] || name;
   const d = DICTS[LANG];
   return (d && d.names && d.names[name]) || name;
 }
