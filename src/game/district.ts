@@ -1,7 +1,8 @@
 /* =========================================================
    SEMT GEÇİŞLERİ — kapora, engelli arsalar, il kartpostalı + semt kuralı, semt özeti
    ========================================================= */
-import { CFG, N, TYPES, DMAP, CITIES, DistrictKey, DRULES, OBSTACLE_IDS } from '../config';
+import { CFG, N, TYPES, DMAP, CITIES, DistrictKey, DRULES, OBSTACLE_IDS, currency } from '../config';
+import { t, tk, nm, pctTxt, LANG } from '../i18n';
 import { S, lotsOf, Plot } from '../state';
 import { fmt, loc } from '../format';
 import { now, costM, unlockInfo, filled } from '../economy';
@@ -26,7 +27,7 @@ export function payLien(k: DistrictKey, amount: number) {
   S.lien[k] -= amount;
   if (S.lien[k] <= 0.5) {
     delete S.lien[k]; delete S.lienT[k];
-    toast(`${DMAP[k].n} tapusu tamamen senin · 20 arsa açıldı`); Snd.unlock(); buzz(30);
+    toast(t('{d} tapusu tamamen senin · 20 arsa açıldı', { d: nm(DMAP[k].n) })); Snd.unlock(); buzz(30);
     ui.sheetSig = ''; ui.tileSig = []; persist();
     Analytics.log('kapora_paid', { district: k });
   }
@@ -40,10 +41,10 @@ export function closeLien(k: DistrictKey) {
 
 /* ---------- engelli arsalar ---------- */
 export const OBSTACLES: Record<string, { n: string; d: string }> = {
-  gecekondu: { n: 'Eski gecekondu', d: 'Yıllardır boş duran tek katlı bir gecekondu.' },
-  hurda: { n: 'Hurda araba', d: 'Arsada çürümeye bırakılmış eski bir araba.' },
-  moloz: { n: 'Moloz yığını', d: 'Eski bir inşaattan kalma tuğla ve beton parçaları.' },
-  duvar: { n: 'Yıkık duvar', d: 'Bahçe duvarının ayakta kalan son parçaları.' },
+  gecekondu: { n: tk('Eski gecekondu'), d: tk('Yıllardır boş duran tek katlı bir gecekondu.') },
+  hurda: { n: tk('Hurda araba'), d: tk('Arsada çürümeye bırakılmış eski bir araba.') },
+  moloz: { n: tk('Moloz yığını'), d: tk('Eski bir inşaattan kalma tuğla ve beton parçaları.') },
+  duvar: { n: tk('Yıkık duvar'), d: tk('Bahçe duvarının ayakta kalan son parçaları.') },
 };
 const OB_KEYS = OBSTACLE_IDS;
 export const clearCost = (k: DistrictKey) => TYPES.ev.cost * costM(k) * 4;
@@ -64,8 +65,8 @@ export function clearObstacle(k: DistrictKey, i: number) {
   if (k === S.cur) ui.teslim[i] = { at: performance.now() + 1600, txt: `+${fmt(back)}` };
   ui.sheetSig = ''; ui.tileSig[i] = ''; persist();
   const left = lmLeft();
-  if (Math.random() < .08 && left.length) { const l = left[0]; S.coll.push(l.id); openModal(landmarkCard(l, ' Molozun altından çıktı!'), () => closeModal()); }
-  else toast(`Arsa temizlendi · ${fmt(back)} değerinde eski eşya çıktı`);
+  if (Math.random() < .08 && left.length) { const l = left[0]; S.coll.push(l.id); openModal(landmarkCard(l, ' ' + t('Molozun altından çıktı!')), () => closeModal()); }
+  else toast(t('Arsa temizlendi · {amt} değerinde eski eşya çıktı', { amt: fmt(back) }));
   Analytics.log('obstacle_clear', { district: k });
 }
 export function obstacleSvg(kind: string): string {
@@ -80,6 +81,8 @@ export function obstacleSvg(kind: string): string {
 }
 
 /* ---------- il kartpostalı + semt kuralı ---------- */
+/** Cümle içi küçük harf (Almancada adlar büyük harfle kalır). */
+const lowTxt = (s: string) => (LANG === 'de' ? s : s.toLocaleLowerCase(LANG === 'tr' ? 'tr-TR' : LANG));
 const POST: Record<string, string> = {
   ist: `<rect width="320" height="170" fill="#d9e7ef"/><rect y="118" width="320" height="52" fill="#7fa7c6"/><path d="M0 130h320M20 142h60M130 150h70M230 140h60" stroke="#bcd6e8" stroke-width="2"/>
     <polygon points="40,118 40,74 30,74 52,34 74,74 64,74 64,118" fill="#e6d3ad" stroke="#1e3a32" stroke-width="1.2"/><circle cx="52" cy="60" r="5" fill="#bcd6e8" stroke="#1e3a32"/>
@@ -95,19 +98,19 @@ const POST: Record<string, string> = {
     <rect x="240" y="100" width="40" height="24" fill="#f3ede0" stroke="#1e3a32"/><rect x="132" y="104" width="30" height="20" fill="#f3ede0" stroke="#1e3a32"/>`,
 };
 export function postcard(city: string) {
-  return `<svg class="postimg" viewBox="0 0 320 170" role="img" aria-label="${CITIES[city as 'ist'].n} kartpostalı">${POST[city] || POST.ist}</svg>`;
+  return `<svg class="postimg" viewBox="0 0 320 170" role="img" aria-label="${t('{city} kartpostalı', { city: nm(CITIES[city as 'ist'].n) })}">${POST[city] || POST.ist}</svg>`;
 }
 /** Yeni semte girişte: il kartpostalı + semtin kuralı. */
 export function showDistrictCard(k: DistrictKey, onDone?: () => void) {
   const d = DMAP[k], r = DRULES[k], c = CITIES[d.city];
   if (!S.cards.includes(d.city)) S.cards.push(d.city);
   openModal(`<div class="card postcard">
-    <p class="sec" style="text-align:center;margin:0 0 8px">Yeni semt · tapu teslim</p>
+    <p class="sec" style="text-align:center;margin:0 0 8px">${t('Yeni semt · tapu teslim')}</p>
     <div class="post"><div class="pimg">${postcard(d.city)}<span class="pst">TAPU<br>${new Date(now()).getFullYear()}</span></div>
-      <b>${d.n}</b><small>${c.n} · ${c.tagline}</small></div>
-    ${r ? `<div class="prule"><span class="pr">${r.kind === 'type' || r.kind === 'row' ? '+%' + Math.round(r.x * 100) : r.kind === 'pair' ? '+%' + Math.round((CFG.PAIR + r.x) * 100) : '%' + Math.round(r.x * 100)}</span><span><small>Semtin kuralı</small><b>${r.n}: ${r.t.toLocaleLowerCase('tr-TR')}</b></span></div>` : ''}
-    ${S.lien[k] ? `<p class="note">Kapora ile alındı: ${CFG.KAPORA_LOTS} arsa açık. Kalan ${fmt(S.lien[k])} borç ${d.n} kirasının yarısıyla kendiliğinden ödenir.</p>` : ''}
-    <div class="btns"><button class="btn gold" data-a="ok">Semte git</button></div></div>`, () => { closeModal(); onDone && onDone(); });
+      <b>${nm(d.n)}</b><small>${nm(c.n)} · ${t(c.tagline)}</small></div>
+    ${r ? `<div class="prule"><span class="pr">${r.kind === 'type' || r.kind === 'row' ? '+' + pctTxt(Math.round(r.x * 100)) : r.kind === 'pair' ? '+' + pctTxt(Math.round((CFG.PAIR + r.x) * 100)) : pctTxt(Math.round(r.x * 100))}</span><span><small>${t('Semtin kuralı')}</small><b>${t(r.n)}: ${lowTxt(t(r.t))}</b></span></div>` : ''}
+    ${S.lien[k] ? `<p class="note">${t('Kapora ile alındı: {n} arsa açık. Kalan {debt} borç {d} kirasının yarısıyla kendiliğinden ödenir.', { n: CFG.KAPORA_LOTS, debt: fmt(S.lien[k]), d: nm(d.n) })}</p>` : ''}
+    <div class="btns"><button class="btn gold" data-a="ok">${t('Semte git')}</button></div></div>`, () => { closeModal(); onDone && onDone(); });
 }
 
 /* ---------- semt özeti ---------- */
@@ -116,7 +119,7 @@ export function showSummary(k: DistrictKey, from: DistrictKey) {
   const a = S.dEarn[k] || 0; S.dEarn[k] = 0;
   if (a < 1 || k === from) return;
   const el = $('#sumBar'); if (!el) return;
-  el.innerHTML = `<span class="tl">₺</span><span class="tx"><b>${DMAP[k].n}</b> sen ${loc(DMAP[from].n)}yken <b>${fmt(a)}</b> kazandı</span>`;
+  el.innerHTML = `<span class="tl">${currency()}</span><span class="tx">${t('{d} sen {loc}yken {amt} kazandı', { d: `<b>${nm(DMAP[k].n)}</b>`, loc: loc(nm(DMAP[from].n)), amt: `<b>${fmt(a)}</b>` })}</span>`;
   el.hidden = false; clearTimeout(sumT); sumT = setTimeout(() => { el.hidden = true; }, 4500);
 }
 
@@ -130,11 +133,11 @@ export function progressInfo(k: DistrictKey) {
   const nk = nextDistrict(k);
   let sub = '';
   if (nk) {
-    const fee = unlockInfo(nk).fee, kap = Math.ceil(fee * CFG.KAPORA), dn = DMAP[nk].n, full = f >= N && !lien;
-    if (!full) sub = S.cash >= kap ? `Sonraki semt ${dn}: kapora hazır · burayı doldurunca açılır` : `Sonraki semt ${dn}: kaporaya ${fmt(kap - S.cash)} kaldı`;
-    else if (S.cash >= fee) sub = `${dn} tapusu alınabilir`;
-    else if (S.cash >= kap) sub = `${dn} kaporası verilebilir · tapuya ${fmt(fee - S.cash)} kaldı`;
-    else sub = `${dn} kaporasına ${fmt(kap - S.cash)} kaldı`;
+    const fee = unlockInfo(nk).fee, kap = Math.ceil(fee * CFG.KAPORA), dn = nm(DMAP[nk].n), full = f >= N && !lien;
+    if (!full) sub = S.cash >= kap ? t('Sonraki semt {d}: kapora hazır · burayı doldurunca açılır', { d: dn }) : t('Sonraki semt {d}: kaporaya {amt} kaldı', { d: dn, amt: fmt(kap - S.cash) });
+    else if (S.cash >= fee) sub = t('{d} tapusu alınabilir', { d: dn });
+    else if (S.cash >= kap) sub = t('{d} kaporası verilebilir · tapuya {amt} kaldı', { d: dn, amt: fmt(fee - S.cash) });
+    else sub = t('{d} kaporasına {amt} kaldı', { d: dn, amt: fmt(kap - S.cash) });
   }
   return { f, pct, lien, sub, nk };
 }

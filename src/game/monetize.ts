@@ -4,7 +4,8 @@
    - Başlangıç paketi (ilk tapu duvarında bir kez, 48 saat)
    - Emlak Kulübü ayrıcalıkları: her gün 1 adet 2x jetonu, Altın Tapu açık
    ========================================================= */
-import { CFG, DMAP, DistrictKey, N } from '../config';
+import { CFG, DMAP, DistrictKey, N, currency } from '../config';
+import { t, nm } from '../i18n';
 import { S, lotsOf } from '../state';
 import { now, producing, rate, totalRate, unlockInfo, buyableDistricts, isFull } from '../economy';
 import { dayKey, fmt, clock } from '../format';
@@ -60,13 +61,13 @@ export function maybeStarter(): boolean {
 export function showStarter() {
   if (!starterActive()) return;
   const cash = starterCash(), tg = saveTarget();
-  openModal(`<div class="card starter"><span class="gseal st">TAPU<br>HEDİYE<br>SETİ</span><p class="sec" style="margin:0">Yalnızca bir kez</p><h3>Başlangıç paketi</h3>
-    ${tg ? `<p>${DMAP[tg.k].n} tapusuna ${fmt(tg.rem)} kaldı. Bu paketle hemen alırsın.</p>` : '<p>Hızlı bir başlangıç için.</p>'}
-    <ul class="pkit"><li><span class="pk">₺</span><span><b>${fmt(cash)} nakit</b><small>≈ ${Math.round(CFG.STARTER_CASH_SEC / 3600)} saatlik kira</small></span></li>
-      <li><span class="pk">2x</span><span><b>${CFG.STARTER_TOKENS} adet 2x jetonu</b><small>istediğin binaya, reklamsız 1 sa 2x</small></span></li>
-      <li><span class="pk"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="10" fill="#d98b6c" stroke="var(--ink)" stroke-width="1.5"/></svg></span><span><b>Tuğla kırmızısı cephe</b><small>pakete özel renk</small></span></li></ul>
-    <div class="pkfoot"><s>₺129,99 değerinde</s><span class="tm">Bitiş ${clock(starterLeft())}</span></div>
-    <div class="btns"><button class="btn gold" data-a="buy">Satın al · ${Purchases.price('baslangic')}</button><button class="txt" data-a="no">Belki sonra</button></div></div>`,
+  openModal(`<div class="card starter"><span class="gseal st">TAPU<br>${t('HEDİYE<br>SETİ')}</span><p class="sec" style="margin:0">${t('Yalnızca bir kez')}</p><h3>${t('Başlangıç paketi')}</h3>
+    <p>${tg ? t('{d} tapusuna {amt} kaldı. Bu paketle hemen alırsın.', { d: nm(DMAP[tg.k].n), amt: fmt(tg.rem) }) : t('Hızlı bir başlangıç için.')}</p>
+    <ul class="pkit"><li><span class="pk">${currency()}</span><span><b>${t('{amt} nakit', { amt: fmt(cash) })}</b><small>≈ ${t('{h} saatlik kira', { h: Math.round(CFG.STARTER_CASH_SEC / 3600) })}</small></span></li>
+      <li><span class="pk">2x</span><span><b>${t('{n} adet 2x jetonu', { n: CFG.STARTER_TOKENS })}</b><small>${t('istediğin binaya, reklamsız 1 sa 2x')}</small></span></li>
+      <li><span class="pk"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="10" fill="#d98b6c" stroke="var(--ink)" stroke-width="1.5"/></svg></span><span><b>${t('Tuğla kırmızısı cephe')}</b><small>${t('pakete özel renk')}</small></span></li></ul>
+    <div class="pkfoot"><s>${t('{price} değerinde', { price: currency() + '129,99' })}</s><span class="tm">${t('Bitiş {time}', { time: clock(starterLeft()) })}</span></div>
+    <div class="btns"><button class="btn gold" data-a="buy">${t('Satın al · {price}', { price: Purchases.price('baslangic') })}</button><button class="txt" data-a="no">${t('Belki sonra')}</button></div></div>`,
     a => { closeModal(); if (a === 'buy') buyStarter(); });
 }
 export function buyStarter() {
@@ -75,12 +76,12 @@ export function buyStarter() {
     S.starter.bought = true; S.cash += cash; S.tokens += CFG.STARTER_TOKENS;
     if (!S.skinsU.includes(STARTER_SKIN)) S.skinsU.push(STARTER_SKIN);
     bump(); Snd.unlock(); ui.sheetSig = ''; persist();
-    toast(`Başlangıç paketi: ${fmt(cash)} + ${CFG.STARTER_TOKENS} jeton + cephe`);
+    toast(t('Başlangıç paketi: {amt} + {n} jeton + cephe', { amt: fmt(cash), n: CFG.STARTER_TOKENS }));
   });
 }
 /** Jeton paketleri (tüketilen ürün). */
 export function buyTokens(n: 5 | 15) {
-  return Purchases.buyProduct(n === 5 ? 'jeton5' : 'jeton15', () => { S.tokens += n; ui.sheetSig = ''; persist(); Snd.unlock(); toast(`${n} adet 2x jetonu eklendi`); });
+  return Purchases.buyProduct(n === 5 ? 'jeton5' : 'jeton15', () => { S.tokens += n; ui.sheetSig = ''; persist(); Snd.unlock(); toast(t('{n} adet 2x jetonu eklendi', { n })); });
 }
 
 /* ---------- Emlak Kulübü ---------- */
@@ -88,6 +89,6 @@ export function buyTokens(n: 5 | 15) {
 export function clubTick() {
   if (!S.club) return;
   const today = dayKey(new Date(now()));
-  if (S.clubDay !== today) { S.clubDay = today; S.tokens++; toast('Emlak Kulübü: günün 2x jetonu eklendi'); persist(); }
+  if (S.clubDay !== today) { S.clubDay = today; S.tokens++; toast(t('Emlak Kulübü: günün 2x jetonu eklendi')); persist(); }
   ensureSeason(); if (!S.season.gold) { S.season.gold = true; ui.sheetSig = ''; persist(); }
 }

@@ -1,5 +1,6 @@
 /* ANA EKRAN — üst bilgi, arsalar, birleşik parseller, yönlendirme balonu, sokak hayatı, dokunma */
 import { CFG, COLS, ROWS, N, TYPES, DMAP, CITIES } from '../config';
+import { t, nm, upper, pctTxt } from '../i18n';
 import { S, lotsOf } from '../state';
 import { fmt, fmtX, clock, rand, esc } from '../format';
 import { now, totalRate, coinFill, fxMult, producing, buyableDistricts, pending, unlockInfo } from '../economy';
@@ -19,25 +20,25 @@ import { canHolding, lmLeft, landmarkCard } from '../game/collection';
 import { persist } from '../game/persist';
 
 export function render() {
-  const t = now(), k = S.cur, d = DMAP[k], boosted = S.boostUntil > t;
-  const ssn = season(t);
-  const hr = new Date(t).getHours(), night = S.night !== false && (hr >= 19 || hr < 6);
+  const tn = now(), k = S.cur, d = DMAP[k], boosted = S.boostUntil > tn;
+  const ssn = season(tn);
+  const hr = new Date(tn).getHours(), night = S.night !== false && (hr >= 19 || hr < 6);
   const bodyCls = 'd-' + d.v + (ui.idle ? ' idle' : '') + (ssn ? ' ' + ssn : '') + (night ? ' night' : '');
   if (document.body.className !== bodyCls) document.body.className = bodyCls;
-  const dn = S.city ? `${CITIES[d.city].n} · ${d.n}` : "İl seçimi"; const dEl = $('#dname'); if (dEl.textContent !== dn) dEl.textContent = dn;
+  const dn = S.city ? `${nm(CITIES[d.city].n)} · ${nm(d.n)}` : t('İl seçimi'); const dEl = $('#dname'); if (dEl.textContent !== dn) dEl.textContent = dn;
   const ca = ui.cashAnim; let cv = S.cash;
   if (ca) { const q = (performance.now() - ca.t0) / 500; if (q >= 1) ui.cashAnim = null; else if (q > 0) cv = ca.from + (ca.to - ca.from) * (1 - Math.pow(1 - q, 3)) + (S.cash - ca.to); else cv = ca.from + (S.cash - ca.to); }
   $('#cash').textContent = fmt(cv);
   // semt ilerlemesi: bu semtin yüzdesi + altta gri yazıyla sonraki semt kaporası
   const pi = progressInfo(k), db = $('#distBar');
   const dh = !S.city ? '' : pi.lien
-    ? `<span class="dl"><b>${d.n} · kaporalı</b><i>borç ${fmt(pi.lien)}</i></span><span class="dp"><u style="width:${Math.round(100 * (1 - pi.lien / Math.max(pi.lien, S.lienT[k] || pi.lien)))}%" class="kp"></u></span><small>${builtCount(k)}/${CFG.KAPORA_LOTS} arsa açık · borç ${d.n} kirasının yarısıyla ödeniyor</small>`
-    : `<span class="dl"><b>${d.n} · %${pi.pct}</b><i>${pi.f >= N ? 'tamamlandı' : `bitirmeye ${N - pi.f} arsa kaldı`}</i></span><span class="dp"><u style="width:${pi.pct}%"></u></span>${pi.sub ? `<small>${pi.sub}</small>` : ''}`;
+    ? `<span class="dl"><b>${t('{d} · kaporalı', { d: nm(d.n) })}</b><i>${t('borç {x}', { x: fmt(pi.lien) })}</i></span><span class="dp"><u style="width:${Math.round(100 * (1 - pi.lien / Math.max(pi.lien, S.lienT[k] || pi.lien)))}%" class="kp"></u></span><small>${t('{n}/{m} arsa açık · borç {d} kirasının yarısıyla ödeniyor', { n: builtCount(k), m: CFG.KAPORA_LOTS, d: nm(d.n) })}</small>`
+    : `<span class="dl"><b>${nm(d.n)} · ${pctTxt(pi.pct)}</b><i>${pi.f >= N ? t('tamamlandı') : t('bitirmeye {n} arsa kaldı', { n: N - pi.f })}</i></span><span class="dp"><u style="width:${pi.pct}%"></u></span>${pi.sub ? `<small>${pi.sub}</small>` : ''}`;
   if (db.dataset.v !== dh) { db.dataset.v = dh; db.innerHTML = dh; db.hidden = !dh; }
-  const rateHtml = `${fmt(totalRate(true), true)}/sn${boosted ? '<span class="x2">2x</span>' : ''}${S.premium ? '<span class="x2">PRO</span>' : ''}<span class="x2 mk">${marketChip()}</span>${S.shares ? `<span class="x2">${I.crown.replace('<svg', '<svg width="10" height="10"')} ${fmtX(1 + 0.1 * S.shares)}</span>` : ''}`;
+  const rateHtml = `${t('{rate}/sn', { rate: fmt(totalRate(true), true) })}${boosted ? '<span class="x2">2x</span>' : ''}${S.premium ? '<span class="x2">PRO</span>' : ''}<span class="x2 mk">${marketChip()}</span>${S.shares ? `<span class="x2">${I.crown.replace('<svg', '<svg width="10" height="10"')} ${fmtX(1 + 0.1 * S.shares)}</span>` : ''}`;
   if (ui.rateHtml !== rateHtml) { ui.rateHtml = rateHtml; $('#rate').innerHTML = rateHtml; }
   const op = $('#offerPill'), o = S.offer;
-  if (o && !o.done) { const h = `${esc(o.title)} <i><b style="width:${o.prog / o.goal * 100}%"></b></i> ${o.prog}/${o.goal} <span class="ot">${clock(o.until - t)}</span>`; if (op.dataset.v !== h) { op.dataset.v = h; op.innerHTML = h; } op.hidden = false; } else op.hidden = true;
+  if (o && !o.done) { const h = `${esc(t(o.title))} <i><b style="width:${o.prog / o.goal * 100}%"></b></i> ${o.prog}/${o.goal} <span class="ot">${clock(o.until - tn)}</span>`; if (op.dataset.v !== h) { op.dataset.v = h; op.innerHTML = h; } op.hidden = false; } else op.hidden = true;
   $('#taskDot').hidden = !tasksClaimable();
   $('#menuDot').hidden = !(canHolding() || seasonClaimable());
   // orta mühür: TOPLA (bekleyen kira + kumbara doluluğu) ya da OTO (saniyelik kira)
@@ -45,8 +46,8 @@ export function render() {
   const cb = $('#collectBtn'), cls = 'boost collect' + (auto ? ' auto' : pd.fill >= .999 ? ' full' : '') + (cb.classList.contains('nudge') ? ' nudge' : '');
   if (cb.className !== cls) cb.className = cls;
   $('#ringFg').style.strokeDashoffset = String(245 * (1 - pd.fill));
-  const main = auto ? 'OTO' : 'TOPLA', sub = auto ? `${fmt(totalRate(true), true)}/sn` : fmt(pd.amount);
-  const cm = $('#cmain'); if (cm.textContent !== main) { cm.textContent = main; cb.setAttribute('aria-label', auto ? 'Kiralar otomatik toplanıyor' : 'Tüm kiraları topla'); }
+  const main = auto ? t('OTO') : t('TOPLA'), sub = auto ? t('{rate}/sn', { rate: fmt(totalRate(true), true) }) : fmt(pd.amount);
+  const cm = $('#cmain'); if (cm.textContent !== main) { cm.textContent = main; cb.setAttribute('aria-label', auto ? t('Kiralar otomatik toplanıyor') : t('Tüm kiraları topla')); }
   const cs = $('#csub'); if (cs.textContent !== sub) cs.textContent = sub;
   $('#mapDot').hidden = !buyableDistricts().length;
   const lots = lotsOf(S, k), first = !S.own.some(o2 => lotsOf(S, o2).some(p => p)), hintI = first ? 5 : -1;
@@ -58,10 +59,10 @@ export function render() {
     else if (p.ob) sig = 'ob|' + p.ob + (ui.teslim[i] && ui.teslim[i].at > performance.now() ? 1 : 0);
     else {
       const coin = S.collectMode === 'auto' || !producing(p) ? -1 : Math.round(coinFill(k, i) * 10);
-      const lb = (p.bu || 0) > t ? 1 : 0;
-      const prog = p.until ? Math.floor((1 - (p.until - t) / p.dur) * 20) : 0; // %5 adım: gereksiz yeniden çizim yok
-      const hot = producing(p) && fxMult(k, i, p, t) > 1;
-      const cd = p.until && p.until - t <= CFG.SKIP_LEFT ? Math.ceil((p.until - t) / 1000) : 0; // son 5 sn geri sayım
+      const lb = (p.bu || 0) > tn ? 1 : 0;
+      const prog = p.until ? Math.floor((1 - (p.until - tn) / p.dur) * 20) : 0; // %5 adım: gereksiz yeniden çizim yok
+      const hot = producing(p) && fxMult(k, i, p, tn) > 1;
+      const cd = p.until && p.until - tn <= CFG.SKIP_LEFT ? Math.ceil((p.until - tn) / 1000) : 0; // son 5 sn geri sayım
       const ts = ui.teslim[i] && ui.teslim[i].at > performance.now() ? 1 : 0;
       sig = [JSON.stringify(p.sk || ''), p.t, p.sp || '', p.lvl, p.until ? 1 : 0, prog, cd, ts, coin, lb, hot ? 1 : 0, mergeSides(i), d.v].join('|');
     }
@@ -69,28 +70,28 @@ export function render() {
     ui.tileSig[i] = sig;
     if (!p) {
       el.className = 'lot' + (i === hintI ? ' hint' : '') + (lockE ? ' lk' : ''); el.style.cssText = '';
-      const tsl = ui.teslim[i] && ui.teslim[i].at > performance.now() ? `<span class="teslim"><b>TEMİZ</b><small>${ui.teslim[i].txt}</small></span>` : '';
+      const tsl = ui.teslim[i] && ui.teslim[i].at > performance.now() ? `<span class="teslim"><b>${t('TEMİZ')}</b><small>${ui.teslim[i].txt}</small></span>` : '';
       el.innerHTML = svg(emptyLot(i), 'art') + (lockE ? `<span class="lkb">${I.lock}</span>` : '') + tsl;
-      el.setAttribute('aria-label', lockE ? 'Kilitli arsa (kapora borcu)' : 'Boş arsa'); continue;
+      el.setAttribute('aria-label', lockE ? t('Kilitli arsa (kapora borcu)') : t('Boş arsa')); continue;
     }
-    if (p.ob) { el.className = 'lot ob'; el.style.cssText = ''; el.innerHTML = svg(obstacleSvg(p.ob), 'art') + `<span class="obn">${OBSTACLES[p.ob].n}</span>`; el.setAttribute('aria-label', `${OBSTACLES[p.ob].n}: temizlenmesi gerekiyor`); continue; }
-    const prog = p.until ? Math.min(1, 1 - (p.until - t) / p.dur) : 1;
-    const hot = producing(p) && fxMult(k, i, p, t) > 1;
+    if (p.ob) { el.className = 'lot ob'; el.style.cssText = ''; el.innerHTML = svg(obstacleSvg(p.ob), 'art') + `<span class="obn">${t(OBSTACLES[p.ob].n)}</span>`; el.setAttribute('aria-label', t('{name}: temizlenmesi gerekiyor', { name: t(OBSTACLES[p.ob].n) })); continue; }
+    const prog = p.until ? Math.min(1, 1 - (p.until - tn) / p.dur) : 1;
+    const hot = producing(p) && fxMult(k, i, p, tn) > 1;
     el.className = `lot k-${p.t} ${p.until ? 'c' : 'b'}${hot ? ' hot' : ''}${p.until ? '' : mergeSides(i)}`;
     const art = p.sp ? specialSvg(p.sp) : p.until ? site(p.t, p.up ? p.lvl : 0, p.up ? p.lvl + 1 : 1, prog) : bld(p.t, p.lvl);
     if (p.sp) el.className = `lot k-ozel b${hot ? ' hot' : ''}`;
     let h = svg(art, 'art');
-    const left = p.until ? p.until - t : 0;
-    if (p.until && left <= CFG.SKIP_LEFT) { el.classList.add('final'); h += `<span class="cd"><small>TESLİME</small><b>0:0${Math.max(0, Math.ceil(left / 1000))}</b><i><u style="width:${Math.round(prog * 100)}%"></u></i></span>`; }
+    const left = p.until ? p.until - tn : 0;
+    if (p.until && left <= CFG.SKIP_LEFT) { el.classList.add('final'); h += `<span class="cd"><small>${t('TESLİME')}</small><b>0:0${Math.max(0, Math.ceil(left / 1000))}</b><i><u style="width:${Math.round(prog * 100)}%"></u></i></span>`; }
     else if (p.until) h += `<span class="ff">${I.ff}</span>`;
     const tsl = ui.teslim[i];
-    if (tsl && tsl.at > performance.now()) h += `<span class="teslim"><b>TESLİM</b><small>${tsl.txt}</small></span>`;
+    if (tsl && tsl.at > performance.now()) h += `<span class="teslim"><b>${t('TESLİM')}</b><small>${tsl.txt}</small></span>`;
     // para baloncuğu yok: ince doluluk çubuğu (tek tuş modunda) ve mülke özel 2x etiketi
     if (producing(p) && S.collectMode !== 'auto') { const f = coinFill(k, i); h += `<span class="fill${f >= .999 ? ' full' : ''}"><i style="width:${Math.round(f * 100)}%"></i></span>`; }
-    if ((p.bu || 0) > t) h += '<span class="lb2">2x</span>';
-    if (p.sk && p.sk.s && !p.until) h += `<span class="tab">${p.sp ? 'ÖZEL' : TYPES[p.t].n.toLocaleUpperCase('tr-TR')}</span>`;
+    if ((p.bu || 0) > tn) h += '<span class="lb2">2x</span>';
+    if (p.sk && p.sk.s && !p.until) h += `<span class="tab">${p.sp ? t('ÖZEL') : upper(t(TYPES[p.t].n))}</span>`;
     el.innerHTML = h; el.style.cssText = skinStyle(p);
-    el.setAttribute('aria-label', `${p.sp ? specialOf(p.sp).n : TYPES[p.t].n}, seviye ${p.lvl}${p.until ? ', inşaatta' : ''}${(p.bu || 0) > t ? ', 2x kazanıyor' : ''}`);
+    el.setAttribute('aria-label', t('{name}, seviye {lvl}', { name: p.sp ? t(specialOf(p.sp).n) : t(TYPES[p.t].n), lvl: p.lvl }) + (p.until ? t(', inşaatta') : '') + ((p.bu || 0) > tn ? t(', 2x kazanıyor') : ''));
   }
   renderLinks(); renderBubble();
   if (ui.sheet) renderSheet();
@@ -128,9 +129,9 @@ export function renderLinks() {
 function renderBubble() {
   const b = $('#bubble'); let m = '';
   const any = S.own.some(k => lotsOf(S, k).some(p => p)), prod = S.own.some(k => lotsOf(S, k).some(producing));
-  if (!any) m = 'Bir arsaya dokun, ilk binanı kur';
-  else if (!prod && !S.skipHint) m = 'Bina yükseliyor · ▶▶ ile hızlandır';
-  else if (S.collects < 3 && S.collectMode === 'tap' && pending().amount >= 1) m = 'Kirayı toplamak için ortadaki TOPLA mührüne bas';
+  if (!any) m = t('Bir arsaya dokun, ilk binanı kur');
+  else if (!prod && !S.skipHint) m = t('Bina yükseliyor · ▶▶ ile hızlandır');
+  else if (S.collects < 3 && S.collectMode === 'tap' && pending().amount >= 1) m = t('Kirayı toplamak için ortadaki TOPLA mührüne bas');
   if (m) { if (b.textContent !== m) b.textContent = m; b.removeAttribute('data-off'); } else b.setAttribute('data-off', '');
 }
 
@@ -218,7 +219,7 @@ function catchTaxi(el: HTMLElement) {
   const amt = Math.max(100, totalRate(false) * 120); addCash(amt); track('taxi'); Snd.reward(); buzz(20);
   const r = el.getBoundingClientRect(), dot = document.createElement('span'); dot.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
   document.body.appendChild(dot); flyCoin(dot); setTimeout(() => dot.remove(), 50); el.remove();
-  toast(`Altın taksi: ${fmt(amt)}`);
-  if (Math.random() < .08 && lmLeft().length) { const l = lmLeft()[0]; S.coll.push(l.id); openModal(landmarkCard(l, ' Altın taksiden çıktı!'), () => closeModal()); }
+  toast(t('Altın taksi: {amt}', { amt: fmt(amt) }));
+  if (Math.random() < .08 && lmLeft().length) { const l = lmLeft()[0]; S.coll.push(l.id); openModal(landmarkCard(l, ' ' + t('Altın taksiden çıktı!')), () => closeModal()); }
   persist();
 }

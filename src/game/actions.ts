@@ -1,5 +1,6 @@
 /* Oyuncu eylemleri: topla (tek tuş / otomatik), kur, kat çık, yık, hızlandır, mülke 2x, semt al */
 import { CFG, MAXLV, ORDER, TYPES, BuildingType, DistrictKey, DMAP, CITIES } from '../config';
+import { t } from '../i18n';
 import { S, lotsOf } from '../state';
 import { now, withDisc, buildCost, buildTime, upCost, upTime, producing, unlockInfo, totalRate, pending } from '../economy';
 import { Snd, buzz } from '../sound';
@@ -22,7 +23,7 @@ export function addCash(a: number) {
   const wk = weekKey(new Date(now()));
   if (S.week.key !== wk) S.week = { key: wk, earned: 0 };
   S.week.earned += a; track('earn', a);
-  for (const t of ORDER) if (!S.seen[t] && S.earned >= TYPES[t].unlock) { S.seen[t] = true; toast(`Yeni bina: ${TYPES[t].n}`); Snd.unlock(); }
+  for (const bt of ORDER) if (!S.seen[bt] && S.earned >= TYPES[bt].unlock) { S.seen[bt] = true; toast(t('Yeni bina: {type}', { type: t(TYPES[bt].n) })); Snd.unlock(); }
 }
 export function addBoost(ms: number) { S.boostUntil = Math.min(Math.max(S.boostUntil, now()) + ms, now() + CFG.BOOST_MAX); }
 
@@ -36,13 +37,13 @@ export function collect(k: DistrictKey, i: number) {
   if (coinEl) flyCoin(coinEl); else bump();
   ui.tileSig[i] = '';
 }
-export function build(k: DistrictKey, i: number, t: BuildingType) {
-  const c = withDisc(buildCost(k, t)), d = buildTime(k, t);
+export function build(k: DistrictKey, i: number, bt: BuildingType) {
+  const c = withDisc(buildCost(k, bt)), d = buildTime(k, bt);
   if (S.cash < c || lotsOf(S, k)[i]) { Snd.no(); return; }
-  if (lienBlocks(k)) { toast(`Kaporalı semtte ${CFG.KAPORA_LOTS} arsa açık · borç bitince hepsi açılır`); Snd.no(); return; }
+  if (lienBlocks(k)) { toast(t('Kaporalı semtte {n} arsa açık · borç bitince hepsi açılır', { n: CFG.KAPORA_LOTS })); Snd.no(); return; }
   S.cash -= c; S.disc = 0;
-  lotsOf(S, k)[i] = { t, lvl: 0, buf: 0, until: now() + d, dur: d, up: false }; track('build'); addXp(15);
-  Analytics.log('build', { type: t, district: k });
+  lotsOf(S, k)[i] = { t: bt, lvl: 0, buf: 0, until: now() + d, dur: d, up: false }; track('build'); addXp(15);
+  Analytics.log('build', { type: bt, district: k });
   Snd.build(); buzz(15); persist(); closeSheet(); render();
 }
 export function upgrade(k: DistrictKey, i: number) {
@@ -56,26 +57,26 @@ export function upgrade(k: DistrictKey, i: number) {
 }
 export function demolish(k: DistrictKey, i: number) {
   const p = lotsOf(S, k)[i]; if (p && p.buf > 0) collect(k, i);
-  if (p && p.sp) { S.inv.push(p.sp); toast(`${specialOf(p.sp).n} depoya kaldırıldı`); } // özel yapı kaybolmaz
+  if (p && p.sp) { S.inv.push(p.sp); toast(t('{name} depoya kaldırıldı', { name: t(specialOf(p.sp).n) })); } // özel yapı kaybolmaz
   lotsOf(S, k)[i] = null; persist(); closeSheet(); Snd.wreck(); render();
 }
 /** Haftanın özel tapusu: yaklaşık 2 saatlik kira geliri; haftada bir kez. */
 export const specialPrice = () => Math.max(20000, totalRate(false) * 3600 * CFG.SP_PRICE_H);
 export function buySpecial() {
   const wk = weekKey(new Date(now())), sp = weekSpecial(wk), price = specialPrice();
-  if (S.ozel.week === wk && S.ozel.bought) return toast('Bu haftanın tapusu zaten senin');
+  if (S.ozel.week === wk && S.ozel.bought) return toast(t('Bu haftanın tapusu zaten senin'));
   if (S.cash < price) { Snd.no(); return; }
   S.cash -= price; S.inv.push(sp.id); S.ozel = { week: wk, bought: true };
   Snd.unlock(); buzz(30); persist(); ui.sheetSig = '';
-  toast(`${sp.n} tapusu senin · boş bir arsaya dokunup yerleştir`);
+  toast(t('{name} tapusu senin · boş bir arsaya dokunup yerleştir', { name: t(sp.n) }));
   Analytics.log('special_buy', { id: sp.id });
 }
 export function placeSpecial(k: DistrictKey, i: number, id: string) {
   const at = S.inv.indexOf(id); if (at < 0 || lotsOf(S, k)[i]) return;
-  if (lienBlocks(k)) { toast(`Kaporalı semtte ${CFG.KAPORA_LOTS} arsa açık · borç bitince hepsi açılır`); return; }
+  if (lienBlocks(k)) { toast(t('Kaporalı semtte {n} arsa açık · borç bitince hepsi açılır', { n: CFG.KAPORA_LOTS })); return; }
   S.inv.splice(at, 1);
   lotsOf(S, k)[i] = { t: 'ofis', lvl: 1, buf: 0, until: 0, dur: 1, up: false, sp: id };
-  if (k === S.cur) ui.teslim[i] = { at: performance.now() + 1600, txt: specialOf(id).n };
+  if (k === S.cur) ui.teslim[i] = { at: performance.now() + 1600, txt: t(specialOf(id).n) };
   Snd.unlock(); buzz(30); persist(); closeSheet(); render();
   Analytics.log('special_place', { id, district: k });
 }
@@ -83,7 +84,7 @@ export function skip(k: DistrictKey, i: number) {
   const p = lotsOf(S, k)[i]; if (!p || !p.until) return;
   const rem = p.until - now();
   if (rem <= CFG.SKIP_LEFT + 1e3) return; // zaten bitmek üzere
-  Ads.rewarded('skip', rem <= CFG.AD_SKIP ? 'İnşaat 5 saniyeye iner' : 'İnşaattan 30 dk düşer', () => {
+  Ads.rewarded('skip', rem <= CFG.AD_SKIP ? t('İnşaat 5 saniyeye iner') : t('İnşaattan 30 dk düşer'), () => {
     const q = lotsOf(S, k)[i]; if (!q || !q.until) return;
     const left = q.until - now();
     q.until = left <= CFG.AD_SKIP ? now() + Math.min(left, CFG.SKIP_LEFT) : q.until - CFG.AD_SKIP; S.skipHint = 1; ui.sheetSig = '';
@@ -97,12 +98,12 @@ export function collectAll(from?: Element | null) {
   const src = lotsOf(S, S.cur).map((p, i) => ({ p, i })).filter(x => x.p && x.p.buf >= 1).sort((a, b) => b.p!.buf - a.p!.buf).slice(0, 7);
   let a = 0;
   for (const k of S.own) for (const p of lotsOf(S, k)) if (p && p.buf > 0) { a += p.buf; p.buf = 0; }
-  if (a < 1) { toast('Toplanacak kira yok, biraz bekle'); Snd.no(); return; }
+  if (a < 1) { toast(t('Toplanacak kira yok, biraz bekle')); Snd.no(); return; }
   const before = S.cash;
   addCash(a); S.collects++; track('collect'); addXp(5);
   if (from) src.forEach((x, n) => { const el = ui.tiles[x.i]; if (el) flyTo(el, from, n * 45); });
   countUp(before, S.cash); showGain(`+${fmt(a)} ↑`);
-  if (full) bigStamp('DOLU KASA!', 'KUMBARALAR TAŞMADAN');
+  if (full) bigStamp(t('DOLU KASA!'), t('KUMBARALAR TAŞMADAN'));
   Snd.collect(full ? 6 : 4); buzz(full ? 28 : 16);
   setTimeout(bump, 450);
   ui.tileSig = []; persist();
@@ -118,11 +119,11 @@ export function autoCollect(pt: number) {
 /** Bu mülke 2x: ödüllü reklam başına +1 saat, en fazla 4 saat. */
 export function lotBoost(k: DistrictKey, i: number) {
   const p = lotsOf(S, k)[i]; if (!producing(p)) return;
-  if ((p!.bu || 0) - now() > CFG.LOT_BOOST_MAX - CFG.LOT_BOOST / 2) { toast('Bu mülkün 2x süresi dolu. En fazla 4 saat birikir.'); return; }
-  Ads.rewarded('lotboost', `${TYPES[p!.t].n}: 1 saat 2x`, () => {
+  if ((p!.bu || 0) - now() > CFG.LOT_BOOST_MAX - CFG.LOT_BOOST / 2) { toast(t('Bu mülkün 2x süresi dolu. En fazla 4 saat birikir.')); return; }
+  Ads.rewarded('lotboost', t('{type}: 1 saat 2x', { type: t(TYPES[p!.t].n) }), () => {
     const q = lotsOf(S, k)[i]; if (!q) return;
     q.bu = Math.min(Math.max(q.bu || 0, now()) + CFG.LOT_BOOST, now() + CFG.LOT_BOOST_MAX);
-    track('lotboost'); addXp(10); toast(`${TYPES[q.t].n} 2x kazanıyor`);
+    track('lotboost'); addXp(10); toast(t('{type} 2x kazanıyor', { type: t(TYPES[q.t].n) }));
     Analytics.log('lot_boost', { type: q.t, district: k });
   });
 }
