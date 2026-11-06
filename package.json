@@ -20,7 +20,8 @@
     "test:audit": "vite build --mode preview && node tests/audit.cjs",
     "test:gelir": "vite build --mode preview && node tests/gelir.cjs",
     "test:yerel": "vite build --mode preview && node tests/yerel.cjs",
-    "i18n": "node scripts/i18n-extract.mjs && node scripts/i18n-build.mjs"
+    "i18n": "node scripts/i18n-extract.mjs && node scripts/i18n-build.mjs",
+    "test:yon": "vite build --mode preview && node tests/yon.cjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "8.2.1",

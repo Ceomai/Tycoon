@@ -834,3 +834,41 @@ body.idle .bigstamp,body.idle .gain{animation-play-state:running!important}
   .distbar{padding-top:6px;padding-bottom:6px;margin-top:4px}
   .board{margin-top:4px}
 }
+
+/* ---------- YATAY YERLEŞİM (tasarım E2–E6): sol bilgi · orta tahta · sağ dikey çubuk; paneller sağdan ----------
+   Telefonda Android uygulaması dikeye kilitli; bu düzen kilidin geçmediği yerlerde (tablet, çoklu pencere, web, iPad) devreye girer. */
+@media (orientation: landscape) and (min-aspect-ratio: 13/10) {
+  #app{max-width:none;display:grid;grid-template-columns:minmax(250px,34%) 1fr 96px;column-gap:14px;padding-left:max(14px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right))}
+  .top{grid-column:1;grid-row:1;justify-content:center;padding-bottom:56px;min-height:0;overflow:auto}
+  .deed{gap:8px} .deed .stamp{width:58px;flex:none} .dname{display:block;font-size:10px;letter-spacing:.1em}
+  .distbar .dl{flex-wrap:wrap;gap:2px 8px}
+  .board{grid-column:2;grid-row:1;margin-top:0!important}
+  .dock{grid-column:3;grid-row:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;padding-top:0}
+  .dock .dk{width:58px;height:50px}
+  /* kılavuz: yatayda yatay düğme, sol altta */
+  .guidetab{position:fixed;left:max(14px,env(safe-area-inset-left));right:auto;top:auto;bottom:max(12px,env(safe-area-inset-bottom));width:auto;height:38px;padding:0 14px;flex-direction:row;gap:8px;border:1.5px solid var(--ink);border-radius:8px}
+  .guidetab .l{writing-mode:horizontal-tb;transform:none;font-size:11px;letter-spacing:.16em}
+  .guidetab::before{inset:-6px}
+  .guidehint{position:fixed;left:max(14px,env(safe-area-inset-left));right:auto;top:auto;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 48px)}
+  .guidehint::after{right:auto;left:18px;top:auto;bottom:-6px;margin-top:0;border:6px solid transparent;border-bottom:none;border-top-color:var(--ink)}
+  /* paneller sağdan açılır, tahta solda görünür kalır */
+  .sheet{left:auto;right:0;top:0;margin:0;max-width:none;width:min(460px,52vw);max-height:100%;height:100%;border-radius:18px 0 0 18px;transform:translateX(105%)}
+  .sheet.on{transform:none}
+  /* bina kartları küçük: dördü tek ekranda */
+  .bcard svg{height:56px}
+  .bcard .bn{font-size:15px;padding-top:4px}
+  .bcard .bp{margin-top:4px;font-size:12px;padding:2px 6px}
+  .bcard.bpbg{padding-bottom:6px}
+}
+@media (orientation: landscape) and (min-aspect-ratio: 13/10) and (max-height: 500px) {
+  .cash{font-size:30px} #guil{display:none} .distbar{margin-top:6px}
+  .dock .collect{transform:scale(.86)}
+  .bcard svg{height:44px} .cards{gap:6px} .bcard .bm,.bcard .bl{font-size:10px}
+}
+@media (orientation: landscape) and (min-aspect-ratio: 13/10) and (max-width: 700px) {
+  #app{grid-template-columns:minmax(160px,29%) 1fr 70px;column-gap:8px}
+  .stamp{width:54px}
+  .cash{font-size:24px}
+  .dock{gap:6px} .dock .dk{width:48px;height:40px} .dock .collect{transform:scale(.72);margin:-10px 0}
+  .guidetab{height:32px;padding:0 10px}
+}

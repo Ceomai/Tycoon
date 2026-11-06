@@ -139,7 +139,9 @@ function renderBubble() {
 export function fit() {
   const b = $('#board').getBoundingClientRect(), g = ui.gap, pad = 36;
   // kullanılabilir yükseklik: alt çubuğun üstüne kadar (ilerleme çubuğu sonradan belirince ızgara taşmasın)
-  const dock = document.querySelector('.dock'), availH = dock ? Math.min(b.height, dock.getBoundingClientRect().top - b.top - 6) : b.height;
+  const dock = document.querySelector('.dock'), dr = dock && dock.getBoundingClientRect();
+  const below = !!dr && dr.left < b.right && dr.right > b.left && dr.top > b.top; // dikeyde alt çubuk tahtanın altında; yatayda yanda
+  const availH = below ? Math.min(b.height, dr!.top - b.top - 6) : b.height;
   const byW = Math.floor((b.width - pad - g * (COLS - 1)) / COLS), byH = Math.floor((availH - pad - 4 - g * (ROWS - 1)) / ROWS);
   const sw = Math.max(40, Math.min(byW, Math.max(byH, 30))), sh = Math.max(30, Math.min(byH, Math.round(sw * 1.3))); // kısa ekranda satır yüksekliği 30px'e kadar iner (alt çubuğa taşmasın)
   ui.size = sw; ui.sw = sw; ui.sh = sh; const grid = $('#grid'); grid.style.gridTemplateColumns = `repeat(${COLS},${sw}px)`; grid.style.gridAutoRows = sh + 'px';
