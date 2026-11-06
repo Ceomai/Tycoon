@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bildirim çubuğu ikonu (tek renk, beyaz): eğik tapu mührü -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+  <group android:rotation="-8" android:pivotX="12" android:pivotY="12">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M3,6h18v12H3z M5,8v8h14V8z M9,10h6v1.6h-2.2V15h-1.6v-3.4H9z"
+        android:fillType="evenOdd"/>
+  </group>
+</vector>
