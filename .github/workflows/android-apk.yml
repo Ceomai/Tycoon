@@ -65,10 +65,10 @@ jobs:
           fi
           npx cap sync android
 
-      - name: Test ayarları (AdMob test uygulama kimliği, sabit debug imzası)
+      - name: Android hazırlığı (ikon, bildirim ikonu, izinler, AdMob test kimliği) ve sabit debug imzası
         run: |
-          MANIFEST=android/app/src/main/AndroidManifest.xml
-          sed -i 's#</application>#    <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n    </application>#' "$MANIFEST"
+          bash ci/android/prepare.sh
+          npx cap sync android
           mkdir -p ~/.android
           cp ci/test-debug.keystore ~/.android/debug.keystore
 

@@ -2,7 +2,7 @@
    KILAVUZ — "Emlakçının el kitabı" (tasarım: K3 konu listesi, K4 konu sayfası)
    Sayılar oyunun ayarlarından okunur; Remote Config ile denge değişirse kılavuz da güncel kalır.
    ========================================================= */
-import { CFG, TYPES, ORDER, LV_INC, UP_COST, UP_TIME, MAXLV, TIER_FEE, TIER_M, CITIES, CITY_ORDER, LEAGUES, GROUP_SIZE } from '../config';
+import { SERVER_FEATURES, CFG, TYPES, ORDER, LV_INC, UP_COST, UP_TIME, MAXLV, TIER_FEE, TIER_M, CITIES, CITY_ORDER, LEAGUES, GROUP_SIZE } from '../config';
 import { S } from '../state';
 import { fmt, fmtTime } from '../format';
 import { LM, lmSvg } from '../landmarks';
@@ -21,7 +21,7 @@ const icon = (s: string) => `<span class="gdicon">${s}</span>`;
 
 export function chapters(): Chapter[] {
   const T = TYPES, tierRent = Math.round(TIER_M[1] * CFG.TIER_INC * 10) / 10;
-  return [
+  const list: Chapter[] = [
     {
       t: t('İlk adımlar'), s: t('İl seç, arsaya dokun, ilk evini kur'),
       art: () => svg(bld('ev', 1), 'art'),
@@ -221,4 +221,5 @@ export function chapters(): Chapter[] {
       facts: [[t('Bulut yedeği'), t('{t}’da bir + çıkarken', { t: dk(CFG.CLOUD_SAVE_MS) })], [t('Hesap bağlama'), t('Ayarlar → Hesap')], [t('Veri silme'), t('Ayarlar → Hesabımı sil')]],
     },
   ];
+  return SERVER_FEATURES ? list : list.filter(c => c.t !== t('Haftalık lig')); // lig sunucu yayına alınınca görünür
 }

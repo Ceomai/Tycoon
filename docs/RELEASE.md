@@ -2,6 +2,34 @@
 
 Kod tarafı hazır. Aşağıdakiler senin hesaplarınla yapılması gereken adımlar. Sırayla ilerle; her adımın sonunda ne değiştiği yazıyor.
 
+## 0. Yayın hazırlık durumu (son denetim)
+
+**Kodda düzeltilenler (bu sürüm):**
+- Uygulama ikonu ve açılış ekranı artık `assets/icon.png`'den üretiliyor (önceden Capacitor'ın varsayılan ikonu çıkıyordu) — `ci/android/prepare.sh`.
+- Bildirim ikonu `ic_stat_tapu` eklendi (yoksa bildirimler boş ikonla görünür ya da düşebilir).
+- Android: tam zamanlı alarm izni (`SCHEDULE_EXACT_ALARM`) kaldırıldı; hatırlatmalar normal zamanlamayla.
+- Hesap silme sunucu fonksiyonu olmadan da çalışır: oyuncu kendi bulut kaydını ve Firebase hesabını uygulamadan siler (Apple 5.1.1(v), Google Play hesap silme şartı).
+- Lig ve davet kodu, sunucu fonksiyonları yayına alınana kadar gizli (`VITE_SERVER_FUNCTIONS=true` ile açılır); yarım çalışan özellik mağaza incelemesine girmez.
+- Emlak Kulübü aboneliği için otomatik yenileme/iptal bilgisi ve gizlilik + kullanım koşulları bağlantıları (Apple 3.1.2, Google abonelik politikası).
+- Başlangıç paketindeki "… değerinde" referans fiyatı kaldırıldı (yanıltıcı fiyat iddiası riski).
+- Gizlilik sayfası: `public/gizlilik.html` → https://ceomai.github.io/Tycoon/gizlilik.html (uygulamadaki bağlantı buraya gider). Ayarlar'da oyuncu kodu görünür (silme talebi için).
+- Google Play için imzalı AAB iş akışı: `.github/workflows/android-release.yml` (elle çalıştırılır, sürüm kodu otomatik artar, AdMob test modu kapalı).
+
+**Senin yapman gerekenler (yayın engelleri):**
+1. **Gizlilik sayfasındaki sarı alanları doldur** (`public/gizlilik.html`): geliştirici/şirket adı, adres, iletişim e-postası, tarih. Bir hukukçuya kontrol ettir.
+2. **Google Play yükleme anahtarı**: `keytool -genkeypair -v -keystore upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload` → GitHub sırları: `ANDROID_KEYSTORE_BASE64` (`base64 -w0 upload.jks`), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. Play App Signing'i aç. Anahtarı güvenli yerde yedekle (kaybolursa güncelleme yüklenemez).
+3. **AdMob**: gerçek uygulama ve reklam birimi kimlikleri → sırlar `ADMOB_APP_ID_ANDROID`, `VITE_ADMOB_REWARDED_ANDROID`, `VITE_ADMOB_INTERSTITIAL_ANDROID`; `app-ads.txt` yayınla.
+4. **RevenueCat + mağaza ürünleri** (bölüm 4) → sır `VITE_REVENUECAT_ANDROID`.
+5. **Firebase Android** `google-services.json` → sır `GOOGLE_SERVICES_JSON`; SHA-1/SHA-256'yı (yükleme ve Play imza anahtarı) Firebase'e ekle.
+6. **Play Console formları**: veri güvenliği (bölüm 6), içerik derecelendirmesi, hedef kitle 13+, reklam içerir, hesap silme web adresi (gizlilik sayfası §4), mağaza görselleri.
+7. İsteğe bağlı: Blaze planı + fonksiyonlar → lig ve davet (`VITE_SERVER_FUNCTIONS=true`).
+
+**iOS (App Store) — Mac ve Xcode gerekir, bu depoda iOS projesi yok:**
+- `npx cap add ios` → `npx capacitor-assets generate --ios` → `npx cap sync ios`.
+- `Info.plist`: `NSUserTrackingUsageDescription` (ATT metni), `GADApplicationIdentifier` (AdMob iOS uygulama kimliği), `SKAdNetworkItems` (Google'ın listesi), `ITSAppUsesNonExemptEncryption = NO`.
+- Yetenekler: Sign in with Apple (Google ile giriş sunulduğu için zorunlu), Push yok, In-App Purchase.
+- `GoogleService-Info.plist` (Firebase iOS), RevenueCat iOS anahtarı, App Store Connect ürünleri, gizlilik "beslenme etiketi" formu.
+
 ## 1. Uygulama kimliği
 - [ ] `capacitor.config.json` → `appId` (`com.tapu.oyun`) kalıcı paket adın olacak; mağazaya yüklendikten sonra değiştirilemez. Kendi alan adına göre değiştir (ör. `com.sirketin.tapu`).
 - [ ] `npx cap add android` ve `npx cap add ios` → `android/` ve `ios/` klasörleri oluşur. Bu klasörler git'e girer (yerel ayarlar burada).

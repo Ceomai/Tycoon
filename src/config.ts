@@ -136,10 +136,14 @@ export type Cfg = typeof CFG;
 
 /** Engelli arsa türleri (çizim ve metinler game/district.ts'te). Kayıt doğrulaması için burada. */
 export const OBSTACLE_IDS = ['gecekondu', 'hurda', 'moloz', 'duvar'];
+/** Sunucu fonksiyonları (lig, davet) yayında mı? Yayına alınınca .env.production'da VITE_SERVER_FUNCTIONS=true. Önizlemede açık. */
+export const SERVER_FEATURES = __PREVIEW__ || import.meta.env.VITE_SERVER_FUNCTIONS === 'true';
 export const SAVE_KEY = 'tapu-save-v2';
 export const LEGACY_SAVE_KEY = 'tapu-save-v1';
 export const SCHEMA = 2;
-export const PRIVACY_URL = (import.meta.env.VITE_PRIVACY_URL as string) || 'https://example.com/tapu/gizlilik';
+export const PRIVACY_URL = (import.meta.env.VITE_PRIVACY_URL as string) || 'https://ceomai.github.io/Tycoon/gizlilik.html';
+/** Kullanım koşulları: verilmezse Apple'ın standart son kullanıcı sözleşmesi (App Store aboneliklerinde kabul edilir). */
+export const TERMS_URL = (import.meta.env.VITE_TERMS_URL as string) || 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
 
 /* ---------- haftalık lig ---------- */
 export const LEAGUES = [

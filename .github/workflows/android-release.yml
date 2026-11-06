@@ -1,0 +1,89 @@
+name: Android yayın (Google Play AAB)
+
+# Elle çalıştırılır: Actions → "Android yayın" → Run workflow.
+# Çıktı: imzalı app-release.aab (Play Console'a yüklenir) — iş akışı çıktısı (artifact) olarak indirilir, herkese açık yayınlanmaz.
+# Gerekli GitHub sırları (Settings → Secrets → Actions):
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD   (yükleme anahtarı)
+#   GOOGLE_SERVICES_JSON                                                                         (Firebase Android)
+#   ADMOB_APP_ID_ANDROID, VITE_ADMOB_REWARDED_ANDROID, VITE_ADMOB_INTERSTITIAL_ANDROID            (AdMob)
+#   VITE_REVENUECAT_ANDROID                                                                       (RevenueCat)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: "Sürüm adı (ör. 1.0.0)"
+        required: true
+        default: "1.0.0"
+
+permissions:
+  contents: read
+
+jobs:
+  aab:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID_ANDROID }}
+      VITE_ADMOB_REWARDED_ANDROID: ${{ secrets.VITE_ADMOB_REWARDED_ANDROID }}
+      VITE_ADMOB_INTERSTITIAL_ANDROID: ${{ secrets.VITE_ADMOB_INTERSTITIAL_ANDROID }}
+      VITE_REVENUECAT_ANDROID: ${{ secrets.VITE_REVENUECAT_ANDROID }}
+      VITE_ADMOB_TESTING: "false"
+    steps:
+      - name: Sırlar tamam mı?
+        run: |
+          miss=""
+          for v in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD GOOGLE_SERVICES_JSON ADMOB_APP_ID VITE_ADMOB_REWARDED_ANDROID VITE_ADMOB_INTERSTITIAL_ANDROID VITE_REVENUECAT_ANDROID; do
+            [ -n "${!v}" ] || miss="$miss $v"
+          done
+          if [ -n "$miss" ]; then echo "::error::Eksik sırlar:$miss (docs/RELEASE.md → Google Play)"; exit 1; fi
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+
+      - name: Paketler
+        run: npm ci --legacy-peer-deps
+      - name: Testler (tür denetimi + birim)
+        run: npm run typecheck && npx vitest run
+      - name: Web paketi (yayın ayarlarıyla)
+        run: npm run build
+
+      - name: Android projesi
+        run: |
+          npx cap add android
+          echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          sed -i 's/^ext {/ext {\n    rgcfaIncludeGoogle = true/' android/variables.gradle
+          sed -i "s#classpath 'com.google.gms:google-services:\([0-9.]*\)'#classpath 'com.google.gms:google-services:\1'\n        classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.2'#" android/build.gradle
+          printf "\napply plugin: 'com.google.firebase.crashlytics'\n" >> android/app/build.gradle
+          bash ci/android/prepare.sh
+          npx cap sync android
+
+      - name: Sürüm numarası
+        run: |
+          CODE=$((1000 + GITHUB_RUN_NUMBER))
+          sed -i "s/versionCode 1$/versionCode $CODE/; s/versionName \"1.0\"/versionName \"${{ inputs.version_name }}\"/" android/app/build.gradle
+          grep -n "versionCode\|versionName" android/app/build.gradle
+
+      - name: AAB derle ve imzala
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew bundleRelease --no-daemon
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > upload.jks
+          jarsigner -sigalg SHA256withRSA -digestalg SHA-256 -keystore upload.jks -storepass "$ANDROID_KEYSTORE_PASSWORD" -keypass "$ANDROID_KEY_PASSWORD" app/build/outputs/bundle/release/app-release.aab "$ANDROID_KEY_ALIAS"
+          jarsigner -verify app/build/outputs/bundle/release/app-release.aab | tail -1
+          rm -f upload.jks
+          cp app/build/outputs/bundle/release/app-release.aab ../tapu-${{ inputs.version_name }}.aab
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tapu-aab-${{ inputs.version_name }}
+          path: tapu-*.aab
+          retention-days: 30

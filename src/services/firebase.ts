@@ -12,10 +12,10 @@ import { Capacitor } from '@capacitor/core';
 import { initializeApp } from 'firebase/app';
 import {
   initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, signInAnonymously, onAuthStateChanged,
-  GoogleAuthProvider, OAuthProvider, linkWithCredential, signInWithCredential, signOut, type Auth, type AuthCredential, type User,
+  GoogleAuthProvider, OAuthProvider, linkWithCredential, signInWithCredential, signOut, deleteUser, type Auth, type AuthCredential, type User,
 } from 'firebase/auth';
 import {
-  getFirestore, doc, getDoc, setDoc, collection, query, where, orderBy, limit, getDocs, type Firestore,
+  getFirestore, doc, getDoc, setDoc, deleteDoc, collection, query, where, orderBy, limit, getDocs, type Firestore,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable, type Functions } from 'firebase/functions';
 import type { Backend, LbRow, RedeemResult } from './cloud';
@@ -83,7 +83,12 @@ export function createFirebaseBackend(): Backend {
     },
     async deleteAccount() {
       try {
-        await call('deleteAccount');
+        try { await call('deleteAccount'); }
+        catch {
+          // sunucu fonksiyonu yayında değilse: oyuncu kendi kaydını (kural: yalnızca sahibi silebilir) ve hesabını istemciden siler
+          if (be.uid) await deleteDoc(doc(fs, 'saves', be.uid));
+          if (auth.currentUser) await deleteUser(auth.currentUser);
+        }
         await signOut(auth).catch(() => { /* yok */ });
         if (Capacitor.isNativePlatform()) { const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication'); await FirebaseAuthentication.signOut().catch(() => {}); }
         user = (await signInAnonymously(auth)).user; be.uid = user.uid;

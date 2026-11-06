@@ -1,5 +1,5 @@
 /* ALT PANELLER — arsa, semtler (çok şehirli), görevler, koleksiyon, menü, sıralama, davet, mağaza, holding, ayarlar */
-import { COLS, N, CFG, DRULES, MAXLV, ORDER, TYPES, LV_INC, DMAP, CITIES, CITY_ORDER, dkey, PRIVACY_URL, BuildingType } from '../config';
+import { COLS, N, CFG, DRULES, MAXLV, ORDER, TYPES, LV_INC, DMAP, CITIES, CITY_ORDER, dkey, PRIVACY_URL, TERMS_URL, BuildingType } from '../config';
 import { S, lotsOf } from '../state';
 import { fmt, fmtTime, fmtX, clock, esc, dayKey, dayDiff, weekKey } from '../format';
 import { now, PAIRS, ruleMult, neighborBonus, pairAdj, spAdj, districtMult, neighbors, withDisc, buildCost, buildTime, upCost, upTime, adj, rate, incM, permMult, fxMult, filled, unlockInfo, collBonus, citiesOwned, portfolioBonus } from '../economy';
@@ -28,7 +28,7 @@ import { saveTarget, boostSaving, starterActive, starterLeft, showStarter, buyTo
 import { Notify } from '../services/notify';
 import { Ads } from '../services/ads';
 import { resetGame, switchLang, switchRegion } from '../game/loop';
-import { REGIONS, REGION_ORDER, REGION, RegionId } from '../config';
+import { REGIONS, REGION_ORDER, REGION, RegionId, SERVER_FEATURES } from '../config';
 import { REGION_INFO } from '../storage';
 import { chapters } from '../game/guide';
 import { leagueZones, leagueName, leagueShort, weekEndsAt, fmtLeft } from '../game/league';
@@ -172,6 +172,7 @@ export function renderSheet() {
         <div class="srow"><span>${t('Bildirimler')}</span><button class="sw${S.notif ? ' on' : ''}" data-a="notif" aria-label="${t('Bildirimler')}"></button></div>
         <div class="srow"><span>${t('Reklamlar')}</span><span>${S.premium ? t('Kapalı (Holding paketi)') : S.club ? t('Kapalı (Emlak Kulübü)') : S.noAds ? t('Yalnızca isteğe bağlı (Reklamsız)') : Ads.native() ? t('Açık') : t('Test modu')}</span></div>
         <p class="sec" style="margin-top:18px">${t('Hesap ve kayıt')}</p>
+        <div class="srow"><span>${t('Oyuncu kodun')}</span><span>${S.ref.code}</span></div>
         <div class="srow"><span>${t('Kayıt')}</span><span>${acct.enabled ? (acct.linked ? t('{p} hesabına bağlı', { p: esc(acct.provider) }) : t('Misafir · bulutta yedekleniyor')) : t('Bu cihazda')}</span></div>
         <div class="acct">
           ${acct.enabled && !acct.linked ? `<button class="btn soft" data-a="link-google">${t('Google ile bağla')}</button>${acct.apple ? `<button class="btn soft" data-a="link-apple">${t('Apple ile bağla')}</button>` : ''}` : ''}
@@ -188,8 +189,8 @@ export function renderSheet() {
       const row = (a: string, ic: string, b: string, sm: string, dot = false) => `<button class="drow" data-a="${a}"><span class="ic">${ic}${dot ? '<span class="dot"></span>' : ''}</span><span class="di"><b>${b}</b><small>${sm}</small></span></button>`;
       html = `<p class="sec">${t('Menü')}</p><div class="dlist">
         ${row('share', I.share, t('Şehrini paylaş'), t('Story görseli, davet kodunla'))}
-        ${row('lb', I.trophy, t('Haftalık lig'), `${leagueName(S.league.tier)} · ${t('bu hafta {m}', { m: fmt(S.week.earned) })}`)}
-        ${row('ref', I.users, t('Arkadaşını davet et'), t('Kodun: {c}', { c: S.ref.code }))}
+        ${!SERVER_FEATURES ? '' : row('lb', I.trophy, t('Haftalık lig'), `${leagueName(S.league.tier)} · ${t('bu hafta {m}', { m: fmt(S.week.earned) })}`)}
+        ${!SERVER_FEATURES ? '' : row('ref', I.users, t('Arkadaşını davet et'), t('Kodun: {c}', { c: S.ref.code }))}
         ${row('sezon', I.crown, t('Tapu sezonu'), `${seasonName(seasonId())} · ${t('basamak {l}/{m}', { l: seasonLevel(), m: SEASON_LV })}${S.season && S.season.gold ? ' · ' + t('Altın') : ''}`, seasonClaimable())}
         ${row('arsiv', I.trophy, t('Tapu arşivi'), t('{n}/{m} mühür · kira +%{p}', { n: S.ach.length, m: ACH.length, p: Math.floor(S.ach.length / 4) }))}
         ${row('ozel', I.tower, t('Haftanın özel tapusu'), ozelAvail() ? t('{ad} satışta', { ad: t(weekSpecial(weekKey(new Date(tn))).n) }) : t('{ad} alındı', { ad: t(weekSpecial(weekKey(new Date(tn))).n) }), ozelAvail())}
@@ -375,6 +376,7 @@ export function renderSheet() {
         ${tier('reklamsiz', t('Reklamsız'), [[true, t('Geçiş reklamı yok')], [true, t('Ödüllü reklamlar isteğe bağlı, ödül verir')], [false, t('Ödüller anında')], [false, t('Kalıcı 2x kira')]], Purchases.price('reklamsiz'), adFree())}
         ${tier('holding', t('Holding paketi'), [[true, t('Geçiş reklamı yok')], [true, t('Ödüller izlemeden, anında')], [true, t('Tüm kiralar kalıcı 2 kat')]], Purchases.price('holding'), S.premium, t('EN ÇOK DEĞER'), true)}
         ${tier('kulup', t('Emlak Kulübü'), [[true, t('Geçiş reklamı yok')], [true, t('Ödüller anında')], [true, t('Her gün 1 adet 2x jetonu')], [true, t('Altın Tapu sezonu dahil')], [false, t('Kalıcı 2x kira')]], Purchases.price('kulup'), S.club, t('ABONELİK'), false, t('/ay'))}
+        ${S.club ? '' : `<p class="note subnote">${t('Emlak Kulübü aylık otomatik yenilenen bir aboneliktir. Ödeme, satın almayı onayladığında mağaza hesabından alınır; dönem bitmeden en az 24 saat önce iptal edilmezse aynı fiyatla yenilenir. Aboneliğini mağaza hesap ayarlarından yönetebilir ve iptal edebilirsin.')} <button class="linkbtn" data-a="privacy">${t('Gizlilik politikası')}</button> · <button class="linkbtn" data-a="terms">${t('Kullanım koşulları')}</button></p>`}
         <p class="sec">${t('2x jetonu · reklamsız 1 saat 2x')}</p>
         <div class="jets"><div class="jet"><span class="h2c">2x</span><b>× 5</b><small>${t('5 saat 2x')}</small><button class="btn" data-a="jet" data-n="5">${Purchases.price('jeton5')}</button></div>
           <div class="jet best"><span class="ttag">${t('%25 KÂR')}</span><span class="h2c">2x</span><b>× 15</b><small>${t('15 saat 2x')}</small><button class="btn gold" data-a="jet" data-n="15">${Purchases.price('jeton15')}</button></div></div>
@@ -464,6 +466,8 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
     if (a === 'starter') { closeSheet(); return showStarter(); }
     if (a === 'sgold') return Purchases.buySeason(() => { ensureSeason(); S.season.gold = true; toast(t('Altın Tapu açıldı')); Snd.unlock(); ui.sheetSig = ''; persist(); });
     if (a === 'restore') return Purchases.restore();
+    if (a === 'privacy') { window.open(PRIVACY_URL, '_blank'); return; }
+    if (a === 'terms') { window.open(TERMS_URL, '_blank'); return; }
   }
   if (s.k === 'holding' && a === 'hold') { if (s.conf) return doHolding(); s.conf = true; later(s, 'conf'); }
   if (s.k === 'set' && a === 'lang') return switchLang(btn.dataset.l!);

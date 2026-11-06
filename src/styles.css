@@ -872,3 +872,6 @@ body.idle .bigstamp,body.idle .gain{animation-play-state:running!important}
   .dock{gap:6px} .dock .dk{width:48px;height:40px} .dock .collect{transform:scale(.72);margin:-10px 0}
   .guidetab{height:32px;padding:0 10px}
 }
+
+.note.subnote{font-size:11px;line-height:1.45;margin-top:-4px}
+.note.subnote .linkbtn{font-size:11px;padding:0;display:inline}

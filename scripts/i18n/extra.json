@@ -11,7 +11,11 @@
   "Yeni: diller ve ülkeler": "New: languages and countries",
   "Tapu artık 4 dilde ve 5 ülkede oynanıyor: Türkiye, ABD, Birleşik Krallık, Almanya, Japonya. Bir de her ülkenin en pahalı şehrini içeren Global var. Buradaki ilerlemen kayıtlı kalır.": "Tapu now plays in 4 languages and 5 countries: Türkiye, the United States, the United Kingdom, Germany and Japan. Plus Global, with the most expensive city of every country. Your progress here stays saved.",
   "Dil ve bölge seç": "Choose language & region",
-  "Şimdilik burada kal": "Stay here for now"
+  "Şimdilik burada kal": "Stay here for now",
+  "Emlak Kulübü aylık otomatik yenilenen bir aboneliktir. Ödeme, satın almayı onayladığında mağaza hesabından alınır; dönem bitmeden en az 24 saat önce iptal edilmezse aynı fiyatla yenilenir. Aboneliğini mağaza hesap ayarlarından yönetebilir ve iptal edebilirsin.": "Realty Club is a monthly auto-renewing subscription. Payment is charged to your store account when you confirm the purchase; it renews at the same price unless cancelled at least 24 hours before the period ends. You can manage and cancel it in your store account settings.",
+  "Gizlilik politikası": "Privacy policy",
+  "Kullanım koşulları": "Terms of use",
+  "Oyuncu kodun": "Player code"
  },
  "de": {
   "Dil ve bölge": "Sprache & Region",
@@ -25,7 +29,11 @@
   "Yeni: diller ve ülkeler": "Neu: Sprachen und Länder",
   "Tapu artık 4 dilde ve 5 ülkede oynanıyor: Türkiye, ABD, Birleşik Krallık, Almanya, Japonya. Bir de her ülkenin en pahalı şehrini içeren Global var. Buradaki ilerlemen kayıtlı kalır.": "Tapu gibt es jetzt in 4 Sprachen und 5 Ländern: Türkei, USA, Vereinigtes Königreich, Deutschland und Japan. Dazu Global mit der teuersten Stadt jedes Landes. Dein Fortschritt hier bleibt gespeichert.",
   "Dil ve bölge seç": "Sprache & Region wählen",
-  "Şimdilik burada kal": "Vorerst hier bleiben"
+  "Şimdilik burada kal": "Vorerst hier bleiben",
+  "Emlak Kulübü aylık otomatik yenilenen bir aboneliktir. Ödeme, satın almayı onayladığında mağaza hesabından alınır; dönem bitmeden en az 24 saat önce iptal edilmezse aynı fiyatla yenilenir. Aboneliğini mağaza hesap ayarlarından yönetebilir ve iptal edebilirsin.": "Der Immobilien-Club ist ein sich monatlich automatisch verlängerndes Abo. Die Zahlung wird bei Kaufbestätigung über dein Store-Konto abgerechnet; es verlängert sich zum gleichen Preis, wenn es nicht mindestens 24 Stunden vor Ende des Zeitraums gekündigt wird. Verwalten und kündigen kannst du es in den Einstellungen deines Store-Kontos.",
+  "Gizlilik politikası": "Datenschutzerklärung",
+  "Kullanım koşulları": "Nutzungsbedingungen",
+  "Oyuncu kodun": "Spielercode"
  },
  "ja": {
   "Dil ve bölge": "言語と地域",
@@ -39,6 +47,10 @@
   "Yeni: diller ve ülkeler": "新登場：言語と国",
   "Tapu artık 4 dilde ve 5 ülkede oynanıyor: Türkiye, ABD, Birleşik Krallık, Almanya, Japonya. Bir de her ülkenin en pahalı şehrini içeren Global var. Buradaki ilerlemen kayıtlı kalır.": "Tapuは4言語・5か国（トルコ、アメリカ、イギリス、ドイツ、日本）で遊べるようになりました。各国で最も高い都市を集めたグローバルもあります。ここでの進行状況は保存されたままです。",
   "Dil ve bölge seç": "言語と地域を選ぶ",
-  "Şimdilik burada kal": "今はこのまま"
+  "Şimdilik burada kal": "今はこのまま",
+  "Emlak Kulübü aylık otomatik yenilenen bir aboneliktir. Ödeme, satın almayı onayladığında mağaza hesabından alınır; dönem bitmeden en az 24 saat önce iptal edilmezse aynı fiyatla yenilenir. Aboneliğini mağaza hesap ayarlarından yönetebilir ve iptal edebilirsin.": "不動産クラブは毎月自動更新されるサブスクリプションです。購入を確定するとストアアカウントに請求されます。期間終了の24時間前までに解約しない限り、同じ料金で自動更新されます。管理と解約はストアのアカウント設定から行えます。",
+  "Gizlilik politikası": "プライバシーポリシー",
+  "Kullanım koşulları": "利用規約",
+  "Oyuncu kodun": "プレイヤーコード"
  }
 }
