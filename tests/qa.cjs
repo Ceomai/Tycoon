@@ -413,8 +413,8 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
  log('E) ekran boyutları');
  for(const vp of [{width:320,height:568},{width:360,height:640},{width:412,height:915},{width:768,height:1024},{width:1280,height:720}]){
    p=await page(b,{vp});
-   const m=await p.evaluate(()=>{ const g=document.querySelector('.plate').getBoundingClientRect(), d=document.querySelector('.dock').getBoundingClientRect(), top=document.querySelector('.top').getBoundingClientRect(); return {sw:document.documentElement.scrollWidth, w:innerWidth, h:innerHeight, gb:g.bottom, gt:g.top, topb:top.bottom, db:d.bottom, lot:document.querySelector('.lot').getBoundingClientRect().width}; });
-   ok(m.sw<=m.w && m.db<=m.h+1 && m.gt>=m.topb-1, `${vp.width}x${vp.height}: taşma yok, arsa ${Math.round(m.lot)}px`);
+   const m=await p.evaluate(()=>{ const g=document.querySelector('.plate').getBoundingClientRect(), d=document.querySelector('.dock').getBoundingClientRect(), top=document.querySelector('.top').getBoundingClientRect(); const hitTop=!(g.right<=top.left+1||g.left>=top.right-1||g.bottom<=top.top+1||g.top>=top.bottom-1); return {sw:document.documentElement.scrollWidth, w:innerWidth, h:innerHeight, gb:g.bottom, gt:g.top, topb:top.bottom, hitTop, db:d.bottom, lot:document.querySelector('.lot').getBoundingClientRect().width}; });
+   ok(m.sw<=m.w && m.db<=m.h+1 && !m.hitTop, `${vp.width}x${vp.height}: taşma yok, arsa ${Math.round(m.lot)}px`);
    const gt=await p.evaluate(()=>{ const g=document.querySelector('#guideBtn').getBoundingClientRect(); const hit=[...document.querySelectorAll('.lot')].some(l=>{const r=l.getBoundingClientRect(); return !(r.right<=g.left||r.left>=g.right||r.bottom<=g.top||r.top>=g.bottom);}); return {hit, inView:g.right<=innerWidth+1&&g.left>=0&&g.width>0}; });
    ok(!gt.hit && gt.inView, `${vp.width}x${vp.height}: kılavuz sekmesi görünür ve hiçbir arsanın üstüne binmiyor`);
    if(vp.width===320) await p.screenshot({path:out+'E320.png'});

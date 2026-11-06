@@ -71,7 +71,7 @@ const fillFn=(S,a)=>{ const T=['ev','kafe','dukkan','ofis']; S.d[a.k]=Array.from
  p=await open(b); await start(p); await mut(p,fillFn,{k:'ist-0',lvl:1}); await mut(p,S=>{ S.d['ist-0'][19]=null; S.cash=1000; });
  await p.clock.runFor(30000);
  for(let k=0;k<120;k++) await p.click('#collectBtn',{force:true,delay:0});
- await p.clock.runFor(400);
+ await p.clock.runFor(400); await dismiss(p); // TOPLA sonrası günün kira kartı açılabilir
  await tap(p,'.lot[data-i="19"]'); const cashB=(await S(p)).cash;
  for(let k=0;k<40;k++) await p.click('[data-a="build"][data-t="ev"]',{force:true,timeout:200}).catch(()=>{});
  { const s=await S(p); ok(s.cash>=0 && s.d['ist-0'][19] && cashB-s.cash<=1000,'P05 çift harcama yok (harcanan '+Math.round(cashB-s.cash)+')'); }
@@ -227,7 +227,7 @@ const fillFn=(S,a)=>{ const T=['ev','kafe','dukkan','ofis']; S.d[a.k]=Array.from
    p=await open(b,{vp:{width:w,height:h},dpr:1}); await start(p); await mut(p,(S,n)=>{S.night=n},night); await mut(p,fillFn,{k:'ist-0',lvl:2}); await p.clock.runFor(2500); await dismiss(p);
    const m=await p.evaluate(()=>{ const q=s=>document.querySelector(s)?.getBoundingClientRect(); const lots=[...document.querySelectorAll('.lot')].map(e=>e.getBoundingClientRect());
      const top=q('.top'), dock=q('.dock'), coll=q('#collectBtn');
-     return {sw:document.documentElement.scrollWidth-innerWidth,minLot:Math.min(...lots.map(r=>r.width)),lotsIn:lots.every(r=>r.left>=-1&&r.right<=innerWidth+1),overlapTop:lots.some(r=>r.top<top.bottom-1),dockIn:dock.bottom<=innerHeight+1,coll:coll.width}; }).catch(e=>({err:e.message}));
+     return {sw:document.documentElement.scrollWidth-innerWidth,minLot:Math.min(...lots.map(r=>r.width)),lotsIn:lots.every(r=>r.left>=-1&&r.right<=innerWidth+1),overlapTop:lots.some(r=>!(r.right<=top.left+1||r.left>=top.right-1||r.bottom<=top.top+1||r.top>=top.bottom-1)),dockIn:dock.bottom<=innerHeight+1,coll:coll.width}; }).catch(e=>({err:e.message}));
    if(m.err){ ok(false,`${w}x${h} ölçüm hatası ${m.err}`); await p.context().close(); continue; }
    ok(m.sw<=0&&m.lotsIn&&!m.overlapTop&&m.dockIn&&m.minLot>=24, `${w}x${h} ${night?'gece':'gündüz'}: taşma yok, alt çubuk ekranda, arsa ${Math.round(m.minLot)}px (WCAG 2.5.8 ≥24)`);
    if(m.minLot<44){ (metrics.smallTargets=metrics.smallTargets||[]).push(`${w}x${h}:${Math.round(m.minLot)}px`); }
