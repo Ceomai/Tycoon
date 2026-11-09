@@ -419,6 +419,7 @@ export const JA: Dict = {
     "Kat çıkılıyor": "増築中",
     "Kaydet": "保存",
     "Kayıt": "セーブ",
+    "Kayıt yapılamadı: cihaz depolaması dolu": "保存できませんでした：端末のストレージがいっぱいです",
     "Kazanılan yıldız": "獲得した星",
     "Kazanıldı": "獲得済み",
     "Kemerli avlusu ve kubbesiyle taş han": "アーチの中庭とドームを持つ石造りの隊商宿",

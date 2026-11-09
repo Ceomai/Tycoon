@@ -127,7 +127,9 @@ function cleanLot(q: unknown): Lot {
 const cleanLots = (x: unknown): Lot[] => { const a = Array.isArray(x) ? x.slice(0, N).map(cleanLot) : []; while (a.length < N) a.push(null); return a; };
 function sanitize(s: any, now: number, weekKey: string): State {
   const own = [...new Set(strs(s.own).filter(isD))].filter(k => CITY_ORDER.includes(DMAP[k].city)); // yalnızca etkin bölgenin semtleri
-  const city: CityId | null = CITY_ORDER.includes(s.city) ? s.city : own.length ? DMAP[own[0]].city : null;
+  // city: null = şehir henüz seçilmemiş (ilk açılış yarım kaldı): semtlerden türetilmez, oyuncu şehir seçer.
+  // Alan hiç yoksa ya da bozuksa (eski kayıt) şehir semtlerden türetilir.
+  const city: CityId | null = CITY_ORDER.includes(s.city) ? s.city : s.city !== null && own.length ? DMAP[own[0]].city : null;
   const base = newState(now, weekKey, city) as any;
   const out: any = {};
   for (const k of Object.keys(base)) {
@@ -159,7 +161,9 @@ function sanitize(s: any, now: number, weekKey: string): State {
   out.seen = isObj(s.seen) ? Object.fromEntries(Object.keys(TYPES).filter(t => s.seen[t] === true).map(t => [t, true])) : base.seen;
   out.season = { ...out.season, got: nums(out.season.got), ggot: nums(out.season.ggot) };
   out.tasks = isObj(s.tasks) && Array.isArray(s.tasks.list) ? { day: String(s.tasks.day || ''), bonus: s.tasks.bonus === true, list: s.tasks.list.filter(isObj) } : null;
-  out.offer = isObj(s.offer) && typeof s.offer.k === 'string' && Number.isFinite(s.offer.until) ? s.offer : null;
+  const o = s.offer, fin = (x: unknown) => typeof x === 'number' && Number.isFinite(x);
+  out.offer = isObj(o) && typeof o.k === 'string' && fin(o.until) && fin(o.goal) && o.goal > 0 && fin(o.prog) && typeof o.title === 'string' && fin(o.rw) && o.rw >= 0
+    ? { k: o.k, goal: o.goal, prog: Math.max(0, o.prog), until: o.until, title: o.title, rw: o.rw, done: o.done === true } : null;
   if (!out.ref.code || typeof out.ref.code !== 'string') out.ref = base.ref;
   if (out.collectMode !== 'auto') out.collectMode = 'tap';
   return out as State;

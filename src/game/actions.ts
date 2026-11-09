@@ -141,7 +141,7 @@ export function buyDistrict(k: DistrictKey, kapora = false) {
   showDistrictCard(k);
   Analytics.log(newCity ? 'city_unlock' : 'district_unlock', { district: k, kapora });
 }
-export function switchDistrict(k: DistrictKey) { if (!S.own.includes(k)) return; ui.breakAt = performance.now(); const from = S.cur; S.cur = k; showSummary(k, from); ui.tileSig = []; ui.linkSig = ''; render(); }
+export function switchDistrict(k: DistrictKey) { if (!S.own.includes(k)) return; ui.breakAt = performance.now(); const from = S.cur; S.cur = k; ui.teslim = {}; showSummary(k, from); ui.tileSig = []; ui.linkSig = ''; render(); }
 
 /** Ödüllü reklam (ya da premium) sonrası ortak işlemler. */
 export function grantReward(fn?: () => void) {

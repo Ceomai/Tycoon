@@ -9,7 +9,10 @@ import { loc } from '../format';
 import { t, nm } from '../i18n';
 
 const native = () => Capacitor.isNativePlatform() && !__PREVIEW__;
+const IDS = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
 export const Notify = {
+  /** Oyuna dönünce planlı yerel bildirimler iptal edilir (çıkarken yeniden planlanır). */
+  async cancel() { if (native()) try { await LocalNotifications.cancel({ notifications: IDS }); } catch { /* yok */ } },
   async ask() { if (native()) try { await LocalNotifications.requestPermissions(); } catch { /* yok */ } },
   async plan() {
     if (!native() || !S.notif) return;
@@ -28,8 +31,9 @@ export const Notify = {
       }
       const tm = new Date(t0); tm.setDate(tm.getDate() + 1); tm.setHours(12, 0, 0, 0);
       list.push({ id: 3, title: t('Kira günü'), body: t('{n}. gün ödülün hazır. Seriyi bozma!', { n: (S.daily.streak || 0) + 1 }), at: +tm });
-      await LocalNotifications.cancel({ notifications: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }] });
-      await LocalNotifications.schedule({ notifications: list.map(n => ({ id: n.id, title: n.title, body: n.body, schedule: { at: new Date(n.at) } })) });
+      await LocalNotifications.cancel({ notifications: IDS });
+      const due = list.filter(n => n.at > t0 + 60e3); // bir dakika içinde olanlar planlanmaz (oyuncu zaten yeni çıktı)
+      if (due.length) await LocalNotifications.schedule({ notifications: due.map(n => ({ id: n.id, title: n.title, body: n.body, schedule: { at: new Date(n.at) } })) });
     } catch { /* yok */ }
   },
 };

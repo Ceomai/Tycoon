@@ -419,6 +419,7 @@ export const EN: Dict = {
     "Kat çıkılıyor": "Adding floor",
     "Kaydet": "Save",
     "Kayıt": "Save",
+    "Kayıt yapılamadı: cihaz depolaması dolu": "Couldn't save: device storage is full",
     "Kazanılan yıldız": "Stars earned",
     "Kazanıldı": "Earned",
     "Kemerli avlusu ve kubbesiyle taş han": "Stone inn with arched courtyard and dome",

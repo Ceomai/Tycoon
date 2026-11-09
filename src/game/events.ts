@@ -66,7 +66,8 @@ export function catchUp(ms: number) {
     <button class="txt" data-a="x1">${t('Al')}</button></div></div>`,
     a => {
       if (a === 'x1') { addCash(lump); bump(); closeModal(); Snd.collect(4); }
-      if (a === 'x3') { closeModal(); Ads.rewarded('offline', t('{amt} kira', { amt: fmt(lump * 3) }), () => { addCash(lump * 3); bump(); }); }
+      // reklam gösterilemez ya da yarıda kalırsa en azından 1 katı verilir
+      if (a === 'x3') { closeModal(); Ads.rewarded('offline', t('{amt} kira', { amt: fmt(lump * 3) }), () => { addCash(lump * 3); bump(); }, () => { addCash(lump); bump(); Snd.collect(4); }); }
     });
 }
 

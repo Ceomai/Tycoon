@@ -15,7 +15,8 @@
   "Emlak Kulübü aylık otomatik yenilenen bir aboneliktir. Ödeme, satın almayı onayladığında mağaza hesabından alınır; dönem bitmeden en az 24 saat önce iptal edilmezse aynı fiyatla yenilenir. Aboneliğini mağaza hesap ayarlarından yönetebilir ve iptal edebilirsin.": "Realty Club is a monthly auto-renewing subscription. Payment is charged to your store account when you confirm the purchase; it renews at the same price unless cancelled at least 24 hours before the period ends. You can manage and cancel it in your store account settings.",
   "Gizlilik politikası": "Privacy policy",
   "Kullanım koşulları": "Terms of use",
-  "Oyuncu kodun": "Player code"
+  "Oyuncu kodun": "Player code",
+  "Kayıt yapılamadı: cihaz depolaması dolu": "Couldn't save: device storage is full"
  },
  "de": {
   "Dil ve bölge": "Sprache & Region",
@@ -33,7 +34,8 @@
   "Emlak Kulübü aylık otomatik yenilenen bir aboneliktir. Ödeme, satın almayı onayladığında mağaza hesabından alınır; dönem bitmeden en az 24 saat önce iptal edilmezse aynı fiyatla yenilenir. Aboneliğini mağaza hesap ayarlarından yönetebilir ve iptal edebilirsin.": "Der Immobilien-Club ist ein sich monatlich automatisch verlängerndes Abo. Die Zahlung wird bei Kaufbestätigung über dein Store-Konto abgerechnet; es verlängert sich zum gleichen Preis, wenn es nicht mindestens 24 Stunden vor Ende des Zeitraums gekündigt wird. Verwalten und kündigen kannst du es in den Einstellungen deines Store-Kontos.",
   "Gizlilik politikası": "Datenschutzerklärung",
   "Kullanım koşulları": "Nutzungsbedingungen",
-  "Oyuncu kodun": "Spielercode"
+  "Oyuncu kodun": "Spielercode",
+  "Kayıt yapılamadı: cihaz depolaması dolu": "Speichern fehlgeschlagen: Gerätespeicher ist voll"
  },
  "ja": {
   "Dil ve bölge": "言語と地域",
@@ -51,6 +53,7 @@
   "Emlak Kulübü aylık otomatik yenilenen bir aboneliktir. Ödeme, satın almayı onayladığında mağaza hesabından alınır; dönem bitmeden en az 24 saat önce iptal edilmezse aynı fiyatla yenilenir. Aboneliğini mağaza hesap ayarlarından yönetebilir ve iptal edebilirsin.": "不動産クラブは毎月自動更新されるサブスクリプションです。購入を確定するとストアアカウントに請求されます。期間終了の24時間前までに解約しない限り、同じ料金で自動更新されます。管理と解約はストアのアカウント設定から行えます。",
   "Gizlilik politikası": "プライバシーポリシー",
   "Kullanım koşulları": "利用規約",
-  "Oyuncu kodun": "プレイヤーコード"
+  "Oyuncu kodun": "プレイヤーコード",
+  "Kayıt yapılamadı: cihaz depolaması dolu": "保存できませんでした：端末のストレージがいっぱいです"
  }
 }

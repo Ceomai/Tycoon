@@ -31,7 +31,7 @@ const PRODUCTS: Record<ProductKey, { re: RegExp; price: string; name: string }> 
 };
 const ORDER_MATCH: ProductKey[] = ['sezonIlk', 'sezon', 'jeton15', 'jeton5', 'baslangic', 'kulup', 'reklamsiz', 'holding'];
 const ENT = { premium: 'premium', reklamsiz: 'reklamsiz', kulup: 'kulup' };
-let configured = false;
+let configured = false, purchasing = false;
 const pkgs: Partial<Record<ProductKey, any>> = {};
 const prices: Record<ProductKey, string> = Object.fromEntries(Object.entries(PRODUCTS).map(([k, v]) => [k, v.price])) as any;
 const native = () => Capacitor.isNativePlatform() && !__PREVIEW__;
@@ -89,8 +89,11 @@ export const Purchases = {
     }
     const pkg = pkgs[key] || (key === 'sezonIlk' ? pkgs.sezon : null);
     if (!configured || !pkg) { toast(t('Mağaza şu an kullanılamıyor')); return; }
+    if (purchasing) return; // ödeme ekranı açıkken ikinci dokunuş yok sayılır (çift satın alma olmasın)
+    purchasing = true;
     try { const r: any = await RC.purchasePackage({ aPackage: pkg }); apply(r.customerInfo); grant(key, onOk); }
     catch (e: any) { if (!e?.userCancelled) toast(t('Satın alma tamamlanamadı')); }
+    finally { purchasing = false; }
   },
   /** Eski çağrı: Holding paketi (önceki "Reklamsız paket" ürünü). */
   buy() { return this.buyProduct('holding'); },

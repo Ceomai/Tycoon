@@ -16,8 +16,8 @@ import { checkDaily } from './daily';
 import { showEvent } from './events';
 import { showOffer } from './offers';
 import { nudgeCollect, autoCollect } from './actions';
-import { persist, dirty, clearDirty } from './persist';
-import { clearSave } from '../storage';
+import { persist, persistNow, dirty, clearDirty } from './persist';
+import { clearSave, lockSaves, unlockSaves } from '../storage';
 import { Ads } from '../services/ads';
 import { Cloud } from '../services/cloud';
 import { Analytics } from '../services/analytics';
@@ -27,7 +27,7 @@ import { payLien, showDistrictCard } from './district';
 import { maybeTip } from './rifki';
 import { maybeStarter, clubTick } from './monetize';
 
-let lastT = performance.now(), lastGoals = 0;
+let lastT = performance.now(), lastGoals = 0, teslimOf = '';
 const anyProducing = () => S.own.some(k => lotsOf(S, k).some(producing));
 
 export function tick() {
@@ -35,6 +35,8 @@ export function tick() {
   if (document.hidden) return;
   const tn = now();
   S.maxSeen = Math.max(S.maxSeen, tn);
+  if (teslimOf !== S.cur) { teslimOf = S.cur; ui.teslim = {}; } // teslim mühürleri arsa sırasına bağlı: semt değişince silinir
+  let doneAny = false, doneHere = false; // uzun aradan dönüşte üst üste ses/titreşim olmasın
   for (const k of S.own) {
     const lots = lotsOf(S, k);
     for (let i = 0; i < N; i++) {
@@ -43,7 +45,7 @@ export function tick() {
         p.until = 0; if (p.up) { p.lvl++; p.up = false; } else p.lvl = 1;
         if (k === S.cur) ui.teslim[i] = { at: pt + 1600, txt: t('{type} · kat {lvl}', { type: t(TYPES[p.t].n), lvl: p.lvl }) }; // tapu teslim mührü
         if (k === S.cur && ui.tiles[i]) { const el = ui.tiles[i]; ui.tileSig[i] = ''; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
-        Snd.done(); buzz(12); ui.sheetSig = '';
+        doneAny = true; if (k === S.cur) doneHere = true;
       }
       if (producing(p)) {
         const r = rate(k, i, tn), cap = r * CFG.CAP_SEC; let g = r * dt / 1000;
@@ -53,6 +55,7 @@ export function tick() {
       }
     }
   }
+  if (doneAny) { Snd.done(); if (doneHere) buzz(12); ui.sheetSig = ''; }
   if (S.fx.length) S.fx = S.fx.filter(f => f.until > tn);
   if (S.boostUntil && S.boostUntil <= tn) { S.boostUntil = 0; toast(t('Tüm mülklere 2x bitti')); }
   if (!ui.ad) S.playMs += dt;
@@ -125,10 +128,13 @@ export function applyRegion(r: RegionId) {
 /** İlk açılış akışı: dil → bölge → şehir. */
 export function firstRun(onDone?: () => void, onLang?: () => void) {
   pickLang(() => { if (onLang) onLang(); pickRegion(async r => {
+    // eski bölgenin son durumu kendi anahtarına yazılır; bölge değişirken kayıtlar kilitli (eski durum yeni bölgeye yazılmasın)
+    await persistNow(); lockSaves();
     P.region = r; P.news = true; savePrefs(); applyRegion(r);
     await clearSave(); // seçilen bölgede yeni oyun (diğer bölgelerin kayıtları korunur)
     const ent = { premium: S.premium, noAds: S.noAds, club: S.club };
     setS(Object.assign(newState(now(), weekKey(new Date(now()))), ent));
+    unlockSaves();
     ui.tileSig = []; ui.linkSig = ''; render();
     Analytics.log('start_region', { region: r, lang: LANG });
     pickCity(onDone);
@@ -137,14 +143,14 @@ export function firstRun(onDone?: () => void, onLang?: () => void) {
 /** Ayarlar'dan bölge değiştirme: kayıt yazılır, diğer bölgenin kaydı açılır (yoksa şehir seçimi). */
 export function switchRegion(r: RegionId) {
   if (r === P.region) return;
-  persist(); P.region = r; savePrefs(); Analytics.log('switch_region', { region: r });
-  setTimeout(() => location.reload(), 150);
+  const w = persistNow(); P.region = r; const pw = savePrefs(); Analytics.log('switch_region', { region: r });
+  void Promise.all([w, pw]).finally(() => location.reload()); // kayıt diske inmeden yenilenmez
 }
 /** Ayarlar'dan dil değiştirme: tüm metinler yeniden çizilsin diye sayfa yenilenir. */
 export function switchLang(l: string) {
   if (l === LANG) return;
-  persist(); setLang(l); P.lang = LANG; savePrefs();
-  setTimeout(() => location.reload(), 150);
+  const w = persistNow(); setLang(l); P.lang = LANG; const pw = savePrefs();
+  void Promise.all([w, pw]).finally(() => location.reload());
 }
 
 /** Yeni oyun: dil → bölge → şehir seçimi (seçilen bölgede sıfırdan; diğer bölgelerin kayıtları korunur). */

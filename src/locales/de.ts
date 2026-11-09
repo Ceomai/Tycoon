@@ -419,6 +419,7 @@ export const DE: Dict = {
     "Kat çıkılıyor": "Wird aufgestockt",
     "Kaydet": "Speichern",
     "Kayıt": "Speicherstand",
+    "Kayıt yapılamadı: cihaz depolaması dolu": "Speichern fehlgeschlagen: Gerätespeicher ist voll",
     "Kazanılan yıldız": "Verdiente Sterne",
     "Kazanıldı": "Verdient",
     "Kemerli avlusu ve kubbesiyle taş han": "Steinerne Karawanserei mit Bogenhof und Kuppel",

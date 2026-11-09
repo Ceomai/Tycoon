@@ -20,12 +20,18 @@ async function getRaw(key: string): Promise<string | null> {
     return localStorage.getItem(key);
   } catch { return null; }
 }
-async function setRaw(key: string, value: string): Promise<void> {
+/** Başarılıysa true; depolama dolu ya da kapalıysa false (oyun çalışmaya devam eder). */
+async function setRaw(key: string, value: string): Promise<boolean> {
   try {
     if (native()) await Preferences.set({ key, value });
     else localStorage.setItem(key, value);
-  } catch { /* depolama dolu ya da kapalı: oyun çalışmaya devam eder */ }
+    return true;
+  } catch { return false; }
 }
+/** Yazma başarısız olunca oturumda bir kez çağrılır (arayüz uyarısı persist.ts'de bağlanır). */
+let onFail: (() => void) | null = null, failWarned = false;
+export function onSaveFail(f: () => void) { onFail = f; }
+function failed() { if (failWarned) return; failWarned = true; try { onFail?.(); } catch { /* yok */ } }
 async function removeRaw(key: string): Promise<void> {
   try { if (native()) await Preferences.remove({ key }); else localStorage.removeItem(key); } catch { /* yok */ }
 }
@@ -56,34 +62,57 @@ export async function loadRaw(): Promise<unknown | null> {
   return unwrap(await getRaw(LEGACY_SAVE_KEY)) ?? (typeof localStorage !== 'undefined' ? unwrap(localStorage.getItem(LEGACY_SAVE_KEY)) : null);
 }
 
-let lastGood = '';
+let lastGood = '', lastGoodKey = '';
 let locked = false;
-/** Bulut kaydı yüklenip sayfa yenilenirken eski durumun üstüne yazılmasını engeller. */
-export function lockSaves() { locked = true; }
-let writing = false, pending: string | null = null;
-/** Kayıt sırayla yazılır; önce bir önceki sağlam kayıt yedeğe alınır. */
-export async function writeSave(state: object): Promise<void> {
-  if (locked) return;
-  const json = JSON.stringify(state);
-  if (writing) { pending = json; return; }
-  writing = true;
-  try {
-    if (lastGood) await setRaw(backupNow(), lastGood);
-    const w = wrap(json);
-    await setRaw(keyNow(), w);
-    lastGood = w;
-  } finally {
-    writing = false;
-    if (pending) { const p = pending; pending = null; await writeSave(JSON.parse(p)); }
-  }
+interface Job { json: string; key: string; bkey: string }
+let running: Promise<void> | null = null, pending: Job | null = null;
+/** Bulut kaydı yüklenip sayfa yenilenirken / bölge değişirken eski durumun üstüne yazılmasını engeller. */
+export function lockSaves() { locked = true; pending = null; }
+export function unlockSaves() { locked = false; }
+/** Hedef anahtar çağrı anında yakalanır (yazma sürerken bölge değişse de kayıt doğru yere gider). */
+const job = (state: object): Job => ({ json: JSON.stringify(state), key: keyNow(), bkey: backupNow() });
+async function doWrite(j: Job) {
+  if (lastGood && lastGoodKey === j.key) await setRaw(j.bkey, lastGood); // önce bir önceki sağlam kayıt yedeğe
+  const w = wrap(j.json);
+  if (await setRaw(j.key, w)) { lastGood = w; lastGoodKey = j.key; } else failed();
+}
+/** Kayıt sırayla yazılır; yazma sürerken gelen istekten yalnızca sonuncusu bekletilir.
+ *  Dönen söz, bu çağrının durumu diske yazılınca (ya da kilit yüzünden atlanınca) tamamlanır. */
+export function writeSave(state: object): Promise<void> {
+  if (locked) return Promise.resolve();
+  const j = job(state);
+  if (running) { pending = j; return running; }
+  running = (async () => {
+    try { let n: Job | null = j; while (n) { await doWrite(n); n = locked ? null : pending; pending = null; } }
+    finally { running = null; }
+  })();
+  return running;
+}
+/** Süren ve bekleyen yazmalar bitene kadar bekler. */
+export async function flushSaves() { while (running) await running; }
+/** Kilidi aşar: bekleyen kuyruğu atar, süren yazmanın bitmesini bekler ve bu durumu doğrudan yazar (bulut kaydı yükleme). */
+export async function writeSaveForce(state: object): Promise<void> {
+  pending = null;
+  const j = job(state);
+  await flushSaves();
+  await doWrite(j);
 }
 /** Senkron yedek yol: sayfa kapanırken (web) son durumu kaybetmemek için. */
 export function writeSaveSync(state: object) {
   if (locked) return;
   if (native()) { void writeSave(state); return; }
-  try { localStorage.setItem(keyNow(), wrap(JSON.stringify(state))); } catch { /* yok */ }
+  try { localStorage.setItem(keyNow(), wrap(JSON.stringify(state))); } catch { failed(); }
 }
-export async function clearSave() { await removeRaw(keyNow()); await removeRaw(backupNow()); if (REGION === 'tr') await removeRaw(LEGACY_SAVE_KEY); lastGood = ''; }
+export async function clearSave() { await removeRaw(keyNow()); await removeRaw(backupNow()); if (REGION === 'tr') await removeRaw(LEGACY_SAVE_KEY); lastGood = ''; lastGoodKey = ''; }
+/** Hesap silme: bu cihazdaki tüm bölgelerin kayıtları, yedekleri ve eski (v1) kayıt silinir. Kayıtlar kilitli kalır
+ *  (yeni oyun akışı bölge seçilince kilidi açar), böylece eski durum yeniden yazılmaz. */
+export async function wipeAllSaves() {
+  lockSaves(); await flushSaves();
+  for (const r of REGION_ORDER) { await removeRaw(saveKeyOf(r)); await removeRaw(saveKeyOf(r) + ':backup'); }
+  await removeRaw(LEGACY_SAVE_KEY);
+  try { if (typeof localStorage !== 'undefined') localStorage.removeItem(LEGACY_SAVE_KEY); } catch { /* yok */ }
+  lastGood = ''; lastGoodKey = '';
+}
 /** Bulut paketi için: diğer bölgelerin kayıtlarını okur / yazar (sağlamalı biçimde). */
 export async function readRegionSave(r: RegionId): Promise<any | null> {
   const v = unwrap(await getRaw(saveKeyOf(r))); if (v) return v;
@@ -95,4 +124,12 @@ export const ALL_REGIONS = REGION_ORDER;
 export const REGION_INFO: Partial<Record<RegionId, { own: number }>> = {};
 export async function loadRegionInfo() { for (const r of REGION_ORDER) { const v = await readRegionSave(r); if (v && Array.isArray(v.own) && v.city) REGION_INFO[r] = { own: v.own.length }; } }
 /** Herhangi bir bölgede kayıt var mı (mevcut oyuncuyu ilk açılış seçimlerinden geçirmemek için). */
-export async function anySave(): Promise<boolean> { for (const r of REGION_ORDER) if (await readRegionSave(r)) return true; return false; }
+export async function anySave(): Promise<boolean> { for (const r of REGION_ORDER) if (validSave(await readRegionSave(r))) return true; return false; }
+/** Şehri seçilmiş (gerçek) kayıt mı? İlk açılış seçimleri bitmeden yazılmış kayıtlar (city: null) sayılmaz.
+ *  v1 kayıtlar ve city alanı hiç olmayan eski kayıtlar semtlerinden şehir türetir (state.ts sanitize). */
+export function validSave(v: any): boolean {
+  if (!v || typeof v !== 'object') return false;
+  if (v.v === 1) return true;
+  if (typeof v.city === 'string' && v.city) return true;
+  return v.city === undefined && Array.isArray(v.own) && v.own.length > 0;
+}

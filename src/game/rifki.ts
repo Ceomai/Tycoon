@@ -104,7 +104,7 @@ export function showTip(tip: Tip) {
 export function maybeTip(pt: number) {
   if (!S.rifki || !S.city || ui.sheet || ui.modal || ui.ad || current) return;
   if (pt - lastAt < CFG.TIP_EVERY) return;
-  const list = tips(); if (!list.length) return;
+  const list = tips(); if (!list.length) { lastAt = pt - CFG.TIP_EVERY + 15e3; return; } // söylenecek yok: 15 sn sonra yeniden bak
   const tip = list.find(x => x.id !== lastId) || list[0];
   lastAt = pt; if (tip.id === 'save2x') last2x = performance.now(); showTip(tip);
 }

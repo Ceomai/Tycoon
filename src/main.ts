@@ -70,6 +70,7 @@ function onHide() {
 function onShow() {
   if (!hiddenAt) return; hiddenAt = 0;
   catchUp(awayMs()); S.lastSeen = now(); ui.lastInput = performance.now(); render();
+  void Notify.cancel(); // oyuna dönüldü: planlı hatırlatmalar artık gereksiz
   if (Cloud.ready() && !Time.synced) void Cloud.hello();
 }
 

@@ -25,9 +25,11 @@ export async function loadPrefs(): Promise<Prefs> {
   } catch { /* varsayılanlar */ }
   return P;
 }
-export function savePrefs() {
+/** Telefonda yazma eşzamansızdır: sayfa yenilemeden önce dönen söz beklenebilir. */
+export function savePrefs(): Promise<void> {
   const v = JSON.stringify(P);
-  try { if (native()) void Preferences.set({ key: KEY, value: v }); else localStorage.setItem(KEY, v); } catch { /* yok */ }
+  try { if (native()) return Preferences.set({ key: KEY, value: v }).catch(() => { /* yok */ }); localStorage.setItem(KEY, v); } catch { /* yok */ }
+  return Promise.resolve();
 }
 /** Paket bayrakları değişince tercihlere yazılır (diğer bölgelerde de geçerli olsun). */
 export function syncEnt(s: { premium: boolean; noAds: boolean; club: boolean }) {

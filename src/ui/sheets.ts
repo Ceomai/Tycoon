@@ -29,7 +29,8 @@ import { Notify } from '../services/notify';
 import { Ads } from '../services/ads';
 import { resetGame, switchLang, switchRegion } from '../game/loop';
 import { REGIONS, REGION_ORDER, REGION, RegionId, SERVER_FEATURES } from '../config';
-import { REGION_INFO } from '../storage';
+import { REGION_INFO, wipeAllSaves } from '../storage';
+import { P, savePrefs } from '../prefs';
 import { chapters } from '../game/guide';
 import { leagueZones, leagueName, leagueShort, weekEndsAt, fmtLeft } from '../game/league';
 import { LEAGUES, LEAGUE_TOP } from '../config';
@@ -40,17 +41,39 @@ export function closeSheet() { if (!ui.sheet) return; ui.sheet = null; ui.lastCl
 const lvBar = (l: number) => `<div class="lv">${[1, 2, 3, 4, 5].map(k => `<i class="${k <= l ? 'on' : ''}"></i>`).join('')}</div>`;
 const discBox = () => S.disc ? `<div class="disc">${small(I.tag, 16)} ${t('%{n} müteahhit indirimi', { n: Math.round(S.disc * 100) })}</div>` : '';
 
+/* Canlı alanlar: her karede değişen sayılar (kasa, borç, haftalık kazanç, görev ilerlemesi, geri sayım) paneli
+   yeniden çizmeden yalnızca bu öğelerde güncellenir. Panel imzasına (sig) yalnızca görünümü değiştiren ayrık değerler girer;
+   böylece otomatik toplamada da panel 4 Hz yeniden yazılmaz ve dokunuşlar kaybolmaz. */
+const LIVE: Record<string, () => string> = {};
+/** Metni canlı güncellenen span (yalnızca düz metin). */
+const lv = (id: string, f: () => string) => { LIVE[id] = f; return `<span data-lv="${id}">${f()}</span>`; };
+/** Genişliği (yüzde) canlı güncellenen öğe için öznitelikler. */
+const lw = (id: string, f: () => number) => { LIVE[id] = () => f() + '%'; return `data-lw="${id}" style="width:${f()}%"`; };
+function updateLive() {
+  const body = $('#sheetBody') as HTMLElement | null; if (!body) return;
+  body.querySelectorAll<HTMLElement>('[data-lv]').forEach(el => { const f = LIVE[el.dataset.lv!]; if (f) { const v = f(); if (el.textContent !== v) el.textContent = v; } });
+  body.querySelectorAll<HTMLElement>('[data-lw]').forEach(el => { const f = LIVE[el.dataset.lw!]; if (f) { const v = f(); if (el.style.width !== v) el.style.width = v; } });
+}
+/** Haritadaki 2x ipucu (saveTarget/boostSaving) birkaç saniyede bir hesaplanır. */
+let hintAt = -1e9, hintV: { k: string; bs: NonNullable<ReturnType<typeof boostSaving>> } | null = null;
+function mapHint() {
+  const pt = performance.now();
+  if (pt - hintAt > 3000 || pt < hintAt) { hintAt = pt; const tg = saveTarget(), bs = tg ? boostSaving(tg.rem) : null; hintV = tg && bs && bs.saved >= 1 ? { k: tg.k, bs } : null; }
+  return hintV;
+}
+const lienPct = (k: string) => Math.round(100 * (1 - S.lien[k] / Math.max(S.lien[k], S.lienT[k] || S.lien[k])));
+
 export function renderSheet() {
   const s = ui.sheet; if (!s) return;
   const tn = now(); let sig = '', html: string | undefined;
   if (s.k === 'plot') {
     const k = s.key!, i = s.i!, p = lotsOf(S, k)[i];
     if (!p) {
-      sig = 'e|' + ORDER.map(b => (S.seen[b] ? 1 : 0) + '' + (S.cash >= withDisc(buildCost(k, b)) ? 1 : 0)).join() + S.disc + S.inv.join() + (lienBlocks(k) ? 'L' + Math.floor(S.lien[k]) : '');
+      sig = 'e|' + ORDER.map(b => (S.seen[b] ? 1 : 0) + '' + (S.cash >= withDisc(buildCost(k, b)) ? 1 : 0)).join() + S.disc + S.inv.join() + (lienBlocks(k) ? 'L' + (S.cash >= S.lien[k] ? 1 : 0) : '');
       if (sig !== ui.sheetSig && lienBlocks(k)) {
         html = `<div class="sh-head"><div class="sh-t"><h3>${t('Kilitli arsa')}</h3><p>${nm(DMAP[k].n)} · ${t('kaporalı semt')}</p></div></div>
-          <p class="gdp">${t('Kapora ile alınan semtte {lots} arsa açık. Kalan {debt} borç {semt} kirasının yarısıyla kendiliğinden ödeniyor; bitince 20 arsanın hepsi açılır.', { lots: CFG.KAPORA_LOTS, debt: fmt(S.lien[k]), semt: nm(DMAP[k].n) })}</p>
-          <div class="btns"><button class="btn" data-a="payoff" ${S.cash >= S.lien[k] ? '' : 'disabled'}>${t('Borcu şimdi kapat')} · ${fmt(S.lien[k])}</button></div>`;
+          <p class="gdp">${t('Kapora ile alınan semtte {lots} arsa açık. Kalan {debt} borç {semt} kirasının yarısıyla kendiliğinden ödeniyor; bitince 20 arsanın hepsi açılır.', { lots: CFG.KAPORA_LOTS, debt: lv('ld' + k, () => fmt(S.lien[k] || 0)), semt: nm(DMAP[k].n) })}</p>
+          <div class="btns"><button class="btn" data-a="payoff" ${S.cash >= S.lien[k] ? '' : 'disabled'}>${t('Borcu şimdi kapat')} · ${lv('ld' + k, () => fmt(S.lien[k] || 0))}</button></div>`;
       } else if (sig !== ui.sheetSig) {
         const short = ORDER.some(b => S.seen[b] && S.cash < withDisc(buildCost(k, b)));
         const inv = S.inv.length ? `<p class="sec">${t('Depodaki özel yapılar')}</p><div class="cards spcards">${S.inv.map(id => `<button class="bcard bpbg k-ozel" data-a="place" data-id="${id}">${svg(specialSvg(id))}<span class="bn">${t(specialOf(id).n)}</span><span class="bm">${t('Komşularına +%{n}', { n: Math.round(CFG.SP_ADJ * 100) })}</span><span class="bp">${t('Yerleştir')}</span></button>`).join('')}</div><p class="sec">${t('Yeni bina')}</p>` : '';
@@ -110,8 +133,8 @@ export function renderSheet() {
     }
   }
   else if (s.k === 'map') {
-    const tg = saveTarget(), bs = tg ? boostSaving(tg.rem) : null, hint = tg && bs && bs.saved >= 1 ? { k: tg.k, bs } : null;
-    sig = 'm|' + (hint ? hint.k + Math.round(hint.bs.saved) + hint.bs.lot.k + hint.bs.lot.i : '') + JSON.stringify(S.lien) + Math.floor(S.cash) + JSON.stringify(S.stars) + goalsOf(S.cur).map(g => g.f(S.cur).join('/')).join() + S.cur + S.own.join() + S.own.map(filled).join() + CITY_ORDER.map(c => CITIES[c].districts.map((_, i) => { const u = unlockInfo(dkey(c, i)); return (u.ok ? 1 : 0) + '' + (S.cash >= u.fee ? 1 : 0); }).join('')).join();
+    const hint = mapHint();
+    sig = 'm|' + (hint ? hint.k + Math.round(hint.bs.saved) + hint.bs.lot.k + hint.bs.lot.i + instantRewards() : '') + Object.keys(S.lien).map(k => k + (S.cash >= S.lien[k] ? 1 : 0)).join() + JSON.stringify(S.stars) + goalsOf(S.cur).map(g => g.f(S.cur).join('/')).join() + S.cur + S.own.join() + S.own.map(filled).join() + CITY_ORDER.map(c => CITIES[c].districts.map((_, i) => { const k = dkey(c, i), u = unlockInfo(k); return (u.ok ? 1 : 0) + '' + (S.cash >= u.fee ? 1 : 0) + (u.ok && S.cash >= kaporaOf(k) ? 1 : 0); }).join('')).join();
     if (sig !== ui.sheetSig) {
       const start = S.city || 'ist';
       const order = [start, ...CITY_ORDER.filter(c => c !== start)];
@@ -121,15 +144,15 @@ export function renderSheet() {
         const rows = CITIES[c].districts.map((d, i) => {
           const k = dkey(c, i);
           const rl = DRULES[k] ? `<em class="rl">${t(DRULES[k].n)}: ${t(DRULES[k].t).toLocaleLowerCase(LANG === 'tr' ? 'tr-TR' : LANG)}</em>` : '';
-          if (S.own.includes(k) && S.lien[k]) return `<div class="lienrow"><button class="drow${k === S.cur ? ' on' : ''}" data-a="go" data-k="${k}"><span class="di"><b>${nm(d.n)} · ${t('kaporalı')}</b><small>${t('{a}/{b} arsa açık · kalan borç {m}', { a: builtCount(k), b: CFG.KAPORA_LOTS, m: fmt(S.lien[k]) })}</small>${rl}</span></button>
-            <span class="dp"><u style="width:${Math.round(100 * (1 - S.lien[k] / Math.max(S.lien[k], S.lienT[k] || S.lien[k])))}%"></u></span>
-            <button class="chip" data-a="payoff" data-k="${k}" ${S.cash >= S.lien[k] ? '' : 'disabled'}>${t('Borcu kapat')} · ${fmt(S.lien[k])}</button></div>`;
+          if (S.own.includes(k) && S.lien[k]) return `<div class="lienrow"><button class="drow${k === S.cur ? ' on' : ''}" data-a="go" data-k="${k}"><span class="di"><b>${nm(d.n)} · ${t('kaporalı')}</b><small>${t('{a}/{b} arsa açık · kalan borç {m}', { a: builtCount(k), b: CFG.KAPORA_LOTS, m: lv('ld' + k, () => fmt(S.lien[k] || 0)) })}</small>${rl}</span></button>
+            <span class="dp"><u ${lw('lp' + k, () => (S.lien[k] ? lienPct(k) : 100))}></u></span>
+            <button class="chip" data-a="payoff" data-k="${k}" ${S.cash >= S.lien[k] ? '' : 'disabled'}>${t('Borcu kapat')} · ${lv('ld' + k, () => fmt(S.lien[k] || 0))}</button></div>`;
           if (S.own.includes(k)) return `<button class="drow${k === S.cur ? ' on' : ''}" data-a="go" data-k="${k}"><span class="di"><b>${nm(d.n)}${starsOf(k).length >= 3 ? ` <span class="gold">${t('ALTIN MÜHÜR')}</span>` : ''}</b><small>${t('{n}/20 dolu', { n: filled(k) })} · ${'★'.repeat(starsOf(k).length)}${'☆'.repeat(3 - starsOf(k).length)}</small>${rl}</span><span class="mini"><i style="width:${filled(k) / 20 * 100}%"></i></span></button>`;
           const u = unlockInfo(k);
           if (u.ok) {
             const af = S.cash >= u.fee, kap = kaporaOf(k), kf = S.cash >= kap; if (!af) anyShort = true;
             return `<div class="salerow"><div class="sh2"><b>${nm(d.n)}</b><span class="st">${t('SATIŞTA')}</span></div>${rl}
-              <p>${t('Tapu {m}', { m: fmt(u.fee) })}${af ? '' : kf ? ' · ' + t('paran şimdilik yetmiyor ama kapora verip hemen başlayabilirsin') : ' · ' + t('kaporaya {m} kaldı', { m: fmt(kap - S.cash) })}</p>
+              <p>${t('Tapu {m}', { m: fmt(u.fee) })}${af ? '' : kf ? ' · ' + t('paran şimdilik yetmiyor ama kapora verip hemen başlayabilirsin') : ' · ' + t('kaporaya {m} kaldı', { m: lv('kp' + k, () => fmt(kaporaOf(k) - S.cash)) })}</p>
               ${hint && hint.k === k ? `<div class="hint2x"><span class="h2c">2x</span><span class="h2t"><b>${t('2x ile ≈ {m} dk kısalır', { m: Math.round(hint.bs.saved) })}</b><small>${t('en çok kazandıran binana 1 sa 2x')}</small></span><button class="chip h2b" data-a="boost2x" data-k="${hint.bs.lot.k}" data-i="${hint.bs.lot.i}">${instantRewards() ? '★ ' + t('Ver') : `${I.play} ${t('İzle')}`}</button></div>` : ''}
               <div class="sbtns"><button class="btn" data-a="kapora" data-k="${k}" ${kf && !af ? '' : 'disabled'}>${t('Kapora')} · ${fmt(kap)}<small>${t('%{p} · {n} arsa hemen', { p: Math.round(CFG.KAPORA * 100), n: CFG.KAPORA_LOTS })}</small></button>
               <button class="btn ${af ? 'gold' : 'soft'}" data-a="buy" data-k="${k}" ${af ? '' : 'disabled'}>${t('Tapuyu al')} · ${fmt(u.fee)}<small>${t('20 arsa')}</small></button></div></div>`;
@@ -184,17 +207,17 @@ export function renderSheet() {
     }
   }
   else if (s.k === 'menu') {
-    sig = 'mn|' + (starterActive() ? Math.floor(starterLeft() / 1000) : 0) + S.noAds + S.club + S.ach.length + seasonLevel() + seasonClaimable() + S.league.tier + canHolding() + S.premium + Math.floor(S.week.earned) + (S.shares || 0);
+    sig = 'mn|' + starterActive() + S.noAds + S.club + S.ach.length + seasonLevel() + seasonClaimable() + S.league.tier + canHolding() + S.premium + (S.shares || 0) + (canHolding() ? sharesPreview() : '') + ozelAvail();
     if (sig !== ui.sheetSig) {
       const row = (a: string, ic: string, b: string, sm: string, dot = false) => `<button class="drow" data-a="${a}"><span class="ic">${ic}${dot ? '<span class="dot"></span>' : ''}</span><span class="di"><b>${b}</b><small>${sm}</small></span></button>`;
       html = `<p class="sec">${t('Menü')}</p><div class="dlist">
         ${row('share', I.share, t('Şehrini paylaş'), t('Story görseli, davet kodunla'))}
-        ${!SERVER_FEATURES ? '' : row('lb', I.trophy, t('Haftalık lig'), `${leagueName(S.league.tier)} · ${t('bu hafta {m}', { m: fmt(S.week.earned) })}`)}
+        ${!SERVER_FEATURES ? '' : row('lb', I.trophy, t('Haftalık lig'), `${leagueName(S.league.tier)} · ${t('bu hafta {m}', { m: lv('wk', () => fmt(S.week.earned)) })}`)}
         ${!SERVER_FEATURES ? '' : row('ref', I.users, t('Arkadaşını davet et'), t('Kodun: {c}', { c: S.ref.code }))}
         ${row('sezon', I.crown, t('Tapu sezonu'), `${seasonName(seasonId())} · ${t('basamak {l}/{m}', { l: seasonLevel(), m: SEASON_LV })}${S.season && S.season.gold ? ' · ' + t('Altın') : ''}`, seasonClaimable())}
         ${row('arsiv', I.trophy, t('Tapu arşivi'), t('{n}/{m} mühür · kira +%{p}', { n: S.ach.length, m: ACH.length, p: Math.floor(S.ach.length / 4) }))}
         ${row('ozel', I.tower, t('Haftanın özel tapusu'), ozelAvail() ? t('{ad} satışta', { ad: t(weekSpecial(weekKey(new Date(tn))).n) }) : t('{ad} alındı', { ad: t(weekSpecial(weekKey(new Date(tn))).n) }), ozelAvail())}
-        ${starterActive() ? row('starter', I.crown, t('Başlangıç paketi'), t('Yalnızca bir kez · bitiş {c}', { c: clock(starterLeft()) }), true) : ''}
+        ${starterActive() ? row('starter', I.crown, t('Başlangıç paketi'), t('Yalnızca bir kez · bitiş {c}', { c: lv('stl', () => clock(starterLeft())) }), true) : ''}
         ${row('store', I.noads, t('Mağaza'), S.premium ? t('Holding paketi aktif') : S.club ? t('Emlak Kulübü aktif') : S.noAds ? t('Reklamsız aktif · jetonlar, sezon') : t('Reklamsız, Holding, Kulüp, jetonlar'))}
         ${row('holding', I.tower, t('Holding kur'), canHolding() ? t('{n} hisse hazır', { n: sharesPreview() }) : S.shares ? t('{n} hisse · kiralar {x}', { n: S.shares, x: fmtX(1 + 0.1 * S.shares) }) : t('Bir ilin 5. semtini alınca açılır'), canHolding())}
         ${row('set', I.gear, t('Ayarlar'), t('Ses, bildirim, hesap, gizlilik'))}
@@ -204,13 +227,13 @@ export function renderSheet() {
   else if (s.k === 'tasks') {
     ensureTasks(); const T = S.tasks!, d = S.daily, today = dayKey(new Date(tn)), done = d.last === today;
     const broken = d.last && !done && dayDiff(d.last, today) > 1, nextDay = broken ? 1 : (d.streak % 7) + 1, pos = done ? ((d.streak - 1) % 7) + 1 : nextDay;
-    sig = 'tk|' + JSON.stringify(T) + d.last + d.streak + (S.offer ? S.offer.prog + '' + S.offer.done : '');
+    sig = 'tk|' + T.day + T.bonus + T.list.map(q => q.k + q.goal + q.claimed + (q.prog >= q.goal ? 1 : 0)).join() + d.last + d.streak + (S.offer ? S.offer.title + S.offer.goal + S.offer.prog + S.offer.done : '');
     if (sig !== ui.sheetSig) {
       html = `<p class="sec">${t('Kira günü serisi')}</p>${streakStrip(done ? 0 : pos, done ? pos : pos - 1)}
         <p class="note" style="margin-top:6px">${done ? t('{n} gündür uğruyorsun. Yarın {g}. günün ödülü hazır olacak.', { n: d.streak, g: (d.streak % 7) + 1 }) : t('Bugünün ödülü seni bekliyor.')}</p>
         ${done ? '' : `<div class="btns"><button class="btn gold" data-a="daily">${t('Bugünün ödülünü al')}</button></div>`}
         <p class="sec" style="margin-top:20px">${t('Günlük görevler')}</p>
-        ${T.list.map((q, i) => `<div class="task"><div class="tt"><b>${taskText(q)}</b><small>${q.k === 'earn' ? fmt(q.prog) + ' / ' + fmt(q.goal) : q.prog + ' / ' + q.goal} · ${t('Ödül {m}', { m: fmt(taskReward()) })}</small><div class="tbar"><i style="width:${Math.min(100, q.prog / q.goal * 100)}%"></i></div></div>
+        ${T.list.map((q, i) => `<div class="task"><div class="tt"><b>${taskText(q)}</b><small>${lv('tp' + i, () => { const x = S.tasks?.list[i]; return !x ? '' : x.k === 'earn' ? fmt(x.prog) + ' / ' + fmt(x.goal) : x.prog + ' / ' + x.goal; })} · ${t('Ödül {m}', { m: fmt(taskReward()) })}</small><div class="tbar"><i ${lw('tb' + i, () => { const x = S.tasks?.list[i]; return x ? Math.round(Math.min(100, x.prog / x.goal * 100)) : 0; })}></i></div></div>
           <button class="chip${q.claimed ? ' got' : ''}" data-a="claim" data-i="${i}" ${q.claimed || q.prog < q.goal ? 'disabled' : ''}>${q.claimed ? t('Alındı') : t('Al')}</button></div>`).join('')}
         <div class="task"><div class="tt"><b>${t('Üçünü de bitir')}</b><small>${t('{m} + tüm mülklere 2x · 1 saat', { m: fmt(bonusReward()) })}</small></div><button class="chip${T.bonus ? ' got' : ''}" data-a="bonus" ${T.bonus || !T.list.every(q => q.claimed) ? 'disabled' : ''}>${T.bonus ? t('Alındı') : t('Al')}</button></div>
         ${S.offer && !S.offer.done ? `<p class="sec" style="margin-top:20px">${t('Süreli fırsat')}</p><div class="task"><div class="tt"><b>${t(S.offer.title)}</b><small>${S.offer.prog} / ${S.offer.goal} · ${t('Ödül {m} + 30 dk 2x', { m: fmt(S.offer.rw) })}</small><div class="tbar"><i style="width:${S.offer.prog / S.offer.goal * 100}%"></i></div></div></div>` : ''}`;
@@ -228,14 +251,14 @@ export function renderSheet() {
     // tasarım: L1 · haftalık lig tablosu
     if (!s.req) { s.req = true; s.v = undefined; Cloud.league().then(v => { s.v = v; ui.sheetSig = ''; }).catch(() => { s.v = null; ui.sheetSig = ''; }); }
     const left = fmtLeft(weekEndsAt(tn) - tn), v = s.v;
-    sig = 'lb|' + (v === undefined ? '-' : v ? v.rows.length + ':' + v.myRank + ':' + v.tier : 'x') + Cloud.ready() + Math.floor(S.week.earned) + left;
+    sig = 'lb|' + (v === undefined ? '-' : v ? v.rows.length + ':' + v.myRank + ':' + v.tier : 'x') + Cloud.ready() + left;
     if (sig !== ui.sheetSig) {
       const tier = v ? v.tier : S.league.tier, wk = (S.week.key || '').split('H')[1] || '';
       const head = `<div class="lghead"><div><p class="sec">${t('Haftalık lig')}${wk ? ' · ' + t('{n}. hafta', { n: +wk }) : ''}</p>
         <h4 class="lgt">${leagueName(tier)}${v && v.group !== 'onizleme' ? ` · ${t('grup {g}', { g: esc(v.group.slice(-3).toUpperCase()) })}` : ''}</h4>
         <small class="lgsub">${v ? t('{n} emlakçı', { n: v.size }) + ' · ' : ''}${t('bitişe {s}', { s: left })}</small></div>${leagueSeal(tier)}</div>`;
       let list = '';
-      if (!Cloud.ready()) list = `<p class="note" style="margin-top:0">${t('Lig internet bağlantısıyla çalışır. Bu hafta <b>{m}</b> kira topladın; bağlanınca grubuna katılırsın.', { m: fmt(S.week.earned) })}</p>`;
+      if (!Cloud.ready()) list = `<p class="note" style="margin-top:0">${t('Lig internet bağlantısıyla çalışır. Bu hafta <b>{m}</b> kira topladın; bağlanınca grubuna katılırsın.', { m: lv('wk', () => fmt(S.week.earned)) })}</p>`;
       else if (v === undefined) list = `<p class="note" style="margin-top:0">${t('Grubun yükleniyor…')}</p>`;
       else if (!v) list = `<p class="note" style="margin-top:0">${t('Bu hafta grubuna henüz yerleşmedin. Biraz kira topla; ilk skorunla sana yakın 30 emlakçılık gruba katılırsın.')}</p>`;
       else {
@@ -363,7 +386,7 @@ export function renderSheet() {
   }
   else if (s.k === 'store') {
     // tasarım M6–M7: üç basamak + jetonlar + Altın Tapu
-    sig = 'st|' + S.premium + S.noAds + S.club + S.tokens + S.seasonFirst + (S.season && S.season.gold) + (starterActive() ? Math.floor(starterLeft() / 1000) : 0) + Purchases.price('holding') + Purchases.price('reklamsiz');
+    sig = 'st|' + S.premium + S.noAds + S.club + S.tokens + S.seasonFirst + (S.season && S.season.gold) + starterActive() + Purchases.price('holding') + Purchases.price('reklamsiz');
     if (sig !== ui.sheetSig) {
       const li = (ok: boolean, x: string) => `<li class="${ok ? '' : 'no'}">${ok ? I.check : '–'}<span>${x}</span></li>`;
       const tier = (key: string, name: string, items: [boolean, string][], price: string, own: boolean, tag = '', best = false, sub = '') =>
@@ -371,7 +394,7 @@ export function renderSheet() {
           ${own ? `<button class="btn" disabled>${t('Aktif')}</button>` : `<button class="btn${best ? ' gold' : ''}" data-a="buyp" data-p="${key}">${price}${sub ? `<small>${sub}</small>` : ''}</button>`}</div>`;
       const ss = S.season && S.season.gold;
       html = `<div class="sh-head"><div class="badge" style="margin:0">${I.crown}</div><div class="sh-t"><h3>${t('Mağaza')}</h3><p>${t('Oyun aynı; yalnızca reklam ve hız tercihi')}</p></div></div>
-        ${starterActive() ? `<button class="drow starterrow" data-a="starter"><span class="ic">${I.crown}<span class="dot"></span></span><span class="di"><b>${t('Başlangıç paketi')}</b><small>${t('Yalnızca bir kez · bitiş {c}', { c: clock(starterLeft()) })}</small></span><span class="pr">${Purchases.price('baslangic')}</span></button>` : ''}
+        ${starterActive() ? `<button class="drow starterrow" data-a="starter"><span class="ic">${I.crown}<span class="dot"></span></span><span class="di"><b>${t('Başlangıç paketi')}</b><small>${t('Yalnızca bir kez · bitiş {c}', { c: lv('stl', () => clock(starterLeft())) })}</small></span><span class="pr">${Purchases.price('baslangic')}</span></button>` : ''}
         <p class="sec">${t('Paketler')}</p>
         ${tier('reklamsiz', t('Reklamsız'), [[true, t('Geçiş reklamı yok')], [true, t('Ödüllü reklamlar isteğe bağlı, ödül verir')], [false, t('Ödüller anında')], [false, t('Kalıcı 2x kira')]], Purchases.price('reklamsiz'), adFree())}
         ${tier('holding', t('Holding paketi'), [[true, t('Geçiş reklamı yok')], [true, t('Ödüller izlemeden, anında')], [true, t('Tüm kiralar kalıcı 2 kat')]], Purchases.price('holding'), S.premium, t('EN ÇOK DEĞER'), true)}
@@ -398,6 +421,7 @@ export function renderSheet() {
     }
   }
   if (html !== undefined) { ui.sheetSig = sig; $('#sheetBody').innerHTML = html; }
+  updateLive();
   if (s.k === 'plot') { // canlı kısımlar (inşaat)
     const p = lotsOf(S, s.key!)[s.i!];
     if (p && p.until) {
@@ -481,7 +505,7 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
     if (a === 'link-google' || a === 'link-apple') { const ok = await Cloud.link(a === 'link-google' ? 'google' : 'apple'); toast(ok ? t('Hesabın bağlandı. İlerlemen artık her cihazda.') : t('Bağlanamadı, tekrar dene')); }
     if (a === 'ads-privacy') await Ads.showPrivacyOptions();
     if (a === 'privacy') window.open(PRIVACY_URL, '_blank');
-    if (a === 'delete') { if (s.del) { const ok = await Cloud.deleteAccount(); if (ok) { await resetGame(); toast(t('Hesabın ve verilerin silindi')); } else toast(t('Silinemedi, internet bağlantını kontrol et')); return; } s.del = true; later(s, 'del'); }
+    if (a === 'delete') { if (s.del) { const ok = await Cloud.deleteAccount(); if (ok) { await wipeAllSaves(); P.region = ''; await savePrefs(); await resetGame(); toast(t('Hesabın ve verilerin silindi')); } else toast(t('Silinemedi, internet bağlantını kontrol et')); return; } s.del = true; later(s, 'del'); }
     if (a === 'reset') { if (s.reset) { await resetGame(); toast(t('Yeni oyun')); return; } s.reset = true; later(s, 'reset'); }
   }
   ui.sheetSig = ''; if (ui.sheet) renderSheet();

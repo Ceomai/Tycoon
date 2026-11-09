@@ -47,6 +47,7 @@ const ids = () => {
 };
 
 let ready = false, canRequest = false, privacyRequired = false, rewardedLoaded = false, interstitialLoaded = false;
+let busy = false; // ödüllü reklam sürüyor (hazırlanıyor ya da oynuyor)
 
 export const Ads = {
   native: () => Capacitor.isNativePlatform() && !__PREVIEW__,
@@ -76,22 +77,26 @@ export const Ads = {
   },
   async showPrivacyOptions() { if (this.native()) try { await AdMob.showPrivacyOptionsForm(); } catch { /* yok */ } },
 
-  /** Ödüllü reklam: izlenirse onReward çalışır. */
-  async rewarded(kind: string, label: string, onReward: () => void) {
+  /** Ödüllü reklam: izlenirse onReward çalışır. onFail (isteğe bağlı): reklam gösterilemez, hata verir ya da ödül
+   *  kazanılmadan kapanırsa çağrılır (ör. yokken kazancın 1 katı kaybolmasın). Aynı anda tek ödüllü reklam. */
+  async rewarded(kind: string, label: string, onReward: () => void, onFail?: () => void) {
+    if (ui.ad || busy) { onFail?.(); return; }
     Analytics.log('ad_reward_request', { kind });
     if (instantRewards()) { grantReward(onReward); toast(S.club ? t('Kulüp: ödül anında') : t('Holding: ödül anında')); return; }
     if (!this.native()) { showSimulated(true, label, onReward, kind); return; }
-    if (!ready || !canRequest) { toast(t('Reklam şu an yüklenemedi')); return; }
+    if (!ready || !canRequest) { toast(t('Reklam şu an yüklenemedi')); onFail?.(); return; }
+    busy = true;
+    let got = false, h: { remove: () => Promise<void> | void } | null = null;
     try {
       if (!rewardedLoaded) { await AdMob.prepareRewardVideoAd({ adId: ids().rewarded, isTesting: testing(), ssv: { userId: Cloud.uid() || 'misafir', customData: kind } } as any); }
       rewardedLoaded = false; ui.ad = true;
-      let got = false;
-      const h = await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => { got = true; });
+      h = await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => { got = true; });
       await AdMob.showRewardVideoAd();
-      h.remove(); ui.ad = false;
-      if (got) { credit(); grantReward(onReward); Analytics.log('ad_reward', { kind }); S.ads++; }
-      flushQueue(); this.preload();
-    } catch (e) { ui.ad = false; toast(t('Reklam şu an yüklenemedi')); Analytics.error(e, 'ad_rewarded'); this.preload(); }
+    } catch (e) { if (!got) toast(t('Reklam şu an yüklenemedi')); Analytics.error(e, 'ad_rewarded'); }
+    finally { try { if (h) void Promise.resolve(h.remove()).catch(() => { /* yok */ }); } catch { /* yok */ } ui.ad = false; busy = false; }
+    if (got) { credit(); grantReward(onReward); Analytics.log('ad_reward', { kind }); S.ads++; }
+    else onFail?.();
+    flushQueue(); this.preload();
   },
   /** Geçiş reklamı (15-20 dk'da bir). */
   /** Oyun döngüsünden çağrılır (kart sırası boşsa): zamanı gelen geçiş reklamını doğal durakta gösterir. */
