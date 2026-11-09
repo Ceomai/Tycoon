@@ -113,7 +113,7 @@ export function renderSheet() {
         html = `<div class="sh-head k-${sp ? 'ozel' : p.t}"><div class="sh-art bpbg">${svg(sp ? specialSvg(p.sp) : bld(p.t, p.lvl))}</div>
           <div class="sh-t"><h3>${sp ? t(sp.n) : t(TYPES[p.t].n)}</h3><p>${nm(DMAP[k].n)} · ${sp ? t('özel yapı') : t('Sv {l}/{m}', { l: p.lvl, m: MAXLV })}</p>${sp ? `<p class="spd">${t(sp.d)}</p>` : lvBar(p.lvl)}</div>
           <button class="iconbtn${s.del ? ' warn' : ''}" data-a="del" aria-label="${s.del ? t('Yıkmayı onayla') : t('Binayı yık')}">${I.trash}</button></div>
-          ${s.del ? `<p class="sec" style="text-align:center;margin:0 0 8px">${t('Tekrar dokunursan bina yıkılır')}</p>` : ''}
+          ${s.del ? `<p class="sec u-tc u-m0b-4">${t('Tekrar dokunursan bina yıkılır')}</p>` : ''}
           <div class="ledger">
             <div><span>${t('Kira')}</span><i></i><b>${t('{v}/sn', { v: fmt(rate(k, i), true) })}</b></div>
             ${sp ? `<div><span>${t('Komşularına')}</span><i></i><b>${t('her yöne +%{n}', { n: Math.round(CFG.SP_ADJ * 100) })}</b></div>` : `<div><span>${t('Aynı tür komşu')}</span><i></i><b>${a ? '+' + pctTxt(Math.round(a * CFG.ADJ * 100)) : t('yok')}</b></div>
@@ -158,7 +158,7 @@ export function renderSheet() {
               <button class="btn ${af ? 'gold' : 'soft'}" data-a="buy" data-k="${k}" ${af ? '' : 'disabled'}>${t('Tapuyu al')} · ${fmt(u.fee)}<small>${t('20 arsa')}</small></button></div></div>`;
           }
           const why = u.why === 'prev-not-full' ? t('{semt} dolunca açılır', { semt: nm(CITIES[c].districts[i - 1].n) }) : u.why === 'start-not-full' ? t('{semt} dolunca açılır', { semt: nm(CITIES[start].districts[0].n) }) + ' · ' + fmt(u.fee) : t('Kilitli');
-          return `<div class="drow" style="opacity:.5"><span class="di"><b>${nm(d.n)}</b><small>${why}</small></span>${I.lock}</div>`;
+          return `<div class="drow u-dim"><span class="di"><b>${nm(d.n)}</b><small>${why}</small></span>${I.lock}</div>`;
         }).join('');
         return `<div class="cityhead"><span>${nm(CITIES[c].n)}</span><small>${ownedHere ? t('{n}/5 semt', { n: ownedHere }) : t(CITIES[c].tagline)}</small></div><div class="dlist">${rows}</div>`;
       }).join('') + `<p class="note">${t('Kapora: tapunun %{p}’unu öde, ilk {n} arsa hemen açılır; kalan borç o semtin kirasının yarısıyla kendiliğinden ödenir.', { p: Math.round(CFG.KAPORA * 100), n: CFG.KAPORA_LOTS })}</p><p class="note">${t('Başlangıç ilinin ilk semtini doldurunca diğer illerin ilk semtini alabilirsin. Her yeni il tüm kiralara kalıcı +%{p} katar.', { p: Math.round(CFG.PORTFOLIO_BONUS * 100) })}</p>`;
@@ -175,7 +175,7 @@ export function renderSheet() {
         <div class="langs">${LANGS.map(l => `<button class="chip${l.id === LANG ? ' on' : ''}" data-a="lang" data-l="${l.id}">${l.n}</button>`).join('')}</div>
         <div class="cmode">${REGION_ORDER.map(regRow).join('')}</div>
         <p class="note">${t('Her bölgenin ilerlemesi, tapuları ve sırası ayrıdır. Dil yalnızca metinleri değiştirir; şehirleri ve para birimini bölge belirler. Satın aldığın paketler tüm bölgelerde geçerli.')}</p>
-        <p class="sec" style="margin-top:14px">${t('Nasıl oynanır')}</p>
+        <p class="sec u-mt-7">${t('Nasıl oynanır')}</p>
         <ul class="rules">
           <li>${t('<b>Arsaya dokun</b>, inşaatı başlat. Bina kat kat yükselir.')}</li>
           <li>${t('Kira binaların kumbarasında birikir; ortadaki <b>TOPLA</b> mührüyle hepsini tek seferde al (ya da aşağıdan otomatiğe geç).')}</li>
@@ -183,8 +183,8 @@ export function renderSheet() {
           <li>${t('Aynı türü <b>yan yana</b> kur; bahçeler, teraslar birleşir ve daha çok kazandırır.')}</li>
           <li>${t('Semti doldur, <b>yeni semtin tapusunu</b> al. Başka illerde de arsa alabilirsin.')}</li>
         </ul>
-        <div class="btns" style="margin:-6px 0 14px"><button class="btn soft" data-a="guide">${t('Kılavuzun tamamı')}</button></div>
-        <p class="sec" style="margin-top:4px">${t('Kira toplama')}</p>
+        <div class="btns u-pull"><button class="btn soft" data-a="guide">${t('Kılavuzun tamamı')}</button></div>
+        <p class="sec u-mt-2">${t('Kira toplama')}</p>
         <div class="cmode">
           <button class="cm${S.collectMode === 'tap' ? ' on' : ''}" data-a="cm-tap"><span class="rd"></span><span class="di"><b>${t('Tek tuşla topla')}</b><small>${t('Ortadaki TOPLA mührüne bas, bütün semtlerdeki kira tek seferde kasana geçsin.')}</small></span></button>
           <button class="cm${S.collectMode === 'auto' ? ' on' : ''}" data-a="cm-auto"><span class="rd"></span><span class="di"><b>${t('Otomatik')}</b><small>${t('Oyun açıkken kira kendiliğinden kasana akar.')}</small></span></button>
@@ -194,16 +194,16 @@ export function renderSheet() {
         <div class="srow"><span>${t('Ses')}</span><button class="sw${S.sound ? ' on' : ''}" data-a="sound" aria-label="${t('Ses')}"></button></div>
         <div class="srow"><span>${t('Bildirimler')}</span><button class="sw${S.notif ? ' on' : ''}" data-a="notif" aria-label="${t('Bildirimler')}"></button></div>
         <div class="srow"><span>${t('Reklamlar')}</span><span>${S.premium ? t('Kapalı (Holding paketi)') : S.club ? t('Kapalı (Emlak Kulübü)') : S.noAds ? t('Yalnızca isteğe bağlı (Reklamsız)') : Ads.native() ? t('Açık') : t('Test modu')}</span></div>
-        <p class="sec" style="margin-top:18px">${t('Hesap ve kayıt')}</p>
+        <p class="sec u-mt-9">${t('Hesap ve kayıt')}</p>
         <div class="srow"><span>${t('Oyuncu kodun')}</span><span>${S.ref.code}</span></div>
         <div class="srow"><span>${t('Kayıt')}</span><span>${acct.enabled ? (acct.linked ? t('{p} hesabına bağlı', { p: esc(acct.provider) }) : t('Misafir · bulutta yedekleniyor')) : t('Bu cihazda')}</span></div>
         <div class="acct">
           ${acct.enabled && !acct.linked ? `<button class="btn soft" data-a="link-google">${t('Google ile bağla')}</button>${acct.apple ? `<button class="btn soft" data-a="link-apple">${t('Apple ile bağla')}</button>` : ''}` : ''}
           ${Ads.privacyRequired() ? `<button class="linkbtn" data-a="ads-privacy">${t('Reklam izinlerini yönet')}</button>` : ''}
           <button class="linkbtn" data-a="privacy">${t('Gizlilik politikası ve KVKK aydınlatma metni')}</button>
-          ${acct.enabled ? `<button class="linkbtn" data-a="delete" style="color:var(--stamp)">${s.del ? t('Emin misin? Hesabın ve tüm verilerin silinir') : t('Hesabımı ve verilerimi sil')}</button>` : ''}
+          ${acct.enabled ? `<button class="linkbtn u-stamp" data-a="delete">${s.del ? t('Emin misin? Hesabın ve tüm verilerin silinir') : t('Hesabımı ve verilerimi sil')}</button>` : ''}
         </div>
-        <button class="txt" data-a="reset" style="color:var(--stamp)">${s.reset ? t('Emin misin? Tekrar dokun') : t('Oyunu sıfırla')}</button>`;
+        <button class="txt u-stamp" data-a="reset">${s.reset ? t('Emin misin? Tekrar dokun') : t('Oyunu sıfırla')}</button>`;
     }
   }
   else if (s.k === 'menu') {
@@ -230,20 +230,20 @@ export function renderSheet() {
     sig = 'tk|' + T.day + T.bonus + T.list.map(q => q.k + q.goal + q.claimed + (q.prog >= q.goal ? 1 : 0)).join() + d.last + d.streak + (S.offer ? S.offer.title + S.offer.goal + S.offer.prog + S.offer.done : '');
     if (sig !== ui.sheetSig) {
       html = `<p class="sec">${t('Kira günü serisi')}</p>${streakStrip(done ? 0 : pos, done ? pos : pos - 1)}
-        <p class="note" style="margin-top:6px">${done ? t('{n} gündür uğruyorsun. Yarın {g}. günün ödülü hazır olacak.', { n: d.streak, g: (d.streak % 7) + 1 }) : t('Bugünün ödülü seni bekliyor.')}</p>
+        <p class="note u-mt-3">${done ? t('{n} gündür uğruyorsun. Yarın {g}. günün ödülü hazır olacak.', { n: d.streak, g: (d.streak % 7) + 1 }) : t('Bugünün ödülü seni bekliyor.')}</p>
         ${done ? '' : `<div class="btns"><button class="btn gold" data-a="daily">${t('Bugünün ödülünü al')}</button></div>`}
-        <p class="sec" style="margin-top:20px">${t('Günlük görevler')}</p>
+        <p class="sec u-mt-10">${t('Günlük görevler')}</p>
         ${T.list.map((q, i) => `<div class="task"><div class="tt"><b>${taskText(q)}</b><small>${lv('tp' + i, () => { const x = S.tasks?.list[i]; return !x ? '' : x.k === 'earn' ? fmt(x.prog) + ' / ' + fmt(x.goal) : x.prog + ' / ' + x.goal; })} · ${t('Ödül {m}', { m: fmt(taskReward()) })}</small><div class="tbar"><i ${lw('tb' + i, () => { const x = S.tasks?.list[i]; return x ? Math.round(Math.min(100, x.prog / x.goal * 100)) : 0; })}></i></div></div>
           <button class="chip${q.claimed ? ' got' : ''}" data-a="claim" data-i="${i}" ${q.claimed || q.prog < q.goal ? 'disabled' : ''}>${q.claimed ? t('Alındı') : t('Al')}</button></div>`).join('')}
         <div class="task"><div class="tt"><b>${t('Üçünü de bitir')}</b><small>${t('{m} + tüm mülklere 2x · 1 saat', { m: fmt(bonusReward()) })}</small></div><button class="chip${T.bonus ? ' got' : ''}" data-a="bonus" ${T.bonus || !T.list.every(q => q.claimed) ? 'disabled' : ''}>${T.bonus ? t('Alındı') : t('Al')}</button></div>
-        ${S.offer && !S.offer.done ? `<p class="sec" style="margin-top:20px">${t('Süreli fırsat')}</p><div class="task"><div class="tt"><b>${t(S.offer.title)}</b><small>${S.offer.prog} / ${S.offer.goal} · ${t('Ödül {m} + 30 dk 2x', { m: fmt(S.offer.rw) })}</small><div class="tbar"><i style="width:${S.offer.prog / S.offer.goal * 100}%"></i></div></div></div>` : ''}`;
+        ${S.offer && !S.offer.done ? `<p class="sec u-mt-10">${t('Süreli fırsat')}</p><div class="task"><div class="tt"><b>${t(S.offer.title)}</b><small>${S.offer.prog} / ${S.offer.goal} · ${t('Ödül {m} + 30 dk 2x', { m: fmt(S.offer.rw) })}</small><div class="tbar"><i style="width:${S.offer.prog / S.offer.goal * 100}%"></i></div></div></div>` : ''}`;
     }
   }
   else if (s.k === 'coll') {
     sig = 'co|' + S.coll.join();
     if (sig !== ui.sheetSig) {
       html = `<p class="sec">${t('Tarihi yapılar')} · ${S.coll.length}/${LM.length}</p>
-        <p class="note" style="margin:0 0 12px">${t('Her yapı tüm kiraları kalıcı %5 artırır, hepsini toplayana ek %10. Etkinliklerden ve altın taksiden çıkar. Şu an <b>+%{p}</b>.', { p: Math.round(collBonus() * 100) })}</p>
+        <p class="note u-m0b-6">${t('Her yapı tüm kiraları kalıcı %5 artırır, hepsini toplayana ek %10. Etkinliklerden ve altın taksiden çıkar. Şu an <b>+%{p}</b>.', { p: Math.round(collBonus() * 100) })}</p>
         <div class="coll">${LM.map(l => { const has = S.coll.includes(l.id); return `<div class="lmc bpbg${has ? '' : ' no'}">${svg(lmSvg(l.id))}<b>${has ? t(l.n) : t('Bulunmadı')}</b></div>`; }).join('')}</div>`;
     }
   }
@@ -258,9 +258,9 @@ export function renderSheet() {
         <h4 class="lgt">${leagueName(tier)}${v && v.group !== 'onizleme' ? ` · ${t('grup {g}', { g: esc(v.group.slice(-3).toUpperCase()) })}` : ''}</h4>
         <small class="lgsub">${v ? t('{n} emlakçı', { n: v.size }) + ' · ' : ''}${t('bitişe {s}', { s: left })}</small></div>${leagueSeal(tier)}</div>`;
       let list = '';
-      if (!Cloud.ready()) list = `<p class="note" style="margin-top:0">${t('Lig internet bağlantısıyla çalışır. Bu hafta <b>{m}</b> kira topladın; bağlanınca grubuna katılırsın.', { m: lv('wk', () => fmt(S.week.earned)) })}</p>`;
-      else if (v === undefined) list = `<p class="note" style="margin-top:0">${t('Grubun yükleniyor…')}</p>`;
-      else if (!v) list = `<p class="note" style="margin-top:0">${t('Bu hafta grubuna henüz yerleşmedin. Biraz kira topla; ilk skorunla sana yakın 30 emlakçılık gruba katılırsın.')}</p>`;
+      if (!Cloud.ready()) list = `<p class="note u-mt0">${t('Lig internet bağlantısıyla çalışır. Bu hafta <b>{m}</b> kira topladın; bağlanınca grubuna katılırsın.', { m: lv('wk', () => fmt(S.week.earned)) })}</p>`;
+      else if (v === undefined) list = `<p class="note u-mt0">${t('Grubun yükleniyor…')}</p>`;
+      else if (!v) list = `<p class="note u-mt0">${t('Bu hafta grubuna henüz yerleşmedin. Biraz kira topla; ilk skorunla sana yakın 30 emlakçılık gruba katılırsın.')}</p>`;
       else {
         const z = leagueZones(v.size, v.tier), parts: string[] = [];
         v.rows.forEach((r: any, i: number) => {
@@ -298,7 +298,7 @@ export function renderSheet() {
     if (sig !== ui.sheetSig) {
       const n = S.ach.length, sel = ACH.find(a => a.id === s.sel);
       html = `<div class="lghead"><div><p class="sec">${t('Tapu arşivi · {n}/{m} mühür', { n, m: ACH.length })}</p><h4 class="lgt">${t('Emlakçının albümü')}</h4></div><span class="arb">${t('kira +%{p}', { p: Math.floor(n / 4) })}</span></div>
-        <span class="dp" style="margin-bottom:12px"><u style="width:${Math.round(n / ACH.length * 100)}%;background:var(--stamp)"></u></span>
+        <span class="dp u-mb-6"><u class="u-bg-stamp" style="width:${Math.round(n / ACH.length * 100)}%"></u></span>
         <div class="argrid">${ACH.map((a, j) => `<button class="arst${S.ach.includes(a.id) ? ' on' : ''}${s.sel === a.id ? ' sel' : ''}" data-a="arsel" data-id="${a.id}" style="--rot:${[-8, 6, -4, 9, -6, 4][j % 6]}deg">${t(a.n)}</button>`).join('')}</div>
         <div class="ardet">${sel ? `<b>${t(sel.n)}</b><span>${t(sel.d)}</span><em>${S.ach.includes(sel.id) ? t('Kazanıldı') : t('Henüz kazanılmadı')}</em>` : t('Bir mühre dokun: nasıl kazanılacağını gör.')}</div>
         <p class="note">${t('Her 4 mühür tüm kiralara kalıcı +%1. 8 ve 16 mühürde yeni cephe renkleri açılır.')}</p>`;
@@ -311,14 +311,14 @@ export function renderSheet() {
     if (sig !== ui.sheetSig) {
       const from = Math.max(1, Math.min(SEASON_LV - 5, lv - 1)), cols = Array.from({ length: 6 }, (_, q) => from + q);
       const cell = (l: number, gold: boolean) => { const r = seasonReward(l, gold), got = (gold ? sv.ggot : sv.got).includes(l), ready = l <= lv && !got && (!gold || sv.gold); return `<span class="sc ${gold ? 'g' : ''}${got ? ' got' : ready ? ' rd' : ''}${l > lv || (gold && !sv.gold) ? ' lk' : ''}">${r.label}</span>`; };
-      html = `<div class="lghead"><div><p class="sec">${t('Tapu sezonu')} · ${seasonName(sv.id)}</p><h4 class="lgt">${t('Basamak {l} / {m}', { l: lv, m: SEASON_LV })}</h4><small class="lgsub" style="color:var(--stamp)">${t('Sezon bitişi {s}', { s: fmtLeft(seasonLeft()) })}</small></div><span class="gseal">${t('ALTIN<br>TAPU')}</span></div>
+      html = `<div class="lghead"><div><p class="sec">${t('Tapu sezonu')} · ${seasonName(sv.id)}</p><h4 class="lgt">${t('Basamak {l} / {m}', { l: lv, m: SEASON_LV })}</h4><small class="lgsub u-stamp">${t('Sezon bitişi {s}', { s: fmtLeft(seasonLeft()) })}</small></div><span class="gseal">${t('ALTIN<br>TAPU')}</span></div>
         <span class="dp"><u style="width:${lv >= SEASON_LV ? 100 : Math.round((sv.xp % XP_PER) / XP_PER * 100)}%"></u></span>
         <small class="lgsub">${lv >= SEASON_LV ? t('Sezon tamamlandı!') : t('{n} / {m} puan', { n: sv.xp % XP_PER, m: XP_PER })} · ${t('kira topla, görev bitir, kat çık, ligde yüksel')}</small>
         <div class="sgrid"><span class="sl"></span>${cols.map(l => `<span class="sn${l === lv ? ' cur' : ''}">${l}</span>`).join('')}
           <span class="sl">${t('ÜCRETSİZ')}</span>${cols.map(l => cell(l, false)).join('')}
           <span class="sl g">${t('ALTIN')}</span>${cols.map(l => cell(l, true)).join('')}</div>
         <div class="btns"><button class="btn gold" data-a="sclaim" ${seasonClaimable() ? '' : 'disabled'}>${t('Ödülleri al')}</button></div>
-        ${sv.gold ? `<p class="note" style="text-align:center">${t('Altın Tapu bu sezon açık · her basamakta ek ödül')}</p>` : `<div class="gbox"><span><b>${t('Altın Tapu')}</b><small>${t('Her basamakta ek ödül, sezona özel altın cephe ve 30. basamakta özel yapı.')}</small></span><button class="btn gprice" data-a="sgold">${!S.seasonFirst ? `<s>${Purchases.seasonFull()}</s>` : ''}${Purchases.seasonPrice()}</button></div>`}
+        ${sv.gold ? `<p class="note u-tc">${t('Altın Tapu bu sezon açık · her basamakta ek ödül')}</p>` : `<div class="gbox"><span><b>${t('Altın Tapu')}</b><small>${t('Her basamakta ek ödül, sezona özel altın cephe ve 30. basamakta özel yapı.')}</small></span><button class="btn gprice" data-a="sgold">${!S.seasonFirst ? `<s>${Purchases.seasonFull()}</s>` : ''}${Purchases.seasonPrice()}</button></div>`}
         <p class="note">${t('Ödüller: nakit, 2x jetonu (bir mülke reklamsız 1 saat 2x), cephe renkleri; 30. basamakta büyük ödül. Her ayın başında yeni sezon.')}</p>`;
     }
   }
@@ -327,13 +327,13 @@ export function renderSheet() {
     const wk = weekKey(new Date(tn)), sp = weekSpecial(wk), price = specialPrice(), got = S.ozel.week === wk && S.ozel.bought;
     sig = 'oz|' + wk + got + (S.cash >= price ? 1 : 0) + Math.floor(price) + Math.floor((weekEndsAt(tn) - tn) / 3600e3) + S.inv.join();
     if (sig !== ui.sheetSig) {
-      html = `<div class="lghead"><div><p class="sec">${t('Haftanın özel tapusu')}</p><h4 class="lgt">${t(sp.n)}</h4><small class="lgsub" style="color:var(--stamp)">${t('Satış bitişi {s}', { s: fmtLeft(weekEndsAt(tn) - tn) })}</small></div><span class="st spst">${t('NADİR')}</span></div>
+      html = `<div class="lghead"><div><p class="sec">${t('Haftanın özel tapusu')}</p><h4 class="lgt">${t(sp.n)}</h4><small class="lgsub u-stamp">${t('Satış bitişi {s}', { s: fmtLeft(weekEndsAt(tn) - tn) })}</small></div><span class="st spst">${t('NADİR')}</span></div>
         <div class="spart bpbg">${svg(specialSvg(sp.id), 'art')}</div>
         <p class="gdp">${t('{d}. Boş bir arsaya yerleştirilir; kat çıkılmaz ama tek başına çok kazandırır.', { d: t(sp.d) })}</p>
         <div class="lgrw"><div><span>${t('Kira')}</span><b>${t('semtteki en iyi binanın 3 katı')}</b></div><div><span>${t('Komşularına')}</span><b>${t('her yöne +%{n}', { n: Math.round(CFG.SP_ADJ * 100) })}</b></div><div><span>${t('Kat çıkma')}</span><b>${t('yok · tek seviye')}</b></div><div><span>${t('Holding kurunca')}</span><b>${t('depoda kalır')}</b></div></div>
         <div class="btns">${got ? `<button class="btn" disabled>${t('Bu haftanın tapusu alındı')}</button>` : `<button class="btn lotb" data-a="buyozel" ${S.cash >= price ? '' : 'disabled'}><span class="lbl">${t('Tapuyu al')} · ${fmt(price)}</span><small>${t('sonra boş bir arsaya yerleştir')}</small></button>`}</div>
         ${S.inv.length ? `<p class="note">${t('Depoda {n} özel yapı var: boş bir arsaya dokunup yerleştir.', { n: S.inv.length })}</p>` : ''}
-        <p class="note" style="text-align:center">${t('Her hafta farklı bir yapı: Han, Pasaj, Yalı Köşkü, Bahçeli Köşk.')}</p>`;
+        <p class="note u-tc">${t('Her hafta farklı bir yapı: Han, Pasaj, Yalı Köşkü, Bahçeli Köşk.')}</p>`;
     }
   }
   else if (s.k === 'guide') {
@@ -378,10 +378,10 @@ export function renderSheet() {
     sig = 'rf|' + S.ref.used + S.ref.code;
     if (sig !== ui.sheetSig) {
       html = `<p class="sec">${t('Davet kodun')}</p><div class="codebox"><b>${S.ref.code}</b><button class="chip" data-a="copy">${t('Kopyala')}</button></div>
-        <div class="btns" style="margin-top:0"><button class="btn gold" data-a="sharetext">${I.share} ${t('Davet mesajı gönder')}</button></div>
+        <div class="btns u-mt0"><button class="btn gold" data-a="sharetext">${I.share} ${t('Davet mesajı gönder')}</button></div>
         <p class="note">${t('Arkadaşın senin kodunu girince ikinize de tapu hediyesi (nakit) verilir.')}</p>
-        <p class="sec" style="margin-top:20px">${t('Arkadaşının kodu')}</p>
-        ${S.ref.used ? `<p class="note" style="margin-top:0">${t('Kullandığın kod: <b>{c}</b>', { c: esc(S.ref.used) })}</p>` : `<div class="row2"><input id="refInput" class="inp" maxlength="6" placeholder="TP0000" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="${t('Arkadaşının davet kodu')}"><button class="chip" data-a="usecode">${t('Kullan')}</button></div>`}`;
+        <p class="sec u-mt-10">${t('Arkadaşının kodu')}</p>
+        ${S.ref.used ? `<p class="note u-mt0">${t('Kullandığın kod: <b>{c}</b>', { c: esc(S.ref.used) })}</p>` : `<div class="row2"><input id="refInput" class="inp" maxlength="6" placeholder="TP0000" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="${t('Arkadaşının davet kodu')}"><button class="chip" data-a="usecode">${t('Kullan')}</button></div>`}`;
     }
   }
   else if (s.k === 'store') {
@@ -393,7 +393,7 @@ export function renderSheet() {
         `<div class="tier${best ? ' best' : ''}">${tag ? `<span class="ttag">${tag}</span>` : ''}<div class="tl"><b>${name}</b><ul>${items.map(([o, x]) => li(o, x)).join('')}</ul></div>
           ${own ? `<button class="btn" disabled>${t('Aktif')}</button>` : `<button class="btn${best ? ' gold' : ''}" data-a="buyp" data-p="${key}">${price}${sub ? `<small>${sub}</small>` : ''}</button>`}</div>`;
       const ss = S.season && S.season.gold;
-      html = `<div class="sh-head"><div class="badge" style="margin:0">${I.crown}</div><div class="sh-t"><h3>${t('Mağaza')}</h3><p>${t('Oyun aynı; yalnızca reklam ve hız tercihi')}</p></div></div>
+      html = `<div class="sh-head"><div class="badge u-m0">${I.crown}</div><div class="sh-t"><h3>${t('Mağaza')}</h3><p>${t('Oyun aynı; yalnızca reklam ve hız tercihi')}</p></div></div>
         ${starterActive() ? `<button class="drow starterrow" data-a="starter"><span class="ic">${I.crown}<span class="dot"></span></span><span class="di"><b>${t('Başlangıç paketi')}</b><small>${t('Yalnızca bir kez · bitiş {c}', { c: lv('stl', () => clock(starterLeft())) })}</small></span><span class="pr">${Purchases.price('baslangic')}</span></button>` : ''}
         <p class="sec">${t('Paketler')}</p>
         ${tier('reklamsiz', t('Reklamsız'), [[true, t('Geçiş reklamı yok')], [true, t('Ödüllü reklamlar isteğe bağlı, ödül verir')], [false, t('Ödüller anında')], [false, t('Kalıcı 2x kira')]], Purchases.price('reklamsiz'), adFree())}
@@ -405,7 +405,7 @@ export function renderSheet() {
           <div class="jet best"><span class="ttag">${t('%25 KÂR')}</span><span class="h2c">2x</span><b>× 15</b><small>${t('15 saat 2x')}</small><button class="btn gold" data-a="jet" data-n="15">${Purchases.price('jeton15')}</button></div></div>
         <p class="note">${t('Elindeki jeton: <b>{n}</b>. Jeton, mülk panelindeki “2x jetonu kullan” düğmesiyle harcanır.', { n: S.tokens })}</p>
         <p class="sec">${t('Tapu sezonu')}</p>
-        ${ss ? `<p class="note" style="text-align:center">${t('Altın Tapu bu sezon açık')}${S.club ? ' · ' + t('Kulüp ile dahil') : ''}</p>` : `<div class="gbox"><span><b>${t('Altın Tapu')}</b><small>${!S.seasonFirst ? t('İlk sezonuna özel yarı fiyat.') + ' ' : ''}${t('Her basamakta ek ödül, 30. basamakta özel yapı.')}</small></span><button class="btn gprice" data-a="sgold">${!S.seasonFirst ? `<s>${Purchases.seasonFull()}</s>` : ''}${Purchases.seasonPrice()}</button></div>`}
+        ${ss ? `<p class="note u-tc">${t('Altın Tapu bu sezon açık')}${S.club ? ' · ' + t('Kulüp ile dahil') : ''}</p>` : `<div class="gbox"><span><b>${t('Altın Tapu')}</b><small>${!S.seasonFirst ? t('İlk sezonuna özel yarı fiyat.') + ' ' : ''}${t('Her basamakta ek ödül, 30. basamakta özel yapı.')}</small></span><button class="btn gprice" data-a="sgold">${!S.seasonFirst ? `<s>${Purchases.seasonFull()}</s>` : ''}${Purchases.seasonPrice()}</button></div>`}
         <p class="note">${t('Holding’i alan Reklamsız’ı da almış sayılır. Kulüp iptal edilince geçiş reklamı geri gelir; kazanılan jetonlar ve sezon ödülleri kalır.')}</p>
         <div class="btns"><button class="txt" data-a="restore">${t('Satın alımları geri yükle')}</button></div>`;
     }
@@ -414,9 +414,9 @@ export function renderSheet() {
     const n = sharesPreview();
     sig = 'ho|' + n + canHolding() + (s.conf ? 1 : 0) + (S.shares || 0) + S.own.join();
     if (sig !== ui.sheetSig) {
-      html = `<div class="sh-head"><div class="badge" style="margin:0">${I.tower}</div><div class="sh-t"><h3>${t('Holding')}</h3><p>${t('{n} hisse · kiralar {x}', { n: S.shares || 0, x: fmtX(1 + 0.1 * (S.shares || 0)) })}</p></div></div>
-        <p class="note" style="margin-top:0">${t('Herhangi bir ilin 5. semtinin tapusunu alınca holding kurabilirsin. Semtler ve binalar sıfırlanır; kazandığın hisseler kiraları kalıcı olarak artırır. Koleksiyon, seri, davet ve satın alımlar korunur.')}</p>
-        <div class="task"><div class="tt"><b>${t('Bu turda kazanılacak hisse')}</b><small>${t('Her hisse +%10 kira · bu turdaki toplam kazanca göre')}</small></div><b style="font:700 28px var(--cond)">${n}</b></div>
+      html = `<div class="sh-head"><div class="badge u-m0">${I.tower}</div><div class="sh-t"><h3>${t('Holding')}</h3><p>${t('{n} hisse · kiralar {x}', { n: S.shares || 0, x: fmtX(1 + 0.1 * (S.shares || 0)) })}</p></div></div>
+        <p class="note u-mt0">${t('Herhangi bir ilin 5. semtinin tapusunu alınca holding kurabilirsin. Semtler ve binalar sıfırlanır; kazandığın hisseler kiraları kalıcı olarak artırır. Koleksiyon, seri, davet ve satın alımlar korunur.')}</p>
+        <div class="task"><div class="tt"><b>${t('Bu turda kazanılacak hisse')}</b><small>${t('Her hisse +%10 kira · bu turdaki toplam kazanca göre')}</small></div><b class="u-num">${n}</b></div>
         <div class="btns">${canHolding() ? `<button class="btn gold" data-a="hold">${s.conf ? t('Emin misin? Tekrar dokun') : t('Holding kur')}</button>` : `<button class="btn" disabled>${n < 1 ? t('En az 1 hisse gerekli') : t('Önce bir ilin 5. semti')}</button>`}</div>`;
     }
   }
@@ -544,5 +544,5 @@ function goalsCard(k: string) {
   const got = starsOf(k), gs = goalsOf(k);
   return `<div class="goals"><div class="gh"><div><p class="sec">${t('Semt hedefleri · {n}/3', { n: got.length })}</p><h4 class="lgt">${nm(DMAP[k].n)}</h4></div><span class="stars">${[0, 1, 2].map(n => `<i class="${n < got.length ? 'on' : ''}">★</i>`).join('')}</span></div>
     ${gs.map((g, gi) => { const [pv, n] = g.f(k), done = got.includes(gi); return `<div class="gr${done ? ' done' : ''}"><span class="gm">${done ? '★' : ''}</span><span class="gt"><b>${g.t}</b><i><u style="width:${done ? 100 : Math.round(pv / n * 100)}%"></u></i></span><span class="gp">${done ? t('tamam') : `${pv}/${n}`}</span></div>`; }).join('')}
-    <p class="note" style="margin:8px 0 0">${t('3 yıldız: {semt} kiralarına kalıcı +%{p} ve altın mühür. Her yıldız tapu ikramiyesi verir.', { semt: nm(DMAP[k].n), p: Math.round(CFG.STAR_BONUS * 100) })}</p></div>`;
+    <p class="note u-m0t-4">${t('3 yıldız: {semt} kiralarına kalıcı +%{p} ve altın mühür. Her yıldız tapu ikramiyesi verir.', { semt: nm(DMAP[k].n), p: Math.round(CFG.STAR_BONUS * 100) })}</p></div>`;
 }

@@ -106,7 +106,7 @@ export function showDistrictCard(k: DistrictKey, onDone?: () => void) {
   const d = DMAP[k], r = DRULES[k], c = CITIES[d.city];
   if (!S.cards.includes(d.city)) S.cards.push(d.city);
   openModal(`<div class="card postcard">
-    <p class="sec" style="text-align:center;margin:0 0 8px">${t('Yeni semt · tapu teslim')}</p>
+    <p class="sec u-tc u-m0b-4">${t('Yeni semt · tapu teslim')}</p>
     <div class="post"><div class="pimg">${postcard(d.city)}<span class="pst">TAPU<br>${new Date(now()).getFullYear()}</span></div>
       <b>${nm(d.n)}</b><small>${nm(c.n)} · ${t(c.tagline)}</small></div>
     ${r ? `<div class="prule"><span class="pr">${r.kind === 'type' || r.kind === 'row' ? '+' + pctTxt(Math.round(r.x * 100)) : r.kind === 'pair' ? '+' + pctTxt(Math.round((CFG.PAIR + r.x) * 100)) : pctTxt(Math.round(r.x * 100))}</span><span><small>${t('Semtin kuralı')}</small><b>${t(r.n)}: ${lowTxt(t(r.t))}</b></span></div>` : ''}

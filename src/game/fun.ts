@@ -21,7 +21,7 @@ export function showMarket() {
   const wk = curWeek(), m = marketOf(wk);
   S.market = wk; persist();
   const rows = ORDER.map(ty => { const v = ty === m.up ? MARKET_UP : ty === m.down ? -MARKET_DOWN : 0; return `<div class="mkr"><b>${t(TYPES[ty].n)}</b><span class="mkb"><i></i><u class="${v > 0 ? 'up' : v < 0 ? 'dn' : ''}" style="width:${Math.abs(v) * 140}%"></u></span><em class="${v > 0 ? 'up' : v < 0 ? 'dn' : ''}">${v > 0 ? '+' : v < 0 ? '−' : ''}${pctTxt(Math.round(Math.abs(v) * 100))}</em></div>`; }).join('');
-  openModal(`<div class="card mkcard"><p class="sec" style="margin:0 0 4px">${t('Emlak piyasası · {n}. hafta', { n: m.n })}</p><h3>${t(m.head)}</h3><p>${t(m.why)}</p>
+  openModal(`<div class="card mkcard"><p class="sec u-m0b-2">${t('Emlak piyasası · {n}. hafta', { n: m.n })}</p><h3>${t(m.head)}</h3><p>${t(m.why)}</p>
     <div class="mkrows">${rows}</div><p class="note">${t('Her pazartesi yeni rapor; herkes için aynı, haftalık ligde de geçerli.')}</p>
     <div class="btns"><button class="btn" data-a="ok">${t('Anladım, yatırım zamanı')}</button></div></div>`, () => closeModal());
 }
@@ -78,7 +78,7 @@ export function maybeCivic(): boolean {
   if (list.length >= CIVIC.length || filled(k) < 6 || S.playMs < S.nextCivic) return false;
   S.nextCivic = S.playMs + (12 + Math.random() * 8) * 60e3;
   const c = CIVIC[list.length], btn = (o: typeof c.a) => `<button class="cvo" data-a="${o.id}"><b>${t(o.n)}</b><em>${t(PL[o.t])} +${pctTxt(Math.round(CIVIC_X * 100))}</em><small>${t(o.d)}</small></button>`;
-  openModal(`<div class="card cvcard"><p class="sec" style="margin:0 0 6px">${t('Tebligat · {d} belediyesi', { d: nm(DMAP[k].n) })}</p>
+  openModal(`<div class="card cvcard"><p class="sec u-m0b-3">${t('Tebligat · {d} belediyesi', { d: nm(DMAP[k].n) })}</p>
     <svg class="cvic" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" stroke-width="3"/><path d="M18 44h28M20 44V28h24v16M17 28l15-10 15 10M26 44v-9h12v9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></svg>
     <h3>${t(c.title)}</h3><p>${t(c.q)} ${t('Kararın bu semtte kalıcı olur.')}</p>
     <div class="cvopts">${btn(c.a)}${btn(c.b)}</div><p class="note">${t('Her semtte en fazla {n} karar · {i}/{n}', { n: CIVIC.length, i: list.length + 1 })}</p></div>`,
