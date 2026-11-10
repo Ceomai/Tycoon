@@ -64,9 +64,9 @@ function fire(kind: Kind) {
   const t = performance.now(); if (t - lastBuzz < 250 && kind !== 'error') return; lastBuzz = t;
   try {
     if (Capacitor.isNativePlatform()) {
-      if (kind === 'success' || kind === 'error') void Haptics.notification({ type: kind === 'success' ? NotificationType.Success : NotificationType.Error });
+      if (kind === 'success' || kind === 'error') void Haptics.notification({ type: kind === 'success' ? NotificationType.Success : NotificationType.Error }).catch(() => {});
       else if (kind === 'select') void Haptics.selectionStart().then(() => Haptics.selectionChanged()).then(() => Haptics.selectionEnd()).catch(() => {});
-      else void Haptics.impact({ style: kind === 'medium' ? ImpactStyle.Medium : ImpactStyle.Light });
+      else void Haptics.impact({ style: kind === 'medium' ? ImpactStyle.Medium : ImpactStyle.Light }).catch(() => {});
       return;
     }
     navigator.vibrate && navigator.vibrate(WEB[kind]);

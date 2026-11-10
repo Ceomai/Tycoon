@@ -10,7 +10,7 @@
    ödüllü reklamdan sonra 10 dk kredi, ilk 30 dk oyunda ve açılışın ilk 60 sn'sinde hiç çıkmaz.
    ========================================================= */
 import { Capacitor } from '@capacitor/core';
-import { AdMob, RewardAdPluginEvents, AdmobConsentStatus } from '@capacitor-community/admob';
+import { AdMob, RewardAdPluginEvents, InterstitialAdPluginEvents, AdmobConsentStatus } from '@capacitor-community/admob';
 import { CFG } from '../config';
 import { S } from '../state';
 import { I, small } from '../icons';
@@ -51,6 +51,9 @@ const ids = () => {
 let ready = false, canRequest = false, privacyRequired = false, rewardedLoaded = false, interstitialLoaded = false;
 let busy = false; // ödüllü reklam sürüyor (hazırlanıyor ya da oynuyor)
 
+/** Dismissed olayı hiç gelmezse (eklenti/ağ sorunu) oturum kilitli kalmasın: en uzun ödüllü reklamdan uzun bir güvenlik süresi. */
+const REWARD_GUARD_MS = 150_000;
+
 export const Ads = {
   native: () => Capacitor.isNativePlatform() && !__PREVIEW__,
   privacyRequired: () => privacyRequired,
@@ -88,14 +91,26 @@ export const Ads = {
     if (!this.native()) { showSimulated(true, label, onReward, kind); return; }
     if (!ready || !canRequest) { toast(t('Reklam şu an yüklenemedi'), AD_FAIL_MS); onFail?.(); return; }
     busy = true;
-    let got = false, h: { remove: () => Promise<void> | void } | null = null;
+    // Eklenti sözleşmesi (Android/iOS): showRewardVideoAd sözü YALNIZCA ödül kazanılınca çözülür;
+    // ödülsüz kapanış (Dismissed) ve gösterilememe (FailedToShow) yalnızca olay yayar. Bu yüzden
+    // bitiş Dismissed/FailedToShow olayı, gösterim hatası ya da güvenlik zaman aşımıyla belirlenir;
+    // ödül ve kuyruktaki kartlar reklam kapandıktan sonra verilir.
+    let got = false;
+    const hs: { remove: () => Promise<void> | void }[] = [];
     try {
       if (!rewardedLoaded) { await AdMob.prepareRewardVideoAd({ adId: ids().rewarded, isTesting: testing(), ssv: { userId: adUser.uid() || 'misafir', customData: kind } } as any); }
       rewardedLoaded = false; ui.ad = true;
-      h = await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => { got = true; });
-      await AdMob.showRewardVideoAd();
+      let finish!: (err?: unknown) => void;
+      const done = new Promise<unknown>(r => { finish = r; });
+      hs.push(await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => { got = true; }));
+      hs.push(await AdMob.addListener(RewardAdPluginEvents.Dismissed, () => finish()));
+      hs.push(await AdMob.addListener(RewardAdPluginEvents.FailedToShow, (e: unknown) => finish(e || new Error('failed to show'))));
+      const guard = setTimeout(() => finish(), REWARD_GUARD_MS);
+      AdMob.showRewardVideoAd().then(() => { got = true; }, e => finish(e));
+      const err = await done; clearTimeout(guard);
+      if (err && !got) { toast(t('Reklam şu an yüklenemedi'), AD_FAIL_MS); Analytics.error(err, 'ad_rewarded'); }
     } catch (e) { if (!got) toast(t('Reklam şu an yüklenemedi'), AD_FAIL_MS); Analytics.error(e, 'ad_rewarded'); }
-    finally { try { if (h) void Promise.resolve(h.remove()).catch(() => { /* yok */ }); } catch { /* yok */ } ui.ad = false; busy = false; }
+    finally { for (const h of hs) { try { void Promise.resolve(h.remove()).catch(() => { /* yok */ }); } catch { /* yok */ } } ui.ad = false; busy = false; }
     if (got) { credit(); grantReward(onReward); Analytics.log('ad_reward', { kind }); S.ads++; }
     else onFail?.();
     flushQueue(); this.preload();
@@ -119,7 +134,18 @@ export const Ads = {
     Analytics.log('ad_interstitial', {});
     if (!this.native()) { showSimulated(false, '', null, 'interstitial'); return; }
     if (!ready || !canRequest || !interstitialLoaded) { this.preload(); return; }
-    try { interstitialLoaded = false; ui.ad = true; await AdMob.showInterstitial(); } catch { /* yok */ } finally { ui.ad = false; ui.lastClose = performance.now(); flushQueue(); this.preload(); }
+    // showInterstitial sözü reklam ekrana gelir gelmez çözülür; kartlar reklamın arkasında açılmasın diye kapanış olayı beklenir.
+    const hs: { remove: () => Promise<void> | void }[] = [];
+    try {
+      interstitialLoaded = false; ui.ad = true;
+      let finish!: () => void; const done = new Promise<void>(r => { finish = r; });
+      hs.push(await AdMob.addListener(InterstitialAdPluginEvents.Dismissed, () => finish()));
+      hs.push(await AdMob.addListener(InterstitialAdPluginEvents.FailedToShow, () => finish()));
+      const guard = setTimeout(() => finish(), REWARD_GUARD_MS);
+      AdMob.showInterstitial().catch(() => finish());
+      await done; clearTimeout(guard);
+    } catch { /* yok */ }
+    finally { for (const h of hs) { try { void Promise.resolve(h.remove()).catch(() => { /* yok */ }); } catch { /* yok */ } } ui.ad = false; ui.lastClose = performance.now(); flushQueue(); this.preload(); }
   },
 };
 

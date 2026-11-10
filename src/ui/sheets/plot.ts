@@ -24,7 +24,7 @@ export const plot: Panel<PlotC> = {
     const canUp = c.canUp = p.lvl < MAXLV && !p.sp, uc = c.uc = canUp ? withDisc(upCost(k, p)) : 0, afford = c.afford = canUp && S.cash >= uc, a = c.a = adj(k, i);
     c.pa = pairAdj(k, i); c.sa = spAdj(k, i);
     const lbLeft = c.lbLeft = Math.max(0, (p.bu || 0) - tn);
-    return 'b|' + S.tokens + p.t + p.lvl + (afford ? 1 : 0) + a + (S.boostUntil > tn ? 1 : 0) + Math.ceil(lbLeft / 60e3) + fxMult(k, i, p, tn) + S.disc + (s.del ? 1 : 0);
+    return 'b|' + S.tokens + p.t + p.lvl + (afford ? 1 : 0) + a + (S.boostUntil > tn ? Math.ceil((S.boostUntil - tn) / 60e3) : 0) + '|' + Math.ceil(lbLeft / 60e3) + fxMult(k, i, p, tn) + S.disc + (s.del ? 1 : 0);
   },
   render(s, tn, c) {
     const { k, i, p } = c;

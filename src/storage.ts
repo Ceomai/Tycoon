@@ -107,7 +107,8 @@ export function writeSave(state: object): Promise<void> {
 }
 /** Süren ve bekleyen yazmalar bitene kadar bekler. */
 export async function flushSaves() { while (running) await running; }
-/** Kilidi aşar: bekleyen kuyruğu atar, süren yazmanın bitmesini bekler ve bu durumu doğrudan yazar (bulut kaydı yükleme). */
+/** Kilidi aşar: bekleyen kuyruğu atar, süren yazmanın bitmesini bekler ve bu durumu doğrudan yazar (bulut kaydı yükleme).
+ *  Yalnızca lockSaves() sonrasında çağrılmalı: kuyruk zincirine bağlanmaz, kilitsiz bir çağrıda normal writeSave ile iç içe geçebilir. */
 export async function writeSaveForce(state: object): Promise<void> {
   pending = null;
   const j = job(state);

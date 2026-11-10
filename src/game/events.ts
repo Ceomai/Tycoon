@@ -41,7 +41,7 @@ export function showEvent() {
     <div class="btns"><button class="btn gold" data-a="x2">${I.play} ${ev.big ? t('İzle, 2 katını al') : t('İzle, {reward}', { reward: ev.rw(2) })}</button>
     <button class="txt" data-a="x1">${ev.big ? t('Al') : ev.art ? ev.rw(1) : t('Normal ödülü al')}</button></div></div>`,
     a => {
-      track('event'); if (a !== 'x1' && a !== 'x2') return;
+      if (a !== 'x1' && a !== 'x2') return; track('event');
       closeModal(); rewardChoice(a === 'x2', 'event', ev.rw(2), m => { ev.apply(m); if (m === 1) Snd.collect(3); });
     });
 }

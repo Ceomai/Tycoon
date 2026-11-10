@@ -125,6 +125,8 @@ function bindUi() {
   $('#modal').addEventListener('click', onModalClick);
   if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => fit()).observe($('#board')); else window.addEventListener('resize', fit);
   document.addEventListener('visibilitychange', () => (document.hidden ? onHide() : onShow()));
+  // Arka planda açılan sekme (web): onHide hiç çağrılmaz; görünür olunca geçen süre catchUp ile sayılsın.
+  if (document.hidden) { S.lastSeen = now(); hiddenAt = Date.now(); }
   window.addEventListener('pagehide', () => { S.lastSeen = now(); persistSync(); });
   if (Capacitor.isNativePlatform()) {
     void App.addListener('pause', onHide);
