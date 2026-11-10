@@ -1,7 +1,8 @@
 // Ekran yönü testi (tasarım E0–E7): dikey/yatay telefon ve tablet boyutları, oyun sırasında döndürme, panel/kart sığması, dokunma.
 // Çalıştır: npm run test:yon (önizleme paketi; Playwright)
 const {chromium}=require('playwright'); const fs=require('fs');
-const { URL, out, PREF } = require('./helpers.cjs');
+const { serve, out, PREF } = require('./helpers.cjs');
+let URL; // http://127.0.0.1:<port>/index.html — main başında serve() ile
 const OUT=out+'yon-';
 const rows=[]; const rec=(o)=>{ rows.push(o); console.log((o.ok?'  ✓ ':'  ✗ ')+o.name+(o.ok?'':'  → '+o.why)); };
 const DEV=[['iPhone SE',320,568],['Galaxy S8',360,740],['iPhone 13',390,844],['Pixel 7',412,915],['iPhone Pro Max',430,932],['iPad mini',744,1133],['iPad',820,1180]];
@@ -40,7 +41,7 @@ async function sheetsFit(p,label){ for(const a of ['map','menu','set','store','s
   const c=await p.evaluate(()=>{ const e=document.querySelector('#modal .card'); if(!e) return null; const r=e.getBoundingClientRect(); const btn=e.querySelector('.btns'); const br=btn?btn.getBoundingClientRect():r; return {top:Math.round(r.top),bottom:Math.round(r.bottom),H:innerHeight,btnBottom:Math.round(br.bottom),scroll:e.scrollHeight>e.clientHeight+2}; });
   if(c){ const why=[]; if(c.top<0) why.push('kart üstten taşıyor'); if(c.btnBottom>c.H && !c.scroll) why.push('kart düğmeleri ekran dışında ve kaydırılamıyor'); rec({name:`${label} · kart (günlük ödül)`,ok:!why.length,why:why.join('; '),m:c}); await p.click('#modal .card .txt',{force:true}).catch(()=>{}); await p.waitForTimeout(300); }
 }
-(async()=>{ const b=await chromium.launch();
+(async()=>{ const b=await chromium.launch(); URL=await serve();
  console.log('1) Dikey ve yatay boyutlar');
  for(const [n,w,h] of DEV){ for(const [o,W,H] of [['dikey',w,h],['yatay',h,w]]){ const p=await setup(b,W,H); const m=await measure(p); judge(`${n} ${o} ${W}×${H}`,m); if(o==='yatay'&&['iPhone 13','iPad'].includes(n)) await p.screenshot({path:OUT+`${n.replace(/ /g,'')}-${o}.png`}); await p.context().close(); } }
  console.log('2) Oyun sırasında döndürme (dikey → yatay → dikey), durum ve dokunma');

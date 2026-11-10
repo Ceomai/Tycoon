@@ -2,7 +2,8 @@
 // Çalıştır: npm run test:e2e  (önizleme paketi dist-preview/index.html üzerinde; Playwright gerekir)
 // Tohum kayıtlar eski (v1) biçimde yazılır: böylece v1→v2 taşıma da her testte sınanır.
 const {chromium}=require('playwright');
-const { URL, out, PREF_IF, makeTap, dismissCards, checker } = require('./helpers.cjs');
+const { serve, out, PREF_IF, makeTap, dismissCards, checker } = require('./helpers.cjs');
+let URL; // http://127.0.0.1:<port>/index.html — main başında serve() ile
 const log=(...a)=>console.log(...a);
 const st=async p=>{ await p.clock.runFor(300); return await p.evaluate(()=>{const o=JSON.parse(JSON.stringify(window.__tapuState())); o._now=Date.now(); return o;}); };
 const saved=async p=>p.evaluate(()=>{const w=JSON.parse(localStorage.getItem('tapu-save-v2')||'null'); return w&&JSON.parse(w.j);});
@@ -17,7 +18,7 @@ async function page(b,opts={},seed){
 const dismiss=p=>dismissCards(p,{n:4,wait:500,safe:false});
 const tap=makeTap({wait:380});
 (async()=>{
- const b=await chromium.launch(); const { fails, ok }=checker();
+ const b=await chromium.launch(); URL=await serve(); const { fails, ok }=checker();
 
  log('A) ilk oyun akışı');
  let p=await page(b);

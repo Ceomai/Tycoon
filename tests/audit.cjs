@@ -4,7 +4,8 @@
 // Ölçümler tests/out/audit-metrics.json dosyasına yazılır (raporlar bu dosyadaki gerçek değerlerle doldurulur).
 const {chromium}=require('playwright');
 const fs=require('fs');
-const { URL, out, PREF_IF, stateNow, mut, makeTap, dismissCards, recorder, injectReload, vis } = require('./helpers.cjs');
+const { serve, out, PREF_IF, stateNow, mut, makeTap, dismissCards, recorder, injectReload, vis } = require('./helpers.cjs');
+let URL; // http://127.0.0.1:<port>/index.html — main başında serve() ile
 const log=(...a)=>console.log(...a);
 const metrics={}; const results=[];
 let section='';
@@ -14,13 +15,14 @@ const ok=recorder(results,()=>({section}));
    (doğrudan localStorage + reload yarışlı: oyunun pagehide → persistSync'i test kaydını ezebiliyor). */
 
 async function open(b,o={}){
-  const ctx=await b.newContext({viewport:o.vp||{width:390,height:844},deviceScaleFactor:o.dpr||2,colorScheme:o.scheme||'light',reducedMotion:o.motion||'no-preference',offline:!!o.offline,isMobile:true,hasTouch:true}); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`);
+  const ctx=await b.newContext({viewport:o.vp||{width:390,height:844},deviceScaleFactor:o.dpr||2,colorScheme:o.scheme||'light',reducedMotion:o.motion||'no-preference',isMobile:true,hasTouch:true}); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`);
   const p=await ctx.newPage(); p.errs=[];
   p.on('pageerror',e=>p.errs.push(e.message)); p.on('console',m=>{ if(m.type()==='error') p.errs.push(m.text()); });
   await p.clock.install(o.time?{time:o.time}:undefined);
   await p.addInitScript(PREF_IF);
   if(o.init) await p.addInitScript(o.init);
   const t0=Date.now(); await p.goto(URL); p.loadMs=Date.now()-t0;
+  if(o.offline) await ctx.setOffline(true); // sayfa http'den gelir: çevrimdışılık yüklemeden hemen sonra (oyun açılırken) başlar
   await p.clock.runFor(500); return p;
 }
 const S=stateNow;
@@ -40,7 +42,7 @@ const sane=async(p,label)=>{ const s=await S(p); const bad=[];
 const fillFn=(S,a)=>{ const T=['ev','kafe','dukkan','ofis']; S.d[a.k]=Array.from({length:20},(_,i)=>({t:a.t||T[i%4],lvl:a.lvl||2,buf:0,until:0,dur:1,up:false})); };
 
 (async()=>{
- const b=await chromium.launch();
+ const b=await chromium.launch(); URL=await serve();
  const T0=Date.now();
 
  /* ---------------- PERSONA YOLCULUKLARI ---------------- */

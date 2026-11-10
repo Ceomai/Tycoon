@@ -2,7 +2,8 @@
 // ödül çarpanları, başlangıç paketi, mağaza basamakları, jetonlar, Kulüp, Altın Tapu ilk sezon indirimi.
 // Çalıştır: npm run test:gelir
 const {chromium}=require('playwright');
-const { URL, out, PREF_IF, vis, stateNow, mut, makeTap, dismissCards, checker } = require('./helpers.cjs');
+const { serve, out, PREF_IF, vis, stateNow, mut, makeTap, dismissCards, checker } = require('./helpers.cjs');
+let URL; // http://127.0.0.1:<port>/index.html — main başında serve() ile
 const { fails, ok }=checker();
 async function open(b,vp={width:390,height:844}){ const ctx=await b.newContext({viewport:vp}); const p=await ctx.newPage(); p.errs=[]; p.on('pageerror',e=>p.errs.push(e.message)); await p.clock.install(); await p.addInitScript(PREF_IF); await p.goto(URL); await p.clock.runFor(500);
   await p.click('#modal .cityopt[data-a="ist"]',{force:true}); await p.clock.runFor(400); await p.waitForTimeout(300); await dismiss(p); return p; }
@@ -16,7 +17,7 @@ const fill=(S,a)=>{ const T=['ev','kafe','dukkan','ofis']; S.d[a.k]=Array.from({
 const quiet=S=>{ const d=new Date(); S.daily.last=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); S.nextEvent=9e12; S.nextOffer=9e12; S.nextCivic=9e12; S.market='x'; S.collects=50; S.rifki=false; S.fest='x'; S.starter.at=1; };
 
 (async()=>{
- const b=await chromium.launch();
+ const b=await chromium.launch(); URL=await serve();
 
  console.log('M1 geçiş reklamı zamanlaması');
  let p=await open(b); await mut(p,quiet); await mut(p,fill,{k:'ist-0'});

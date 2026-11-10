@@ -36,6 +36,12 @@ export function t(src: string, p?: Record<string, unknown>): string {
   const d = DICTS[LANG];
   return fill((d && d.s[src]) || src, p);
 }
+/** Bağlamlı çeviri: aynı Türkçe metin farklı anlamlarda kullanılınca (ör. tema "Açık" = Light, anahtar "Açık" = On).
+ *  Sözlük anahtarı "bağlam|kaynak"; çeviri yoksa (ve Türkçede) kaynak metin görünür. Örn: tc('tema', 'Açık') */
+export function tc(ctx: string, src: string, p?: Record<string, unknown>): string {
+  const d = DICTS[LANG];
+  return fill((d && d.s[ctx + '|' + src]) || src, p);
+}
 /** Özel ad (şehir, semt) çevirisi. */
 const TR_NAMES: Record<string, string> = { Munich: 'Münih', London: 'Londra' };
 export function nm(name: string): string {

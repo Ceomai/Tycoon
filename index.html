@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#e8ecdf">
+<!-- Tema yanıp sönmesin: seçilen tema (src/theme.ts aynası localStorage['tapu-theme']) CSS'ten önce uygulanır. Renkler styles.css --bg (açık/koyu). -->
+<script>(function(){try{var t=localStorage.getItem('tapu-theme'),d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;document.querySelector('meta[name="theme-color"]').setAttribute('content',d?'#111815':'#e8ecdf')}catch(e){}})()</script>
 <title>Tapu</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">

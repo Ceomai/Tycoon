@@ -1,4 +1,7 @@
 /* TEMA — uygulama içi seçim: otomatik (işletim sistemi), açık, koyu. Tercih tapu-prefs'te (prefs.ts) tutulur.
+   Açılışta yanıp sönmesin diye seçim ayrıca localStorage['tapu-theme']'de aynalanır: index.html <head>'deki satır içi
+   betik bunu CSS'ten önce, eşzamanlı okuyup uygular (telefonda tercihler eşzamansız gelir). Asıl kaynak tercihlerdir;
+   applyTheme her çağrıldığında ayna güncellenir.
    Renkler styles.css'teki token anahtarından gelir: burada yalnızca <html data-theme> yönetilir (otomatikte kaldırılır).
    Tarayıcı çubuğu (theme-color) ve telefonun durum çubuğu simgeleri etkin temaya göre güncellenir.
    Oyun içi gece görünümü (body.night, saat efekti) ayrıdır ve temadan bağımsız çalışır. */
@@ -7,6 +10,8 @@ import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
 export type Theme = 'auto' | 'light' | 'dark';
 export const THEMES: Theme[] = ['auto', 'light', 'dark'];
 let cur: Theme = 'auto', mq: MediaQueryList | null = null;
+/** index.html'deki satır içi betiğin okuduğu ayna anahtarı (orada da aynı ad geçer). */
+export const THEME_MIRROR = 'tapu-theme';
 
 export const isTheme = (v: unknown): v is Theme => THEMES.includes(v as Theme);
 /** Etkin tema koyu mu (otomatikte işletim sistemine bakar)? */
@@ -31,6 +36,7 @@ export function applyTheme(th: Theme) {
   if (typeof document === 'undefined') return;
   const r = document.documentElement;
   if (cur === 'auto') delete r.dataset.theme; else r.dataset.theme = cur;
+  try { if (cur === 'auto') localStorage.removeItem(THEME_MIRROR); else localStorage.setItem(THEME_MIRROR, cur); } catch { /* depolama kapalı */ }
   syncChrome();
   if (!mq && typeof matchMedia === 'function') {
     try { mq = matchMedia('(prefers-color-scheme: dark)'); mq.addEventListener?.('change', () => { if (cur === 'auto') syncChrome(); }); } catch { /* yok */ }

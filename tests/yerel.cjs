@@ -3,7 +3,8 @@
 // İngilizce/Almanca/Japonca arayüzde Türkçe kalıntı taraması ve 320px taşma denetimi.
 // Çalıştır: npm run test:yerel
 const {chromium}=require('playwright');
-const { URL, out, vis, state, makeTap, dismissCards, checker } = require('./helpers.cjs');
+const { serve, out, vis, state, makeTap, dismissCards, checker } = require('./helpers.cjs');
+let URL; // http://127.0.0.1:<port>/index.html — main başında serve() ile
 const { fails, ok }=checker();
 const tap=makeTap({run:400,wait:250,fallback:true,timeout:3000});
 const dismiss=p=>dismissCards(p,{n:6,run:400,wait:200});
@@ -16,7 +17,7 @@ async function turkishLeft(p){ return p.evaluate(([re,names])=>{ const R=new Reg
   while(n=w.nextNode()){ const el=n.parentElement; if(!el||!el.offsetParent&&el.tagName!=='BODY') continue; let t=n.nodeValue.trim(); if(!t) continue; for(const x of names) t=t.split(x).join(''); if(R.test(t)) bad.push(t.slice(0,60)); } return [...new Set(bad)].slice(0,8); },[TR_CH.source,NAMES]); }
 
 (async()=>{
- const b=await chromium.launch();
+ const b=await chromium.launch(); URL=await serve();
 
  console.log('Y1–Y3 ilk açılış: İngilizce dil, Almanya bölgesi, Berlin');
  let p=await fresh(b);

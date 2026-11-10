@@ -6,7 +6,8 @@
 // Adım 4: animasyonlar (pop, para uçuşu→sayaç, kart kapanışı, panel/semt geçişi, basma, boşta duraklama) ve titreşim; hareketi azalt.
 // Çalıştır: npm run test:iy  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 const {chromium}=require('playwright');
-const { URL, PREF_IF: PREF, state, vis, recorder, reloadKeep } = require('./helpers.cjs');
+const { serve, PREF_IF: PREF, state, vis, recorder } = require('./helpers.cjs');
+let URL; // http://127.0.0.1:<port>/index.html — main başında serve() ile
 const results=[]; const ok=recorder(results);
 const S=state;
 const has=vis;
@@ -41,7 +42,7 @@ async function hold(p,sel){
 }
 
 (async()=>{
-  const b=await chromium.launch();
+  const b=await chromium.launch(); URL=await serve();
 
   console.log('1) Semtler paneli · OTO modu');
   let p=await open(b);
@@ -212,6 +213,8 @@ async function hold(p,sel){
   await openSet(p);
   const radios=await p.evaluate(()=>[...document.querySelectorAll('#sheetBody .seg [data-a="theme"]')].map(e=>e.dataset.v+':'+e.getAttribute('role')+':'+e.getAttribute('aria-checked')));
   ok(radios.join()==='auto:radio:true,light:radio:false,dark:radio:false','tema: otomatik/açık/koyu (radio, otomatik seçili)');
+  const labels=await p.evaluate(()=>[...document.querySelectorAll('#sheetBody .seg [data-a="theme"]')].map(e=>e.textContent.trim()).join('/'));
+  ok(labels==='Otomatik/Açık/Koyu','tema etiketleri: '+labels);
   const bgOf=()=>p.evaluate(()=>getComputedStyle(document.body).backgroundColor);
   const light=await bgOf();
   await p.$eval('#sheetBody [data-a="theme"][data-v="dark"]',e=>e.click()); await settle(p);
@@ -219,10 +222,16 @@ async function hold(p,sel){
   ok(dk.t==='dark'&&dk.bg!==light&&dk.chk==='true','koyu seçilince data-theme=dark, zemin değişti ('+dk.bg+')');
   ok(dk.meta===dk.bg,'theme-color meta zeminle aynı ('+dk.meta+')');
   ok(dk.pref==='dark','tercih tapu-prefs\'e yazıldı');
-  await reloadKeep(p); // ortam: başsız Chromium'da file:// localStorage yenilemede ara ara boş geliyor (helpers.cjs)
+  ok(await p.evaluate(()=>localStorage.getItem('tapu-theme'))==='dark','tema aynası localStorage[tapu-theme]=dark');
+  // yanıp sönme: belge <body>'ye geldiğinde (CSS'ten sonra, oyun betiği çalışmadan, ilk boyamadan önce) tema zaten koyu mu?
+  // Sayfa yanıtına <body> başına küçük bir gözlem betiği eklenir; oyun modülü ertelenmiş olduğundan bu an yalnızca <head>'deki satır içi betiği görür.
+  await p.route(URL,async r=>{ const res=await r.fetch(); const html=(await res.text()).replace('</head>\n<body>','</head>\n<body><script>window.__early={t:document.documentElement.dataset.theme||"",m:document.querySelector(\'meta[name="theme-color"]\').content,st:!!window.__tapuState}</script>'); await r.fulfill({response:res,body:html}); });
+  await p.reload();
   for(let k=0;k<60&&!(await p.evaluate(()=>!!window.__tapuState&&document.documentElement.dataset.theme==='dark').catch(()=>false));k++){ await p.clock.runFor(300).catch(()=>{}); await p.waitForTimeout(250); }
   await p.clock.runFor(1500); for(let k=0;k<5&&await has(p,'#modal .card');k++){ await p.click('#modal .card [data-a]',{force:true}); await p.clock.runFor(400); } // açılış kartları (çevrimdışı kazanç vb.)
   ok(await p.evaluate(()=>document.documentElement.dataset.theme)==='dark','yeniden açılışta koyu tema uygulandı');
+  { const e=await p.evaluate(()=>window.__early||null); await p.unroute(URL);
+    ok(e&&e.t==='dark'&&e.m==='#111815'&&e.st===false,'yanıp sönme yok: oyun açılmadan, ilk boyamadan önce data-theme=dark ve theme-color koyu ('+JSON.stringify(e)+')'); }
   await p.emulateMedia({colorScheme:'dark'}); await openSet(p);
   await p.$eval('#sheetBody [data-a="theme"][data-v="light"]',e=>e.click()); await settle(p);
   ok(await p.evaluate(()=>document.documentElement.dataset.theme)==='light'&&await bgOf()===light,'sistem koyuyken "açık" seçimi açık zemin verir');

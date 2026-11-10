@@ -1,9 +1,31 @@
 // Uçtan uca testlerin ortak yardımcıları (qa, gelir, yerel, yon, audit, iyilestirme).
 // Her test kendi akışını korur; burada yalnızca tekrar eden küçük parçalar var.
-const path = require('path'), fs = require('fs');
+const path = require('path'), fs = require('fs'), http = require('http');
 
-/** Önizleme paketi (npm run build:preview / vite build --mode preview). */
-const URL = 'file://' + path.resolve(__dirname, '../dist-preview/index.html');
+/** Önizleme paketi (npm run build:preview / vite build --mode preview) klasörü; testler bunu http üzerinden açar. */
+const DIST = path.resolve(__dirname, '../dist-preview');
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8' };
+/** dist-preview'u 127.0.0.1'de rastgele boş bir portta servis eden küçük statik sunucu başlatır, sayfa adresini döner.
+ *  (file:// yerine http: başsız Chromium'da file:// kökeninde localStorage yeniden yüklemede ara ara boşalıyordu.)
+ *  Sunucu süreci canlı tutmaz (unref) ve süreç çıkarken kapanır; her bağlam (newContext) kendi deposuyla yalıtılır. */
+async function serve() {
+  if (!fs.existsSync(path.join(DIST, 'index.html'))) throw new Error('dist-preview/index.html yok: önce vite build --mode preview');
+  const server = http.createServer((req, res) => {
+    let rel; try { rel = decodeURIComponent(new globalThis.URL(req.url, 'http://x').pathname); } catch { res.writeHead(400).end(); return; }
+    if (rel.endsWith('/')) rel += 'index.html';
+    const f = path.join(DIST, path.normalize(rel));
+    if (!f.startsWith(DIST + path.sep)) { res.writeHead(403).end(); return; }
+    fs.readFile(f, (err, buf) => {
+      if (err) { res.writeHead(404, { 'Content-Type': 'text/plain' }).end('yok'); return; }
+      res.writeHead(200, { 'Content-Type': TYPES[path.extname(f).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-store' });
+      res.end(req.method === 'HEAD' ? undefined : buf);
+    });
+  });
+  await new Promise((ok, no) => { server.once('error', no); server.listen(0, '127.0.0.1', ok); });
+  server.unref();
+  process.once('exit', () => server.close());
+  return `http://127.0.0.1:${server.address().port}/index.html`;
+}
 /** Ekran görüntüleri ve ölçümler: tests/out/ */
 const OUT_DIR = path.resolve(__dirname, 'out'); fs.mkdirSync(OUT_DIR, { recursive: true });
 const out = OUT_DIR + '/';
@@ -55,15 +77,4 @@ async function injectReload(p, state) {
   await p.reload();
 }
 
-/** Sayfayı yeniler; localStorage içeriği (tercihler, kayıtlar) yeni belgeye oyun açılmadan taşınır. Başsız Chromium'da
- *  file:// sayfasında oyun oturumu sırasında tarayıcı tarafındaki localStorage ara ara boşalıyor (sayfanın kendi önbelleği
- *  dolu göründüğü için fark edilmiyor); yenilenen belge boş depoyla açılınca tercih (tema) ve kayıt kaybolur, ilk açılış
- *  akışı başlar. Oyun localStorage'ı hiçbir zaman toptan silmez; bu bir test ortamı sorunudur. Yeni belgede kayıt
- *  anahtarı yoksa yenilemeden hemen önceki içerik geri yazılır (kayıt varsa hiçbir şey yapılmaz). */
-async function reloadKeep(p) {
-  const snap = await p.evaluate(() => { const o = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); o[k] = localStorage.getItem(k); } return o; });
-  await p.addInitScript(s => { if (localStorage.getItem('tapu-save-v2')) return; for (const k of Object.keys(s)) localStorage.setItem(k, s[k]); }, snap);
-  await p.reload();
-}
-
-module.exports = { URL, OUT_DIR, out, PREF, PREF_IF, vis, state, stateNow, mut, checker, recorder, makeTap, dismissCards, injectReload, reloadKeep };
+module.exports = { serve, OUT_DIR, out, PREF, PREF_IF, vis, state, stateNow, mut, checker, recorder, makeTap, dismissCards, injectReload };

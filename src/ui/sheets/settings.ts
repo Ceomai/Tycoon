@@ -10,7 +10,7 @@ import { REGION_INFO } from '../../storage';
 import { P } from '../../prefs';
 import { type Theme } from '../../theme';
 import { toast } from '../modal';
-import { t, nm, LANG, LANGS } from '../../i18n';
+import { t, tc, nm, LANG, LANGS } from '../../i18n';
 import { Panel, STAY, openSheet, later } from './core';
 
 export const settings: Panel<{ acct: ReturnType<typeof Cloud.account> }> = {
@@ -40,7 +40,7 @@ export const settings: Panel<{ acct: ReturnType<typeof Cloud.account> }> = {
           <button class="cm${S.collectMode === 'tap' ? ' on' : ''}" data-a="cm-tap"><span class="rd"></span><span class="di"><b>${t('Tek tuşla topla')}</b><small>${t('Ortadaki TOPLA mührüne bas, bütün semtlerdeki kira tek seferde kasana geçsin.')}</small></span></button>
           <button class="cm${S.collectMode === 'auto' ? ' on' : ''}" data-a="cm-auto"><span class="rd"></span><span class="di"><b>${t('Otomatik')}</b><small>${t('Oyun açıkken kira kendiliğinden kasana akar.')}</small></span></button>
         </div>
-        <div class="srow srow-col"><span id="thmL">${t('Tema')}</span><div class="seg" role="radiogroup" aria-labelledby="thmL">${([['auto', t('Otomatik')], ['light', t('Açık renk')], ['dark', t('Koyu renk')]] as [Theme, string][]).map(([v, l]) => `<button class="chip${P.theme === v ? ' on' : ''}" role="radio" aria-checked="${P.theme === v}" data-a="theme" data-v="${v}">${l}</button>`).join('')}</div></div>
+        <div class="srow srow-col"><span id="thmL">${t('Tema')}</span><div class="seg" role="radiogroup" aria-labelledby="thmL">${([['auto', tc('tema', 'Otomatik')], ['light', tc('tema', 'Açık')], ['dark', tc('tema', 'Koyu')]] as [Theme, string][]).map(([v, l]) => `<button class="chip${P.theme === v ? ' on' : ''}" role="radio" aria-checked="${P.theme === v}" data-a="theme" data-v="${v}">${l}</button>`).join('')}</div></div>
         <div class="srow"><span>${t('Gece görünümü (19:00–06:00)')}</span><button class="sw${S.night !== false ? ' on' : ''}" role="switch" aria-checked="${!!(S.night !== false)}" data-a="night" aria-label="${t('Gece görünümü')}"></button></div>
         <div class="srow"><span>${t('Rıfkı Abi’nin ipuçları')}</span><button class="sw${S.rifki ? ' on' : ''}" role="switch" aria-checked="${!!(S.rifki)}" data-a="rifki" aria-label="${t('Rıfkı Abi’nin ipuçları')}"></button></div>
         <div class="srow"><span>${t('Ses')}</span><button class="sw${S.sound ? ' on' : ''}" role="switch" aria-checked="${!!(S.sound)}" data-a="sound" aria-label="${t('Ses')}"></button></div>
