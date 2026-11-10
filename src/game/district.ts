@@ -121,7 +121,9 @@ export function showSummary(k: DistrictKey, from: DistrictKey) {
   if (a < 1 || k === from) return;
   const el = $('#sumBar'); if (!el) return;
   el.innerHTML = `<span class="tl">${currency()}</span><span class="tx">${t('{d} sen {loc}yken {amt} kazandı', { d: `<b>${nm(DMAP[k].n)}</b>`, loc: loc(nm(DMAP[from].n)), amt: `<b>${fmt(a)}</b>` })}</span>`;
-  el.hidden = false; clearTimeout(sumT); sumT = setTimeout(() => { el.hidden = true; }, 4500);
+  const hide = () => { el.hidden = true; clearTimeout(sumT); };
+  el.onclick = hide; // dokununca kapanır
+  el.hidden = false; clearTimeout(sumT); sumT = setTimeout(hide, 4500);
 }
 
 /* ---------- ilerleme çubuğu: bu semtin yüzdesi + sonraki semt kaporası ---------- */

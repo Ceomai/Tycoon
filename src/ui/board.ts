@@ -38,7 +38,7 @@ export function render() {
   const rateHtml = `${t('{rate}/sn', { rate: fmt(totalRate(true), true) })}${boosted ? '<span class="x2">2x</span>' : ''}${S.premium ? '<span class="x2">PRO</span>' : ''}<span class="x2 mk">${marketChip()}</span>${S.shares ? `<span class="x2">${I.crown.replace('<svg', '<svg width="10" height="10"')} ${fmtX(1 + 0.1 * S.shares)}</span>` : ''}`;
   if (ui.rateHtml !== rateHtml) { ui.rateHtml = rateHtml; $('#rate').innerHTML = rateHtml; }
   const op = $('#offerPill'), o = S.offer;
-  if (o && !o.done) { const h = `${esc(t(o.title))} <i><b style="width:${o.prog / o.goal * 100}%"></b></i> ${o.prog}/${o.goal} <span class="ot">${clock(o.until - tn)}</span>`; if (op.dataset.v !== h) { op.dataset.v = h; op.innerHTML = h; } op.hidden = false; } else op.hidden = true;
+  if (o && !o.done) { const h = `<span class="otl">${esc(t(o.title))}</span> <i><b style="width:${o.prog / o.goal * 100}%"></b></i> ${o.prog}/${o.goal} <span class="ot">${clock(o.until - tn)}</span>`; if (op.dataset.v !== h) { op.dataset.v = h; op.innerHTML = h; } op.hidden = false; } else op.hidden = true;
   $('#taskDot').hidden = !tasksClaimable();
   $('#menuDot').hidden = !(canHolding() || seasonClaimable());
   // orta mühür: TOPLA (bekleyen kira + kumbara doluluğu) ya da OTO (saniyelik kira)
@@ -136,20 +136,44 @@ function renderBubble() {
 }
 
 /* ---------- ızgara: arsalar ekrana göre büyür (en fazla %30 dikey uzar) ---------- */
+/** En küçük arsa kenarı (dokunma hedefi). Kısa ekranda üst/alt öğeler sıkışır ki arsalar bunun altına inmesin. */
+const MIN_LOT = 44;
 export function fit() {
-  const b = $('#board').getBoundingClientRect(), g = ui.gap, pad = 36;
+  const board = $('#board'), b = board.getBoundingClientRect(), grid = $('#grid'), cs = getComputedStyle(grid);
+  // sokak genişliği ve tahta kenar boşluğu CSS'ten (kısa ekranda daralır)
+  const g = ui.gap = parseFloat(cs.columnGap) || 14, pp = ui.pad = parseFloat(getComputedStyle(grid.parentElement!).paddingLeft) || 14, pad = 2 * pp + 4; // + çerçeve çizgisi
   // kullanılabilir yükseklik: alt çubuğun üstüne kadar (ilerleme çubuğu sonradan belirince ızgara taşmasın)
   const dock = document.querySelector('.dock'), dr = dock && dock.getBoundingClientRect();
   const below = !!dr && dr.left < b.right && dr.right > b.left && dr.top > b.top; // dikeyde alt çubuk tahtanın altında; yatayda yanda
   const availH = below ? Math.min(b.height, dr!.top - b.top - 6) : b.height;
-  const byW = Math.floor((b.width - pad - g * (COLS - 1)) / COLS), byH = Math.floor((availH - pad - 4 - g * (ROWS - 1)) / ROWS);
-  const sw = Math.max(40, Math.min(byW, Math.max(byH, 30))), sh = Math.max(30, Math.min(byH, Math.round(sw * 1.3))); // kısa ekranda satır yüksekliği 30px'e kadar iner (alt çubuğa taşmasın)
-  ui.size = sw; ui.sw = sw; ui.sh = sh; const grid = $('#grid'); grid.style.gridTemplateColumns = `repeat(${COLS},${sw}px)`; grid.style.gridAutoRows = sh + 'px';
+  const gt = $('#guideBtn').getBoundingClientRect(), tabIn = below && gt.width > 0 && gt.left > b.left + b.width / 2 && gt.left < b.right && gt.top < b.bottom;
+  // dikeyde kılavuz sekmesi tahtanın sağ kenarında durur: yalnız sağdan sekme kadar yer açılır (tahta birkaç px sola kayar), çerçeve sekmeye binmez
+  const tabW = tabIn ? Math.max(0, b.right - gt.left + 2) : 0, availW = b.width - tabW;
+  ($('.plate') as HTMLElement).style.marginRight = tabW ? tabW + 'px' : '';
+  const byW = Math.floor((availW - pad - g * (COLS - 1)) / COLS), byH = Math.floor((availH - pad - 4 - g * (ROWS - 1)) / ROWS);
+  const sw = Math.max(MIN_LOT, Math.min(byW, Math.max(byH, MIN_LOT))), sh = Math.max(MIN_LOT, Math.min(byH, Math.round(sw * 1.3)));
+  ui.size = sw; ui.sw = sw; ui.sh = sh; grid.style.gridTemplateColumns = `repeat(${COLS},${sw}px)`; grid.style.gridAutoRows = sh + 'px';
   grid.querySelectorAll('.lane').forEach((n: Element) => n.remove());
   const Wd = COLS * sw + (COLS - 1) * g, Ht = ROWS * sh + (ROWS - 1) * g;
   for (let c = 1; c < COLS; c++) { const e = document.createElement('span'); e.className = 'lane v'; e.style.cssText = `left:${c * (sw + g) - g / 2 - 1}px;top:0;height:${Ht}px`; grid.prepend(e); }
   for (let r = 1; r < ROWS; r++) { const e = document.createElement('span'); e.className = 'lane h'; e.style.cssText = `top:${r * (sh + g) - g / 2 - 1}px;left:0;width:${Wd}px`; grid.prepend(e); }
+  placeOverlays(below);
   if (S) renderLinks();
+}
+/** Bildirim alanı: Rıfkı, ipucu balonu, semt özeti, büyük mühür ve kısa bildirim (toast) arsaların üstüne binmesin diye
+ *  hepsi aynı şeride yerleşir. Dikeyde tahtanın hemen üstü (üst bilginin alt kısmının üzerine, aşağıdan yukarı büyür);
+ *  yatayda sol bilgi sütununun altı (kılavuz düğmesinin üstü). Konum CSS değişkenleriyle verilir (styles.css .ovl). */
+function placeOverlays(portrait: boolean) {
+  const st = document.documentElement.style, H = document.documentElement.clientHeight;
+  let l: number, w: number, bot: number;
+  if (portrait) {
+    const app = $('#app'), ar = app.getBoundingClientRect(), acs = getComputedStyle(app), pr = $('.plate').getBoundingClientRect();
+    l = ar.left + parseFloat(acs.paddingLeft); w = ar.width - parseFloat(acs.paddingLeft) - parseFloat(acs.paddingRight); bot = H - pr.top + 6;
+  } else {
+    const tr = $('.top').getBoundingClientRect(), gb = $('#guideBtn').getBoundingClientRect();
+    l = tr.left; w = tr.width; bot = H - (gb.height ? gb.top : tr.bottom) + 8;
+  }
+  st.setProperty('--ovl-l', Math.round(l) + 'px'); st.setProperty('--ovl-w', Math.round(w) + 'px'); st.setProperty('--ovl-b', Math.round(bot) + 'px');
 }
 function tileAt(x: number, y: number): number | null {
   const el = document.elementFromPoint(x, y); const tl = el && (el as HTMLElement).closest && (el as HTMLElement).closest('.lot') as HTMLElement | null;
@@ -201,7 +225,7 @@ export const Street = {
   spawn(kind: 'car' | 'ped' | 'taxi') {
     if (kind !== 'taxi' && document.body.classList.contains('night') && Math.random() < .6) return; // gece sokaklar sakin
     if (document.hidden || (ui.idle && kind !== 'taxi') || (reduceMotion && kind !== 'taxi') || this.n > 8) return;
-    const s = ui.sw, sh = ui.sh, g = ui.gap, off = 14, Wd = COLS * s + (COLS - 1) * g + 2 * off, Ht = ROWS * sh + (ROWS - 1) * g + 2 * off, taxi = kind === 'taxi', ped = kind === 'ped';
+    const s = ui.sw, sh = ui.sh, g = ui.gap, off = ui.pad, Wd = COLS * s + (COLS - 1) * g + 2 * off, Ht = ROWS * sh + (ROWS - 1) * g + 2 * off, taxi = kind === 'taxi', ped = kind === 'ped';
     const horiz = Math.random() < .5, fwd = Math.random() < .5, e = document.createElement('div');
     e.className = ped ? 'ped' : 'car' + (taxi ? ' taxi' : '') + (horiz ? '' : ' v') + (fwd ? '' : ' rev');
     if (!ped && !taxi) e.style.setProperty('--cc', CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)]);

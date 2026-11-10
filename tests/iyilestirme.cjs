@@ -2,6 +2,7 @@
 // semt satırı ve görev "Al" düğmesi basılı tutulan dokunuşla (180 ms) çalışmalı; canlı sayılar yine güncel kalmalı.
 // Adım 2a: web geri (popstate) ve kartlar, anahtar rolleri, dil adları, dokunma alanları, koyu tema kontrastı, odak halkası.
 // Adım 2b: panel tutamağı/X/sürükleyerek kapatma, tema seçimi, titreşim ayarı, lig hata durumu, açılış hata ekranı.
+// Adım 3: HUD yerleşimi — bindirmeler (Rıfkı, toast, semt özeti, büyük mühür, ipucu) arsalara binmez; küçük ekran/yatay/tablet ölçüleri.
 // Çalıştır: npm run test:iy  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 const {chromium}=require('playwright');
 const path=require('path');
@@ -255,6 +256,62 @@ async function hold(p,sel){
   const bf=await p.evaluate(()=>{ const d=document.querySelector('.bootfail'); return d&&{r:d.getAttribute('role'),t:d.innerText,f:document.activeElement===d.querySelector('button')}; });
   ok(bf&&bf.r==='alertdialog'&&bf.t.includes('BİR SORUN OLUŞTU')&&bf.t.includes('YENİDEN BAŞLAT')&&bf.f,'yakalanmayan açılış hatasında "Bir sorun oluştu · Yeniden başlat" ekranı (odak düğmede)');
   await p.context().close();
+
+  console.log('11) HUD yerleşimi: bindirmeler arsalara binmiyor, küçük ekran, yatay, tablet (Adım 3)');
+  /** Bindirme öğesinin herhangi bir arsayla kesişme oranı (arsa alanına göre, en kötü arsa). */
+  const hud=(p)=>p.evaluate(()=>{
+    const R=e=>e.getBoundingClientRect(), lots=[...document.querySelectorAll('#grid .lot')].map(R);
+    const vis=e=>{ if(!e||e.hidden) return false; const c=getComputedStyle(e); return c.display!=='none'&&c.visibility!=='hidden'&&+c.opacity>0.05; };
+    const cov=a=>Math.max(0,...lots.map(l=>Math.max(0,Math.min(a.right,l.right)-Math.max(a.left,l.left))*Math.max(0,Math.min(a.bottom,l.bottom)-Math.max(a.top,l.top))/(l.width*l.height)));
+    const hit=(a,b)=>!(a.right<=b.left+1||a.left>=b.right-1||a.bottom<=b.top+1||a.top>=b.bottom-1);
+    const o={}; for(const s of ['#rifki','#toast','#sumBar','#bigStamp','#bubble']){ const e=document.querySelector(s); o[s]=vis(e)?cov(R(e)):null; }
+    const t=document.querySelector('#toast'), st=document.querySelector('#bigStamp');
+    o.toastCash=vis(t)&&hit(R(t),R(document.querySelector('#cash')));
+    o.stampDock=vis(st)&&[...document.querySelectorAll('.dock button')].some(d=>hit(R(st),R(d)));
+    o.minLot=Math.round(Math.min(...lots.map(l=>Math.min(l.width,l.height)))); o.lotW=Math.round(Math.min(...lots.map(l=>l.width)));
+    const bu=document.querySelector('#bubble'); o.bubbleHud=vis(bu)&&['#offerPill','#distBar'].some(s=>{ const e=document.querySelector(s); return vis(e)&&hit(R(bu),R(e)); });
+    const g=R(document.querySelector('#guideBtn')), pl=R(document.querySelector('.plate')); o.tabPlate=g.width>0&&hit(g,pl);
+    o.plateDock=innerHeight>innerWidth&&pl.bottom>Math.min(...[...document.querySelectorAll('.dock button')].map(e=>R(e).top))+1;
+    const d=document.querySelector('#dname'); o.dnameOne=d.scrollHeight<=parseFloat(getComputedStyle(d).lineHeight)+2;
+    const op=document.querySelector('#offerPill'), tp=R(document.querySelector('.top')); o.offerIn=op.hidden||(R(op).right<=tp.right+1&&R(op).left>=tp.left-1);
+    o.dock=Math.round(Math.min(...[...document.querySelectorAll('.dock .dk')].map(e=>Math.min(R(e).width,R(e).height))));
+    o.app=Math.round(R(document.querySelector('#app')).width); o.sx=document.documentElement.scrollWidth-innerWidth;
+    return o; });
+  const showAll=async(p,kind)=>{ await p.evaluate(k=>{ const T=window.__tapuTest, S=window.__tapuState(), $=s=>document.querySelector(s);
+      ['#rifki','#sumBar','#bigStamp'].forEach(s=>{ $(s).hidden=true; }); $('#toast').classList.remove('on');
+      if(k==='rifki') T.showTip({id:'iy',text:'Kadıköy tapusuna 12 dakika var efendim. Kafenize bir reklamlık 2x verirseniz 6 dakikaya iner, benden söylemesi.'});
+      if(k==='toast') T.toast('Kaporalı semtte 8 arsa açık · borç bitince hepsi açılır · uzun bir bildirim metni',60000);
+      if(k==='sum'){ S.dEarn['ist-0']=12345e6; T.showSummary('ist-0','ist-1'); }
+      if(k==='stamp') T.bigStamp('DOLU KASA!','KUMBARALAR TAŞMADAN'); },kind); await p.clock.runFor(500); await p.waitForTimeout(450); };
+  for(const [W,H] of [[320,568],[360,640],[390,844],[430,932],[768,1024],[834,1194],[844,390],[568,320],[1280,720]]){
+    p=await open(b,{vp:{width:W,height:H}});
+    await p.evaluate(()=>{ const S=window.__tapuState(); S.collectMode='tap'; S.collects=1; S.offer={k:'taxi',goal:2,prog:1,until:Date.now()+7*60e3,title:'Altın taksi avı',rw:500,done:false}; });
+    await p.clock.runFor(1500); await p.waitForTimeout(200);
+    const n=`${W}×${H}`, port=H>W, base=await hud(p), bad=[];
+    for(const k of ['rifki','toast','sum','stamp']){ await showAll(p,k); const m=await hud(p);
+      for(const [s,v] of Object.entries(m)) if(s[0]==='#'&&v!=null&&v>0.05) bad.push(`${k}:${s} %${Math.round(v*100)}`);
+      if(m.toastCash) bad.push(k+': toast kasanın üstünde'); if(m.stampDock) bad.push(k+': mühür alt çubukta');
+      if(k==='rifki'){ const x=await p.evaluate(()=>{ const r=document.querySelector('#rifki .rk-x').getBoundingClientRect(); return Math.min(r.width,r.height); }); if(x<44) bad.push('Rıfkı X '+x+'px'); } }
+    if(base['#bubble']>0.05) bad.push('ipucu balonu %'+Math.round(base['#bubble']*100));
+    if(base.bubbleHud) bad.push('kalıcı ipucu balonu teklif hapını / semt çubuğunu örtüyor');
+    ok(!bad.length,`${n}: Rıfkı/toast/semt özeti/mühür/ipucu hiçbir arsanın %5'inden fazlasını örtmüyor; kalıcı ipucu teklif hapını/semt çubuğunu örtmüyor; toast kasayı, mühür alt çubuğu örtmüyor`+(bad.length?' ['+bad.join(', ')+']':''));
+    const lay=[]; if(base.minLot<44) lay.push('arsa '+base.minLot+'px'); if(!base.dnameOne) lay.push('semt adı iki satır'); if(!base.offerIn) lay.push('teklif hapı taşıyor');
+    if(base.dock<44) lay.push('alt çubuk düğmesi '+base.dock+'px'); if(base.sx>0) lay.push('yatay kaydırma'); if(port&&base.tabPlate) lay.push('kılavuz sekmesi tahta çerçevesine biniyor'); if(base.plateDock) lay.push('tahta alt çubuk düğmelerine biniyor');
+    if(W===390&&base.lotW<66) lay.push('390 genişlikte karo daraldı ('+base.lotW+'px, ≥66 olmalı)');
+    if(W>=700&&port&&base.app<=480) lay.push('tablette ızgara dar ('+base.app+'px)');
+    ok(!lay.length,`${n}: arsalar ≥44 px (${base.minLot}, genişlik ${base.lotW}), semt adı tek satır, teklif hapı sütunda, alt çubuk ≥44`+(port?', kılavuz sekmesi tahtaya, tahta alt çubuğa binmiyor':'')+(lay.length?' ['+lay.join(', ')+']':''));
+    if(W===390){
+      await showAll(p,'sum'); await p.$eval('#sumBar',e=>e.click()); await p.clock.runFor(200);
+      ok(await p.isHidden('#sumBar'),'semt özeti dokununca kapanıyor');
+      const fh=await p.evaluate(()=>{ const f=document.querySelector('#grid .lot .fill'); return f?f.getBoundingClientRect().height:0; });
+      ok(fh>=6,'kira doluluk çubuğu '+fh+' px (≥6)');
+      const ng=await p.evaluate(()=>{ document.body.classList.add('night'); const c=getComputedStyle(document.querySelector('.plate')).backgroundColor, l=getComputedStyle(document.querySelector('.lot.b')).backgroundColor;
+        const Y=s=>{ const m=s.match(/[\d.]+/g).map(Number); return (.2126*m[0]+.7152*m[1]+.0722*m[2])/255; }; return {plate:Y(c),lot:Y(l)}; });
+      ok(ng.plate<0.3&&ng.lot<0.3,'gece görünümü açık temada da tahta zemini koyu (asfalt '+ng.plate.toFixed(2)+', arsa '+ng.lot.toFixed(2)+')');
+    }
+    ok(!p.errs.length,n+': konsol temiz'+(p.errs.length?' ['+p.errs.slice(0,2).join('|')+']':''));
+    await p.context().close();
+  }
 
   await b.close();
   const pass=results.filter(r=>r.pass).length;

@@ -181,7 +181,7 @@ const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeou
    await touch('#modal [data-a="ok"]');
    await touch('.lot[data-i="6"]'); ok(await p.isVisible('#sheet.on'), 'arsaya dokununca panel açık kalıyor');
    await touch('[data-a="build"][data-t="ev"]'); s = await S(); ok(s.d['ank-0'][6] && s.d['ank-0'][6].t === 'ev', 'dokunuşla inşaat başladı');
-   await touch('#scrim'); ok(!(await p.isVisible('#sheet.on')), 'boşluğa dokununca panel kapandı');
+   await touch('#scrim', 110, 3, 0.04); ok(!(await p.isVisible('#sheet.on')), 'boşluğa dokununca panel kapandı'); // ekranın üstü (kasa): ortası yerleşime göre bir arsaya denk gelebilir
    await p.evaluate(() => { const st = window.__tapuState(); const l = st.d['ank-0'][6]; l.until = 0; l.lvl = 1; l.buf = 1e6; });
    await p.waitForTimeout(600); const c0 = (await S()).cash;
    await touch('#collectBtn'); s = await S(); ok(s.cash > c0, 'TOPLA mührüne dokununca kira toplandı');

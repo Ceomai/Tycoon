@@ -37,7 +37,7 @@ export const ui = {
   tileSig: [] as string[],
   linkSig: '', sheetSig: '', rateHtml: '',
   lastNudge: 0, toastT: 0 as any,
-  size: 60, sw: 60, sh: 60, gap: 14,
+  size: 60, sw: 60, sh: 60, gap: 14, pad: 14,
   lastInput: 0, idle: false,
   breakAt: 0, bootAt: performance.now(), // geçiş reklamı: son doğal durak, açılış anı
   lastCloudSave: 0,
