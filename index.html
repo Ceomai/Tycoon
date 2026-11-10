@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#e8ecdf">
+<!-- Tema yanıp sönmesin: seçilen tema (src/theme.ts aynası localStorage['tapu-theme']) CSS'ten önce uygulanır. Renkler styles.css --bg (açık/koyu). -->
+<script>(function(){try{var t=localStorage.getItem('tapu-theme'),d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;document.querySelector('meta[name="theme-color"]').setAttribute('content',d?'#111815':'#e8ecdf')}catch(e){}})()</script>
+<title>Tapu</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tapu">
+<style>:root{padding-top:var(--safe-area-inset-top,env(safe-area-inset-top,0px));padding-bottom:var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))}[hidden]{display:none!important}</style>
+  <script type="module" crossorigin src="./assets/index-D9z7okcV.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CRYIDXIi.css">
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="deed">
+      <div class="deed-l"><div id="dname" class="dname"></div><div id="cash" class="cash">₺0</div><div id="rate" class="rate"></div><span id="gain" class="gain" hidden></span></div>
+      <svg class="stamp" viewBox="0 0 100 80" role="img" aria-label="Tapu"><g transform="rotate(-5 50 40)"><rect class="sr" x="4" y="8" width="92" height="64" rx="4" stroke-width="4"/><rect class="sr" x="10" y="14" width="80" height="52" rx="2" stroke-width="1.2"/><text x="50" y="47" text-anchor="middle" font-weight="600" font-size="26">TAPU</text><text x="50" y="59" text-anchor="middle" font-size="6.5" letter-spacing="2">ADA · PARSEL</text></g></svg>
+    </div>
+    <svg id="guil" class="guil" viewBox="0 0 360 16" preserveAspectRatio="none" aria-hidden="true"></svg>
+    <button id="distBar" class="distbar" hidden aria-label="Semt ilerlemesi"></button>
+    <button id="offerPill" class="offer" hidden></button>
+    <div id="bubble" class="bubble" data-off></div>
+  </header>
+  <main id="board" class="board">
+    <div class="snow" aria-hidden="true"></div>
+    <div class="plate"><div id="grid" class="grid"></div></div>
+    <button id="guideBtn" class="guidetab" aria-label="Kılavuz: oyunun kuralları"><span class="q">?</span><span class="l">KILAVUZ</span></button>
+    <div id="guideHint" class="guidehint" hidden>Kurallar burada</div>
+    <div id="rifki" class="rifki" hidden></div>
+    <button id="sumBar" class="sumbar" type="button" hidden></button>
+    <div id="bigStamp" class="bigstamp" hidden></div>
+  </main>
+  <nav class="dock">
+    <button id="menuBtn" class="dk" aria-label="Menü">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <span id="menuDot" class="dot" hidden></span>
+    </button>
+    <button id="taskBtn" class="dk" aria-label="Görevler">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11l2 2 4-4M9 17h6"/></svg>
+      <span id="taskDot" class="dot" hidden></span>
+    </button>
+    <button id="collectBtn" class="boost collect" aria-label="Tüm kiraları topla">
+      <svg class="ring" viewBox="0 0 84 84"><circle class="rbg" cx="42" cy="42" r="39"/><circle id="ringFg" class="rfg" cx="42" cy="42" r="39" stroke-dasharray="245" stroke-dashoffset="245"/></svg>
+      <span class="core"><span id="cmain" class="bx">TOPLA</span><span id="csub" class="bsub"></span></span>
+    </button>
+    <button id="mapBtn" class="dk" aria-label="Semtler">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg>
+      <span id="mapDot" class="dot" hidden></span>
+    </button>
+    <button id="collBtn" class="dk" aria-label="Koleksiyon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 21V9l3-6 3 6v12M6 21h12M10 13h4M10 17h4"/></svg>
+    </button>
+  </nav>
+</div>
+
+<div id="scrim" class="scrim"></div>
+<div id="sheet" class="sheet" role="dialog" aria-modal="true" tabindex="-1" aria-hidden="true" inert><div id="sheetBar" class="shbar"><span class="grab" aria-hidden="true"></span><svg id="sheetGuil" class="sguil" viewBox="0 0 360 10" preserveAspectRatio="none" aria-hidden="true"></svg><button id="sheetX" class="sh-x" type="button" aria-label="Kapat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div><div id="sheetBody"></div></div>
+<div id="modal" class="modal" role="dialog" aria-modal="true" hidden></div>
+<div id="ad" class="adscreen" hidden></div>
+<div id="toast" class="toast" role="status"></div>
+</body>
+</html>
