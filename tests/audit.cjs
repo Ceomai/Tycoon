@@ -102,7 +102,9 @@ const fillFn=(S,a)=>{ const T=['ev','kafe','dukkan','ofis']; S.d[a.k]=Array.from
  log('P09 balina: premium, dev kasa, tüm semtleri alır');
  p=await open(b); await start(p);
  await mut(p,(S)=>{ S.premium=true; S.cash=1e15; S.earned=1e15; const T=['ev','kafe','dukkan','ofis']; S.d['ist-0']=Array.from({length:20},(_,i)=>({t:T[i%4],lvl:5,buf:0,until:0,dur:1,up:false})); });
- for(let n=0;n<14;n++){ await tap(p,'#mapBtn'); const btn=await p.$('#sheet [data-a="buy"]:not([disabled])'); if(!btn){ await closeSheet(p); break; } await btn.click({force:true}); await p.clock.runFor(600); await dismiss(p); await closeSheet(p);
+ for(let n=0;n<14;n++){ await tap(p,'#mapBtn'); const BUY='#sheet [data-a="buy"]:not([disabled])'; if(!await p.$(BUY)){ await closeSheet(p); break; }
+   // panel sorgu ile tıklama arasında yeniden çizilirse düğme DOM'dan kopar: yeniden bulup tekrar dene
+   for(let r=0;r<3;r++){ const btn=await p.$(BUY); if(!btn) break; try{ await btn.click({force:true}); break; }catch(e){ if(!/not attached|detached/i.test(String(e))) throw e; } } await p.clock.runFor(600); await dismiss(p); await closeSheet(p);
    const s=await S(p); await mut(p,fillFn,{k:s.cur,lvl:5}); }
  { const s=await S(p); ok(s.own.length>=10,'P09 '+s.own.length+' semt alındı'); metrics.whaleDistricts=s.own.length; ok(/₺/.test(await p.textContent('#cash')),'P09 kasa biçimli: '+(await p.textContent('#cash'))); }
  await sane(p,'P09'); await p.context().close();

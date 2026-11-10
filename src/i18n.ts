@@ -71,6 +71,8 @@ export function units(): { base: number; u: string[]; dec: string } {
     default: return { base: 1000, u: ['B', 'Mn', 'Mr', 'Tn', 'Kn', 'Kt', 'Sk', 'Sp', 'Ok', 'Nn', 'Dc', 'Ud', 'Dd'], dec: ',' };
   }
 }
+/** Cümle içi küçük harf (Almancada adlar büyük harfle kalır). */
+export const lowTxt = (s: string) => (LANG === 'de' ? s : s.toLocaleLowerCase(LANG === 'tr' ? 'tr-TR' : LANG));
 /** Yüzde: Türkçede %20, diğerlerinde 20%. */
 export const pctTxt = (n: number) => (LANG === 'tr' ? `%${n}` : `${n}%`);
 

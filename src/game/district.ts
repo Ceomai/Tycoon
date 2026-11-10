@@ -3,7 +3,7 @@
    ========================================================= */
 import { POST2 } from '../postcards';
 import { CFG, N, TYPES, DMAP, CITIES, DistrictKey, DRULES, OBSTACLE_IDS, currency } from '../config';
-import { t, tk, nm, pctTxt, LANG } from '../i18n';
+import { t, tk, nm, pctTxt, lowTxt } from '../i18n';
 import { S, lotsOf, Plot } from '../state';
 import { fmt, loc } from '../format';
 import { now, costM, unlockInfo, filled } from '../economy';
@@ -82,8 +82,6 @@ export function obstacleSvg(kind: string): string {
 }
 
 /* ---------- il kartpostalı + semt kuralı ---------- */
-/** Cümle içi küçük harf (Almancada adlar büyük harfle kalır). */
-const lowTxt = (s: string) => (LANG === 'de' ? s : s.toLocaleLowerCase(LANG === 'tr' ? 'tr-TR' : LANG));
 const POST: Record<string, string> = {
   ist: `<rect width="320" height="170" fill="#d9e7ef"/><rect y="118" width="320" height="52" fill="#7fa7c6"/><path d="M0 130h320M20 142h60M130 150h70M230 140h60" stroke="#bcd6e8" stroke-width="2"/>
     <polygon points="40,118 40,74 30,74 52,34 74,74 64,74 64,118" fill="#e6d3ad" stroke="#1e3a32" stroke-width="1.2"/><circle cx="52" cy="60" r="5" fill="#bcd6e8" stroke="#1e3a32"/>

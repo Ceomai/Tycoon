@@ -1,7 +1,7 @@
 /* =========================================================
    KEYİF PAKETİ — piyasa kartı, tapu arşivi, belediye kartı, cephe, tapu sezonu
    ========================================================= */
-import { DMAP, ORDER, TYPES, LEAGUE_TOP, DistrictKey, BuildingType, N, CFG } from '../config';
+import { DMAP, ORDER, TYPES, LEAGUE_TOP, DistrictKey, BuildingType, N, CFG, currency } from '../config';
 import { S, lotsOf } from '../state';
 import { fmt, weekKey, monthKey } from '../format';
 import { now, totalRate, filled, curWeek, isFull, producing } from '../economy';
@@ -149,14 +149,14 @@ export function seasonReward(lv: number, gold: boolean): SReward {
   if (!gold) {
     if (lv === 10) return { kind: 'skin', v: 6, label: t('LAVANTA') };
     if (lv === 20) return { kind: 'skin', v: 7, label: t('MERCAN') };
-    if (lv === 30) return { kind: 'cash', v: base * 10, label: '₺₺₺' };
+    if (lv === 30) return { kind: 'cash', v: base * 10, label: currency().repeat(3) };
     if (lv % 3 === 0) return { kind: 'token', v: 1, label: '2x' };
-    return { kind: 'cash', v: base, label: '₺' };
+    return { kind: 'cash', v: base, label: currency() };
   }
   if (lv === 15) return { kind: 'skin', v: 8, label: t('ALTIN') };
   if (lv === 30) return { kind: 'special', v: (parseInt(S.season.id.split('-')[1], 10) || 0) % SPECIALS.length, label: t('ÖZEL') };
   if (lv % 3 === 0) return { kind: 'token', v: 2, label: '2x2' };
-  return { kind: 'cash', v: base * 2, label: '₺₺' };
+  return { kind: 'cash', v: base * 2, label: currency().repeat(2) };
 }
 function grant(r: SReward) {
   if (r.kind === 'cash') addCash(r.v);

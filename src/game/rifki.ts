@@ -6,7 +6,7 @@ import { CFG, ORDER, DMAP, N } from '../config';
 import { S, lotsOf } from '../state';
 import { now, pending, producing, neighbors, PAIRS, buildCost, withDisc, rate, isFull, unlockInfo } from '../economy';
 import { weekKey, loc } from '../format';
-import { t, nm, LANG } from '../i18n';
+import { t, nm, lowTxt } from '../i18n';
 import { $, ui, SheetState, view } from '../ui/ctx';
 import { nearestGoal } from './goals';
 import { nextDistrict, kaporaOf, clearCost } from './district';
@@ -49,8 +49,6 @@ function boostText(bt: string): string {
     default: return t('En çok kazandıran mülkünüz bu ofis. Ona bir 2x verin, para orada katlanır.');
   }
 }
-/** Cümle içi küçük harf (Almancada adlar büyük harfle kalır). */
-const lowTxt = (s: string) => (LANG === 'de' ? s : s.toLocaleLowerCase(LANG === 'tr' ? 'tr-TR' : LANG));
 
 let lastAt = -CFG.TIP_EVERY + 45e3; // ilk ipucu ~45 sn oyundan sonra
 let lastId = '', hideT: any = 0, current: Tip | null = null;

@@ -67,7 +67,7 @@ export const plot: Panel<PlotC> = {
             ${sp ? `<div><span>${t('Komşularına')}</span><i></i><b>${t('her yöne +%{n}', { n: Math.round(CFG.SP_ADJ * 100) })}</b></div>` : `<div><span>${t('Aynı tür komşu')}</span><i></i><b>${a ? '+' + pctTxt(Math.round(a * CFG.ADJ * 100)) : t('yok')}</b></div>
             <div><span>${t('Akıllı ikili ({ad})', { ad: t(PAIR_NAME[p.t]) })}</span><i></i><b>${pa ? '+' + pctTxt(Math.round(pa * CFG.PAIR * 100)) : t('yok')}</b></div>
             ${sa ? `<div><span>${t('Özel yapı komşusu')}</span><i></i><b>+${pctTxt(Math.round(sa * CFG.SP_ADJ * 100))}</b></div>` : ''}`}
-            ${!sp && DRULES[k] && (ruleMult(k, i, p.t) > 1 || DRULES[k].kind === 'pair' && pa || DRULES[k].kind === 'speed' || DRULES[k].kind === 'upDisc') ? `<div><span>${t('Semt kuralı')} · ${t(DRULES[k].n)}</span><i></i><b>${t(DRULES[k].t).replace(/ \(.*\)/, '')}</b></div>` : ''}
+            ${!sp && DRULES[k] && (ruleMult(k, i, p.t) > 1 || DRULES[k].kind === 'pair' && pa || DRULES[k].kind === 'speed' || DRULES[k].kind === 'upDisc') ? `<div class="rule"><span>${t('Semt kuralı')} · ${t(DRULES[k].n)}</span><i></i><b>${t(DRULES[k].t).replace(/ \(.*\)/, '')}</b></div>` : ''}
             ${districtMult(k) > 1 ? `<div><span>${t('3 yıldızlı semt')}</span><i></i><b>+${pctTxt(Math.round(CFG.STAR_BONUS * 100))}</b></div>` : ''}
             ${lbLeft > 0 ? `<div><span>${t('Bu mülke 2x')}</span><i></i><b class="red">${t('{s} kaldı', { s: fmtTime(lbLeft) })}</b></div>` : ''}
             ${S.boostUntil > tn ? `<div><span>${t('Tüm mülklere 2x')}</span><i></i><b class="red">${t('{s} kaldı', { s: fmtTime(S.boostUntil - tn) })}</b></div>` : ''}
