@@ -3,6 +3,7 @@
 // Adım 2a: web geri (popstate) ve kartlar, anahtar rolleri, dil adları, dokunma alanları, koyu tema kontrastı, odak halkası.
 // Adım 2b: panel tutamağı/X/sürükleyerek kapatma, tema seçimi, titreşim ayarı, lig hata durumu, açılış hata ekranı.
 // Adım 3: HUD yerleşimi — bindirmeler (Rıfkı, toast, semt özeti, büyük mühür, ipucu) arsalara binmez; küçük ekran/yatay/tablet ölçüleri.
+// Adım 4: animasyonlar (pop, para uçuşu→sayaç, kart kapanışı, panel/semt geçişi, basma, boşta duraklama) ve titreşim; hareketi azalt.
 // Çalıştır: npm run test:iy  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 const {chromium}=require('playwright');
 const path=require('path');
@@ -313,6 +314,125 @@ async function hold(p,sel){
     await p.context().close();
   }
 
+  // Adım 4: animasyonlar (WAAPI, kesilebilir, yalnız transform/opacity) ve anlamsal titreşim; hareketi azalt
+  { // kendi kapsamı (değişken adları önceki bölümlerle çakışmasın)
+  const settle4=async p=>{ await p.clock.runFor(500); await p.waitForTimeout(250); };
+  const anims=(p,sel)=>p.evaluate(s=>{ const e=document.querySelector(s); return e?e.getAnimations().filter(a=>a.playState!=='finished').length:-1; },sel);
+  console.log('12) Animasyonlar ve haptik (Adım 4)');
+  p=await open(b,{init:"window.__vibs=[]; navigator.vibrate=x=>{ window.__vibs.push(x); return true; };"});
+  await p.evaluate(()=>{ const S=window.__tapuState(); S.collectMode='tap'; S.cash=1e9; S.collects=5; S.lien={}; S.lienT={}; S.d['ist-0'][3]=null; });
+  await settle4(p);
+  // inşaat başlangıcı: karoda pop + hafif titreşim
+  await p.$eval('#grid .lot[data-i="3"]',e=>e.click()); await settle4(p);
+  const v0=await p.evaluate(()=>window.__vibs.length);
+  await p.$eval('#sheetBody [data-a="build"]:not([disabled])',e=>e.click());
+  ok(await anims(p,'#grid .lot[data-i="3"] svg.art')>0,'inşaat başlayınca karoda pop oynuyor (WAAPI, render sonrası)');
+  ok(await p.evaluate(v0=>JSON.stringify(window.__vibs.slice(v0)),v0)==='[12]','inşaat başlangıcında hafif titreşim (12 ms)');
+  // teslim: pop artık gerçekten oynuyor (eskiden aynı tikte siliniyordu)
+  await p.clock.runFor(400);
+  await p.evaluate(()=>{ const q=window.__tapuState().d['ist-0'][3]; q.until=Date.now()+300; });
+  await p.clock.runFor(600);
+  ok(await anims(p,'#grid .lot[data-i="3"] svg.art')>0,'teslimde karo pop animasyonu oynuyor');
+  ok(await p.evaluate(()=>JSON.stringify(window.__vibs[window.__vibs.length-1]))==='[14,60,24]','teslimde başarı titreşimi (desen)');
+  // TOPLA: kasa hemen sıçramaz; paralar kasaya varınca sayar
+  await p.clock.runFor(2000);
+  await p.evaluate(()=>{ for(const q of window.__tapuState().d['ist-0']) if(q) q.buf=5000; });
+  const before=await p.textContent('#cash');
+  await p.$eval('#collectBtn',e=>e.click());
+  const mid=await p.evaluate(()=>({cash:document.querySelector('#cash').textContent,fly:document.querySelectorAll('.fly').length,S:window.__tapuState().cash}));
+  ok(mid.cash===before&&mid.fly>0,`TOPLA: paralar uçuyor (${mid.fly}), kasa varıştan önce saymıyor (${mid.cash})`);
+  await p.waitForTimeout(1100); await p.clock.runFor(700); await p.waitForTimeout(100); await p.clock.runFor(300);
+  const end=await p.evaluate(()=>({cash:document.querySelector('#cash').textContent,fly:document.querySelectorAll('.fly').length}));
+  ok(end.cash!==before&&end.fly===0,`para kasaya vardı, sayaç son değere ulaştı (${before} → ${end.cash})`);
+  // başarısız işlem: hata titreşimi + sallama
+  await p.clock.runFor(600);
+  await p.evaluate(()=>{ for(const k of ['ist-0','ist-1']) for(const q of window.__tapuState().d[k]) if(q) q.buf=0; });
+  await p.$eval('#collectBtn',e=>e.click());
+  ok(await p.evaluate(()=>JSON.stringify(window.__vibs[window.__vibs.length-1]))==='[30,50,30]'&&await anims(p,'#collectBtn')>0,'boş TOPLA: hata titreşimi ve mühür 250 ms sallanıyor');
+  // titreşim kapalıysa hiç titremez
+  const vn=await p.evaluate(()=>{ window.__tapuState().vib=false; return window.__vibs.length; });
+  await p.$eval('#collectBtn',e=>e.click()); await p.clock.runFor(300);
+  ok(await p.evaluate(()=>window.__vibs.length)===vn,'titreşim ayarı kapalıyken hata titreşimi yok');
+  await p.evaluate(()=>{ window.__tapuState().vib=true; });
+  // toast açıkken yeni mesaj: kısa vurgu
+  await p.clock.runFor(2500); await p.evaluate(()=>window.__tapuTest.toast('bir')); await p.clock.runFor(100); await p.evaluate(()=>window.__tapuTest.toast('iki'));
+  ok(await anims(p,'#toast')>0,'açık toast yeni mesajda kısa scale vurgusu');
+  // semt değişimi: ızgara yönlü kayar
+  await p.clock.runFor(2500);
+  await p.evaluate(()=>window.__tapuTest.switchDistrict('ist-1'));
+  ok(await p.evaluate(()=>{ const a=document.querySelector('.plate').getAnimations()[0]; return !!a&&a.effect.getKeyframes()[0].transform==='translateX(24px)'; }),'semt değişince ızgara sağdan kayarak geliyor');
+  await p.clock.runFor(500); await p.evaluate(()=>window.__tapuTest.switchDistrict('ist-0'));
+  ok(await p.evaluate(()=>{ const a=document.querySelector('.plate').getAnimations()[0]; return !!a&&a.effect.getKeyframes()[0].transform==='translateX(-24px)'; }),'geri semtte soldan kayıyor');
+  // panel içi geçiş
+  await p.clock.runFor(3000);
+  for(let k=0;k<5&&await has(p,'#modal .card');k++){ await p.click('#modal .card [data-a]',{force:true}); await p.clock.runFor(400); }
+  await p.click('#menuBtn',{force:true}); await settle4(p);
+  await p.$eval('#sheetBody [data-a="set"]',e=>e.click());
+  const nav=await p.evaluate(()=>{ const a=document.querySelector('#sheetBody').getAnimations()[0]; return a?a.effect.getKeyframes()[0].transform:''; });
+  ok(nav==='translateX(28px)','panel içinde ileri geçiş: içerik sağdan kayıp beliriyor');
+  await settle4(p); await p.evaluate(()=>history.back()); await p.waitForTimeout(50);
+  const nav2=await p.evaluate(()=>{ const a=document.querySelector('#sheetBody').getAnimations()[0]; return a?a.effect.getKeyframes()[0].transform:''; });
+  ok(nav2==='translateX(-28px)','geri: soldan ('+nav2+')');
+  // basma geri bildirimi
+  await p.keyboard.press('Escape'); await settle4(p);
+  const mb=await p.locator('#menuBtn').boundingBox(); await p.mouse.move(mb.x+mb.width/2,mb.y+mb.height/2); await p.mouse.down(); await p.waitForTimeout(200);
+  const tf=await p.evaluate(()=>getComputedStyle(document.querySelector('#menuBtn')).transform); await p.mouse.up(); await settle4(p);
+  ok(/matrix\(0\.97/.test(tf),'alt çubuk düğmesi basılıyken %97 ('+tf+')');
+  await p.keyboard.press('Escape'); await settle4(p);
+  // kart kapanışı: kart anında kapanır (durum), kopyası ~180 ms solar
+  await p.evaluate(()=>{ const S=window.__tapuState(); S.nextEvent=0; });
+  for(let k=0;k<20&&!(await has(p,'#modal .card'));k++) await p.clock.runFor(500);
+  const hadCard=await has(p,'#modal .card');
+  await p.clock.runFor(400); await p.$eval('#modal .card [data-a="x1"], #modal .card [data-back]',e=>e.click());
+  const ex=await p.evaluate(()=>({hid:document.querySelector('#modal').hidden,ghost:!!document.querySelector('.modal-out .card'),an:document.querySelector('.modal-out .card')?.getAnimations().length||0,inert:document.querySelector('.modal-out')?.inert}));
+  ok(hadCard&&ex.hid&&ex.ghost&&ex.an>0&&ex.inert,'kart kapanışı: #modal anında gizli, kopyası etkileşimsiz katmanda kapanış animasyonu oynuyor');
+  await p.waitForTimeout(350);
+  ok(!(await p.evaluate(()=>!!document.querySelector('.modal-out'))),'kapanış animasyonu bitince kopya kaldırıldı');
+  // boşta: sokak durur, halka/doluluk yazılmaz
+  await p.keyboard.press('Escape'); await settle4(p);
+  await p.evaluate(()=>{ for(const q of window.__tapuState().d['ist-0']) if(q) q.buf=0; });
+  await p.clock.runFor(29000);
+  const pre=await p.evaluate(()=>document.querySelectorAll('.street .car,.street .ped').length);
+  await p.clock.runFor(2500);
+  const id=await p.evaluate(()=>{ const st=document.getAnimations().filter(a=>a.effect&&a.effect.target&&a.effect.target.closest&&a.effect.target.closest('.street'));
+    return {idle:document.body.classList.contains('idle'),n:st.length,paused:st.every(a=>a.playState==='paused'),ring:document.querySelector('#ringFg').style.strokeDashoffset}; });
+  await p.clock.runFor(3000);
+  const ring2=await p.evaluate(()=>document.querySelector('#ringFg').style.strokeDashoffset);
+  ok(id.idle&&id.paused&&id.ring===ring2,`boşta: sokak animasyonları duraklatıldı (${id.n} araç, önce ${pre}), halka yazılmıyor (${id.ring})`);
+  await p.mouse.move(5,300); await p.mouse.down(); await p.mouse.up(); await p.clock.runFor(300);
+  ok(await p.evaluate(()=>!document.body.classList.contains('idle')&&document.getAnimations().filter(a=>a.effect&&a.effect.target&&a.effect.target.closest&&a.effect.target.closest('.street')).every(a=>a.playState!=='paused')),'dokununca sokak kaldığı yerden devam ediyor');
+  ok(!p.errs.length,'konsol temiz'+(p.errs.length?' ['+p.errs.slice(0,2).join('|')+']':''));
+  await p.context().close();
+
+  console.log('13) Hareketi azalt (Adım 4)');
+  p=await open(b,{init:"window.__vibs=[]; navigator.vibrate=x=>{ window.__vibs.push(x); return true; };"});
+  await p.emulateMedia({reducedMotion:'reduce'}); // açıkken değişir: matchMedia dinleyicisi
+  await p.evaluate(()=>{ const S=window.__tapuState(); S.collectMode='tap'; S.collects=5; S.lien={}; S.lienT={}; for(const q of S.d['ist-0']) q.buf=1e9; });
+  await settle4(p);
+  const rs=await p.evaluate(()=>{ const cb=document.querySelector('#collectBtn'), a=getComputedStyle(cb,'::after');
+    return {full:cb.classList.contains('full'),an:a.animationName,op:a.opacity,sheet:getComputedStyle(document.querySelector('#sheet')).transitionProperty}; });
+  ok(rs.full&&rs.an==='none'&&rs.op==='0.6','dolu halka nabzı durağan (görünür, animasyonsuz)');
+  ok(/opacity/.test(rs.sheet),'panel hareket yerine opaklıkla açılıp kapanıyor ('+rs.sheet+')');
+  await p.$eval('#collectBtn',e=>e.click()); await p.waitForTimeout(200);
+  const g1=await p.evaluate(()=>({vis:!document.querySelector('#gain').hidden,op:getComputedStyle(document.querySelector('#gain')).opacity,fly:document.querySelectorAll('.fly').length,txt:document.querySelector('#gain').textContent}));
+  await p.clock.runFor(1200); const g2=await p.evaluate(()=>!document.querySelector('#gain').hidden&&getComputedStyle(document.querySelector('#gain')).opacity==='1');
+  await p.clock.runFor(600); const g3=await p.evaluate(()=>document.querySelector('#gain').hidden);
+  ok(g1.vis&&g1.op==='1'&&g1.fly===0&&g2&&g3,'kazanç etiketi görünür (opaklık 1, uçan para yok), ~1,6 sn sonra kayboluyor');
+  ok(await p.evaluate(()=>getComputedStyle(document.querySelector('#bigStamp')).transform)!=='none','büyük mühür yerinde (döndürülmüş, ölçek animasyonu yok)');
+  // kart: giriş/çıkış yalnız opaklık
+  await p.clock.runFor(2500); await p.evaluate(()=>{ window.__tapuState().nextEvent=0; });
+  for(let k=0;k<20&&!(await has(p,'#modal .card'));k++) await p.clock.runFor(500);
+  const ci=await p.evaluate(()=>getComputedStyle(document.querySelector('#modal .card')).animationName);
+  await p.clock.runFor(400); await p.$eval('#modal .card [data-a="x1"], #modal .card [data-back]',e=>e.click());
+  const co=await p.evaluate(()=>{ const a=document.querySelector('.modal-out .card')?.getAnimations()[0]; return a?a.effect.getKeyframes().map(k=>k.transform||'').join(''):'yok'; });
+  ok(ci==='rmFade'&&co==='','kart girişte ve çıkışta yalnız opaklık ('+ci+')');
+  // başarısız işlem: sallama yerine kısa yanıp sönme
+  await p.clock.runFor(3000); await p.evaluate(()=>{ for(const k of ['ist-0','ist-1']) for(const q of window.__tapuState().d[k]) if(q) q.buf=0; });
+  await p.$eval('#collectBtn',e=>e.click());
+  ok(await p.evaluate(()=>{ const a=document.querySelector('#collectBtn').getAnimations()[0]; return !!a&&a.effect.getKeyframes().every(k=>!k.transform); }),'boş TOPLA: sallama yok, yalnız opaklık yanıp sönmesi');
+  ok(!p.errs.length,'konsol temiz'+(p.errs.length?' ['+p.errs.slice(0,2).join('|')+']':''));
+  await p.context().close();
+  }
   await b.close();
   const pass=results.filter(r=>r.pass).length;
   console.log(`\nSONUÇ: ${pass}/${results.length} geçti`);

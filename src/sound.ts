@@ -1,7 +1,7 @@
 // @ts-nocheck — Web Audio ile sentezlenen sesler (dosya gerektirmez)
 /* SES — yumuşak marimba tonları, pentatonik dizi; inşaatta çekiç, bitişte zil. */
 import { Capacitor } from '@capacitor/core';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { S } from './state';
 const SCALE=[523.25,587.33,659.25,783.99,880,1046.5,1174.66,1318.51,1567.98,1760,2093];
 export const Snd={
@@ -41,11 +41,27 @@ export const Snd={
   unlock(){ if(!this.ok()) return; [783.99,987.77,1174.66,1567.98].forEach((f,k)=>this.note(f,k*.09,.8,.15)); },
   no(){ if(!this.ok()) return; this.note(220,0,.25,.15); this.note(196,.1,.3,.12); },
 };
-/** Titreşim: telefonda Capacitor Haptics, web'de navigator.vibrate. Ayarlardan kapatılabilir (S.vib === false). */
-export function buzz(ms: number) {
+/** Titreşim (anlamsal): telefonda Capacitor Haptics, web'de navigator.vibrate (en az 10–15 ms; daha kısası çoğu cihazda
+ *  hissedilmez). Ayarlardan kapatılabilir (S.vib === false). Aşırı titreşim olmasın diye bir döngü adımında (250 ms) en
+ *  fazla bir titreşim: aynı anda gelen ikincisi düşer (hata her zaman önceliklidir).
+ *  light: hafif dokunuş (toplama, inşaat başlangıcı) · medium: belirgin dokunuş · success: tamamlanan iş, ödül, alım ·
+ *  error: başarısız işlem · select: seçim değişimi (ayar anahtarı, segment). buzz(ms) eski çağrılar için: ≥25 ms medium. */
+let lastBuzz = -1e9;
+type Kind = 'light' | 'medium' | 'success' | 'error' | 'select';
+const WEB: Record<Kind, number | number[]> = { light: 12, medium: 22, success: [14, 60, 24], error: [30, 50, 30], select: 10 };
+function fire(kind: Kind) {
   if (S && S.vib === false) return;
+  const t = performance.now(); if (t - lastBuzz < 250 && kind !== 'error') return; lastBuzz = t;
   try {
-    if (Capacitor.isNativePlatform()) { void Haptics.impact({ style: ms >= 25 ? ImpactStyle.Medium : ImpactStyle.Light }); return; }
-    navigator.vibrate && navigator.vibrate(ms);
+    if (Capacitor.isNativePlatform()) {
+      if (kind === 'success' || kind === 'error') void Haptics.notification({ type: kind === 'success' ? NotificationType.Success : NotificationType.Error });
+      else if (kind === 'select') void Haptics.selectionStart().then(() => Haptics.selectionChanged()).then(() => Haptics.selectionEnd()).catch(() => {});
+      else void Haptics.impact({ style: kind === 'medium' ? ImpactStyle.Medium : ImpactStyle.Light });
+      return;
+    }
+    navigator.vibrate && navigator.vibrate(WEB[kind]);
   } catch { /* yok */ }
 }
+export const buzz = Object.assign((ms: number) => fire(ms >= 25 ? 'medium' : 'light'), {
+  light: () => fire('light'), medium: () => fire('medium'), success: () => fire('success'), error: () => fire('error'), select: () => fire('select'),
+});

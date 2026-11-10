@@ -27,7 +27,7 @@ export function showOffer() {
     a => { closeModal(); if (a === 'ok') { S.offer = { k: o.k, goal: o.goal, prog: 0, until: now() + o.min * 60e3, title: o.title, rw, done: false }; if (o.k === 'taxi') S.nextTaxi = S.playMs + 8e3; persist(); } });
 }
 export function offerComplete() {
-  const o = S.offer!; Snd.unlock(); buzz(30);
+  const o = S.offer!; Snd.unlock(); buzz.success();
   const claim = (m: number) => { addCash(o.rw * m); bump(); S.offer = null; persist(); };
   openModal(`<div class="card"><div class="badge">${I.check}</div><h3>${t('{title} tamam', { title: t(o.title) })}</h3><p>${t('Süre bitmeden başardın.')}</p>
     <div class="big">${fmt(o.rw)}</div>

@@ -143,8 +143,7 @@ svg .sgn{fill:var(--sgn)} svg .sgw{fill:none;stroke:var(--on-accent);stroke-widt
 .top{display:flex;flex-direction:column;gap:0;align-items:stretch;padding-bottom:var(--sp-5)}
 .dname{display:block;color:var(--muted);font:600 var(--fs-1)/1.35 var(--mono);letter-spacing:.14em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0} /* tek satır: dar ekranda … ile kısalır */
 .dname::before{content:var(--t-deed,"Tapu Senedi ·\00a0")}
-.cash{transition:transform .12s ease-out;font:600 var(--fs-d4)/1.1 var(--mono);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.cash.bump{transform:scale(1.06)}
+.cash{font:600 var(--fs-d4)/1.1 var(--mono);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .rate{display:flex;align-items:center;gap:var(--sp-3);color:var(--muted);font:500 var(--fs-3) var(--mono);letter-spacing:0;justify-content:flex-start}
 .x2{font:600 var(--fs-2) var(--mono);border-radius:var(--r-sm);padding:1px 5px;background:var(--stamp-fill);color:var(--on-accent)}
 
@@ -160,19 +159,15 @@ svg .sgn{fill:var(--sgn)} svg .sgw{fill:none;stroke:var(--on-accent);stroke-widt
 .lot:active{transform:scale(.95)}
 .lot.b{background:var(--zone);box-shadow:none}
 .lot svg.art{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
-.lot.pop svg.art{animation:pop .5s cubic-bezier(.3,1.6,.5,1)}
+/* ilk arsa ipucu: karo hafifçe büyür (transform), halka ayrı katmanda yanıp söner (opacity) — ikisi de compositor'da */
 .lot.hint{animation:hint 1.4s ease-in-out infinite}
+.lot.hint::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:0 0 0 3px var(--curb),0 0 0 7px var(--haz);opacity:0;animation:hintRing 1.4s ease-in-out infinite;pointer-events:none}
 .lot.hot::after{content:"";position:absolute;inset:-4px;border-radius:var(--r-xl);border:2px dashed var(--haz);opacity:0;animation:hot 1.6s ease-in-out infinite;pointer-events:none}
-.coin{position:absolute;top:-7px;right:-7px;width:26px;height:26px;border-radius:var(--r-round);pointer-events:none;z-index:2;
-  transform:scale(var(--cs-scale,1));transition:transform .3s;background:var(--stamp-fill);box-shadow:0 0 0 2px var(--asph),var(--sh-chip)}
-.coin::after{content:var(--cur,"₺");position:absolute;inset:0;display:grid;place-items:center;color:var(--on-accent);font:600 var(--fs-3) var(--mono)}
-.coin.full{animation:coinful 1s ease-in-out infinite}
 .ff{position:absolute;right:4px;bottom:4px;width:22px;height:22px;display:grid;place-items:center;pointer-events:none;background:var(--ink);color:var(--bg);box-shadow:none;border-radius:var(--r-sm)}
 .ff svg{width:12px;height:12px}
-@keyframes pop{0%{transform:scale(.85) translateY(4px)}100%{transform:none}}
-@keyframes hint{50%{transform:scale(1.06);box-shadow:0 0 0 3px var(--curb),0 0 0 7px var(--haz)}}
+@keyframes hint{50%{transform:scale(1.06)}}
+@keyframes hintRing{50%{opacity:1}}
 @keyframes hot{50%{opacity:1}}
-@keyframes coinful{50%{transform:scale(1.12) translateY(-2px)}}
 
 /* ---------- bildirim şeridi (HUD) ----------
    İpucu balonu, Rıfkı, semt özeti, büyük mühür ve toast arsaların üstüne binmez: hepsi board.ts placeOverlays()'in verdiği
@@ -199,13 +194,13 @@ body:has(#sumBar:not([hidden])) #rifki{visibility:hidden}
 .boost .ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
 .boost .ring circle{fill:none;stroke-width:5}
 .boost .rbg{stroke:var(--line)}
-.boost .rfg{stroke-linecap:round;transition:stroke-dashoffset .4s;stroke:var(--stamp)}
+.boost .rfg{stroke-linecap:round;stroke:var(--stamp)} /* board.ts yalnız görünür değişimde yazar; küçük adımlar geçişsiz (en çok 4 Hz boyama), */
+.boost .rfg.tr{transition:stroke-dashoffset var(--dur) var(--ease-out)} /* büyük sıçrama (toplama, dolma) kısa geçişle */
 .boost .core{border-radius:var(--r-round);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:transform .1s;width:74px;height:74px;box-sizing:border-box;background:var(--bg);border:4px double var(--stamp);color:var(--stamp);box-shadow:none;transform:rotate(-8deg)}
 .boost:active .core{transform:rotate(-8deg) scale(.94);box-shadow:none}
 .boost .bx{font:600 var(--fs-12)/1 var(--mono)}
 .boost .bsub{display:flex;align-items:center;gap:3px;margin-top:1px;font:600 var(--fs-xs)/1 var(--mono);letter-spacing:.04em}
 .boost .bsub svg{width:8px;height:8px}
-.boost.nudge .core{animation:nudge .9s ease-in-out}
 @keyframes nudge{20%{transform:rotate(-8deg) scale(1.06)}40%{transform:rotate(8deg) scale(1.08)}60%{transform:rotate(-4deg)}80%{transform:rotate(2deg)}}
 
 /* alt panel */
@@ -338,7 +333,7 @@ body:has(#sumBar:not([hidden])) #rifki{visibility:hidden}
 .offer:active,.distbar:active{transform:translateY(1px)}
 .distbar:active{background:var(--bg)}
 .offer i{display:block;width:46px;flex:none;height:6px;border-radius:var(--r-pill);background:var(--track);overflow:hidden}
-.offer i b{display:block;height:100%;background:var(--stamp)}
+.offer i b{display:block;height:100%;background:var(--stamp);transform:translateX(-100%);transition:transform var(--dur) var(--ease-out)}
 .offer .ot{font-variant-numeric:tabular-nums;color:var(--on-ink-accent)}
 .streak{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin:var(--sp-7) 0 var(--sp-2)}
 .dbox{padding:var(--sp-3) 0;font:600 var(--fs-7)/1.1 var(--mono);text-align:center;position:relative;border-radius:var(--r-sm);background:var(--surface);border:1.5px solid var(--line);color:var(--muted)}
@@ -387,10 +382,11 @@ body:has(#sumBar:not([hidden])) #rifki{visibility:hidden}
 .car.v{width:6px;height:14px;box-shadow:inset 0 -4px 0 var(--car-hi)}
 .car.v.rev{box-shadow:inset 0 4px 0 var(--car-hi)}
 .ped{position:absolute;left:0;top:0;width:3px;height:3px;border-radius:var(--r-round);background:var(--lane)}
-.car.taxi{width:18px;height:8px;background:var(--haz);pointer-events:auto;cursor:pointer;box-shadow:0 0 0 2px var(--hk),0 0 12px 3px var(--haz);animation:taxiGlow .8s ease-in-out infinite}
+.car.taxi{width:18px;height:8px;background:var(--haz);pointer-events:auto;cursor:pointer;box-shadow:0 0 0 2px var(--hk),0 0 12px 3px var(--haz)}
+.car.taxi::after{content:"";position:absolute;inset:-5px;border-radius:var(--r-md);box-shadow:0 0 12px 5px var(--haz);opacity:.3;animation:taxiGlow .8s ease-in-out infinite;pointer-events:none} /* parıltı ayrı katmanda: yalnız opacity */
 .car.taxi.v{width:8px;height:18px}
 .car.taxi::before{content:"";position:absolute;inset:-16px}
-@keyframes taxiGlow{50%{box-shadow:0 0 0 2px var(--hk),0 0 20px 7px var(--haz)}}
+@keyframes taxiGlow{50%{opacity:1}}
 .ad-prem{border:none;background:none;color:var(--ad-gold);font:600 var(--fs-4) var(--cond);letter-spacing:.06em;text-transform:uppercase;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:var(--sp-5)}
 
 /* ===== A3 · Senet arayüzü: tahta aynı, çevresi tapu senedi ===== */
@@ -430,9 +426,6 @@ svg .inked polygon:not(.sh), svg .inked rect:not(.net):not(.hz):not(.hk), .lot.b
 .chip.got:disabled{color:var(--stamp);box-shadow:inset 0 0 0 1.5px var(--stamp)}
 .dk .dot,.dk:active .dot{background:var(--stamp)}
 
-@media (prefers-reduced-motion: reduce){
-  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
-}
 
 /* ===== çok şehirli harita, başlangıç ili seçimi, boşta duraklatma ===== */
 .d-5 .k-ev{--cf:var(--stone-f);--cs:var(--stone-s);--ct:var(--stone-f);--gl:var(--win-blue);--gl2:var(--win-blue2)}
@@ -549,15 +542,15 @@ body.idle *,body.idle *::before,body.idle *::after{animation-play-state:paused!i
 .boost.collect .core{background:var(--stamp-fill);color:var(--on-accent);border-color:color-mix(in srgb,var(--stamp-fill) 70%,#fff)}
 .boost.collect .bx{font:700 var(--fs-7)/1 var(--cond);letter-spacing:.08em}
 .boost.collect .bsub{font:600 var(--fs-1)/1 var(--mono);margin-top:3px;letter-spacing:0}
-.boost.collect.full .rfg{animation:ringpulse 1.2s ease-in-out infinite}
-@keyframes ringpulse{50%{stroke-width:8}}
+.boost.collect.full::after{content:"";position:absolute;inset:0;border-radius:var(--r-round);border:6px solid var(--stamp);opacity:0;animation:ringpulse 1.2s ease-in-out infinite;pointer-events:none} /* dolu halka nabzı: ayrı katmanda opacity/scale (stroke-width boyaması yok) */
+@keyframes ringpulse{50%{opacity:.6}}
 .boost.collect.auto .core{background:var(--bg);color:var(--ink);border-color:var(--ink)}
 .boost.collect.auto .bx{font:600 var(--fs-9)/1 var(--mono);letter-spacing:0}
 .boost.collect.auto .bsub{font-size:var(--fs-xs)}
 .boost.collect.auto .rbg{stroke:var(--ink);stroke-dasharray:4 5}
 .boost.collect.auto .rfg{stroke:transparent}
 .lot .fill{position:absolute;left:12%;right:12%;bottom:6%;height:7px;border-radius:var(--r-pill);background:var(--surface);box-shadow:0 0 0 1.5px var(--ink);overflow:hidden;pointer-events:none;z-index:2}
-.lot .fill i{display:block;height:100%;background:var(--ink);transition:width .4s}
+.lot .fill i{display:block;height:100%;background:var(--ink);transform:translateX(-100%);transition:transform .25s linear} /* doluluk: board.ts translateX ile yerinde günceller (genişlik boyaması yok) */
 .lot .fill.full i{background:var(--stamp)}
 .lot .lb2{position:absolute;top:4px;right:4px;z-index:3;background:var(--stamp-fill);color:var(--on-accent);font:600 var(--fs-tile)/1 var(--mono);padding:3px 5px;border-radius:var(--r-sm);pointer-events:none}
 .cmode{display:flex;flex-direction:column;gap:var(--sp-4);margin-bottom:var(--sp-8)}
@@ -617,10 +610,15 @@ body.idle *,body.idle *::before,body.idle *::after{animation-play-state:paused!i
 .nb.emp{border-style:dashed;color:var(--muted)} .nb.none{color:var(--muted)} .nb.off{visibility:hidden}
 .nbnote{margin:var(--sp-3) 0 0}
 /* 5 · mevsimler */
-.kis .board::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:4;opacity:.9;
+.snow{display:none;position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:4}
+.kis .snow{display:block}
+/* kar: iki katman ayrı hızlarda aşağı kayar (yalnız transform; arka plan konumu animasyonu tüm tahtayı her karede boyuyordu) */
+.snow::before,.snow::after{content:"";position:absolute;left:0;right:0;top:-200px;bottom:0;opacity:.9;will-change:transform;
   background-image:radial-gradient(circle at 20px 30px,var(--snow) 0 2px,var(--snow-edge) 2.6px,transparent 3.2px),radial-gradient(circle at 80px 120px,var(--snow) 0 2px,var(--snow-edge) 2.6px,transparent 3.2px),radial-gradient(circle at 150px 60px,var(--snow) 0 1.5px,var(--snow-edge) 2px,transparent 2.6px),radial-gradient(circle at 220px 160px,var(--snow) 0 2px,var(--snow-edge) 2.6px,transparent 3.2px),radial-gradient(circle at 300px 90px,var(--snow) 0 1.5px,var(--snow-edge) 2px,transparent 2.6px);
   background-size:320px 200px;animation:snow 9s linear infinite}
-@keyframes snow{to{background-position:30px 200px,-20px 200px,15px 200px,-10px 200px,25px 200px}}
+.snow::after{top:-400px;background-position:160px 40px;background-size:320px 400px;opacity:.6;animation-duration:15s;animation-name:snow2}
+@keyframes snow{to{transform:translateY(200px)}}
+@keyframes snow2{to{transform:translateY(400px)}}
 /* 6 · haftanın özel tapusu */
 .k-ozel .art{filter:drop-shadow(0 0 0 transparent)}
 .lot.k-ozel{background:var(--lot-ozel)}
@@ -648,7 +646,7 @@ body.idle .rifki,body.idle .rifki *,body.idle .lot .teslim{animation-play-state:
 .distbar .dl b{font:700 var(--fs-4)/1 var(--cond);letter-spacing:.06em;text-transform:uppercase}
 .distbar .dl i{font:600 var(--fs-1) var(--mono);font-style:normal;color:var(--stamp)}
 .dp{display:block;height:8px;border-radius:var(--r-pill);background:var(--line);overflow:hidden;box-shadow:inset 0 0 0 1px var(--ink)}
-.dp u{display:block;height:100%;background:var(--ink);transition:width .4s}
+.dp u{display:block;height:100%;background:var(--ink);transform:translateX(-100%);transition:transform var(--dur) var(--ease-out)}
 .dp u.kp{background:repeating-linear-gradient(-45deg,var(--gold-ink) 0 4px,color-mix(in srgb,var(--gold-ink) 70%,var(--ink)) 4px 6px)} /* kapora: yatakla ≥3:1, taramalı (tamamlanma çubuğundan ayrışır) */
 .distbar small{font:500 var(--fs-1) var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sumbar{z-index:8;display:flex;align-items:center;gap:var(--sp-5);min-height:44px;background:var(--ink);color:var(--surface);border:none;border-radius:var(--r-hud);padding:var(--sp-4) var(--sp-6);box-shadow:var(--sh-hud);animation:rkin .3s ease-out;cursor:pointer;text-align:left;font:inherit} /* dokununca kapanır (district.ts) */
@@ -687,13 +685,9 @@ body.idle .sumbar{animation-play-state:running!important}
 /* ---------- keyif paketi (tasarım H1–H8) ---------- */
 /* 1 · TOPLA anı */
 .gain{position:absolute;left:0;top:100%;margin-top:var(--sp-1);font:600 var(--fs-3) var(--mono);color:var(--up);background:var(--surface);border:1.5px solid var(--up);border-radius:var(--r-md);padding:var(--sp-1) var(--sp-4);pointer-events:none;white-space:nowrap;z-index:8}
-.gain.go{animation:gainup 1.6s ease-out forwards}
-@keyframes gainup{0%{transform:translateY(6px);opacity:0}15%{transform:none;opacity:1}75%{opacity:1}100%{transform:translateY(-10px);opacity:0}}
 .bigstamp{position:fixed;left:calc(var(--ovl-l,16px) + var(--ovl-w,calc(100vw - 32px)) / 2);bottom:calc(var(--ovl-b,50%) + 12px);z-index:9;width:170px;margin-left:-85px;padding:var(--sp-4) var(--sp-2);display:flex;flex-direction:column;align-items:center;border:4px solid var(--stamp);border-radius:var(--r-md);outline:1.4px solid var(--stamp);outline-offset:-9px;background:var(--surface);color:var(--stamp);transform:rotate(-10deg);pointer-events:none}
 .bigstamp b{font:700 var(--fs-10)/1 var(--cond);letter-spacing:.1em}
 .bigstamp small{font:600 var(--fs-3xs) var(--mono);letter-spacing:.2em}
-.bigstamp.go{animation:stampin .5s var(--ease-spring)}
-body.idle .bigstamp,body.idle .gain{animation-play-state:running!important}
 .fly::after{content:var(--cur,"₺");display:grid;place-items:center;height:100%;color:var(--on-accent);font:600 var(--fs-1) var(--mono)}
 /* 2 · piyasa */
 .x2.mk{background:var(--up-fill);color:var(--on-accent)}
@@ -912,3 +906,39 @@ body.idle .bigstamp,body.idle .gain{animation-play-state:running!important}
 .u-bg-stamp{background:var(--stamp)!important}
 .u-pull{margin:-6px 0 var(--sp-7)!important}
 .u-num{font:700 var(--fs-12) var(--cond)!important}
+
+/* ---------- basma geri bildirimi (tüm düğme türleri) ----------
+   Ortak: 100 ms'de %97'ye iner. :where() ile özgüllük düşük tutulur; kendi :active dönüşümü olan düğmeler (altın düğme,
+   alt çubuk, teklif hapı, semt çubuğu, il seçimi) aşağıda o dönüşüme ölçeği ekler. Arsa (.lot) kendi ölçeğini kullanır. */
+:where(.btn,.bcard,.txt,.chip,.linkbtn,.sw,.distbar,.offer,.guidetab,.rk-bub,.rk-x,.dk,.cityopt,.drow,.gditem,.gdback,.gdnav button,.cm,.iconbtn,.sh-x,.sumbar,.ad-x,.ad-prem){transition:transform 100ms var(--ease-out)}
+:where(.btn,.bcard,.txt,.chip,.linkbtn,.sw,.distbar,.offer,.guidetab,.rk-bub,.rk-x,.dk,.cityopt,.drow,.gditem,.gdback,.gdnav button,.cm,.iconbtn,.sh-x,.sumbar,.ad-x,.ad-prem):active:not(:disabled){transform:scale(.97)}
+.btn.gold:active:not(:disabled){transform:translateY(2px) scale(.97)}
+.dk:active{transform:translateY(1px) scale(.97)}
+.offer:active,.distbar:active,.cityopt:active{transform:translateY(1px) scale(.97)}
+
+/* kapanan kartın kopyası (modal.ts): etkileşimsiz, asıl kartın hemen altında */
+.modal-out{z-index:29}
+.modal-out .card{animation:none}
+
+/* ---------- hareketi azalt ----------
+   Genel "her şeyi sıfırla" kuralı yok: her hareket tek tek ele alınır. Sonsuz göstergeler durağan görünür (bilgi kaybolmaz),
+   giriş/çıkışlar hareket yerine 120–150 ms opaklıkla olur, yol/araç/kar durur. JS animasyonları ctx.ts reduceMotion'a bakar. */
+@keyframes rmFade{from{opacity:0}}
+@media (prefers-reduced-motion: reduce){
+  .lot.hint{animation:none}
+  .lot.hint::before{animation:none;opacity:1}
+  .lot.hot::after{animation:none;opacity:.85}
+  .boost.collect.full::after{animation:none;opacity:.6}
+  .car.taxi::after{animation:none;opacity:.8}
+  .snow::before,.snow::after{animation:none}
+  .card,.rifki,.sumbar,.lot .teslim{animation:rmFade 140ms linear}
+  .guidetab.wig,.sgrid .sc.rd{animation:none}
+  .sheet{opacity:0;transition:opacity 140ms linear,transform 0s 140ms}
+  .sheet.on{opacity:1;transition:opacity 140ms linear,transform 0s}
+  .sheet.drag{transition:none}
+  .scrim{transition:opacity 140ms linear}
+  .toast,.toast.on{transform:translate(-50%,0)}
+  .toast{transition:opacity 140ms linear,visibility 0s 140ms}
+  .toast.on{transition:opacity 140ms linear,visibility 0s}
+  .sw::after,.lot,.boost .rfg.tr,.dp u,.offer i b,.lot .fill i,:where(.btn,.bcard,.txt,.chip,.linkbtn,.sw,.distbar,.offer,.guidetab,.rk-bub,.rk-x,.dk,.cityopt,.drow,.gditem,.gdback,.gdnav button,.cm,.iconbtn,.sh-x,.sumbar,.ad-x,.ad-prem){transition:none}
+}

@@ -14,7 +14,7 @@ vi.mock('@capacitor/core', async orig => {
 vi.mock('@revenuecat/purchases-capacitor', () => ({
   Purchases: { configure: h.configure, getCustomerInfo: vi.fn(async () => ({ customerInfo: { entitlements: { active: {} } } })), getOfferings: h.offerings },
 }));
-vi.mock('@capacitor/haptics', () => ({ Haptics: { impact: h.impact }, ImpactStyle: { Medium: 'MEDIUM', Light: 'LIGHT' } }));
+vi.mock('@capacitor/haptics', () => ({ Haptics: { impact: h.impact, notification: vi.fn(async () => {}), selectionStart: vi.fn(async () => {}), selectionChanged: vi.fn(async () => {}), selectionEnd: vi.fn(async () => {}) }, ImpactStyle: { Medium: 'MEDIUM', Light: 'LIGHT' }, NotificationType: { Success: 'SUCCESS', Error: 'ERROR' } }));
 vi.mock('@capacitor-firebase/remote-config', () => ({ FirebaseRemoteConfig: { fetchAndActivate: h.fetch, getNumber: h.getNumber } }));
 vi.mock('../../src/ui/modal', () => ({ toast: h.toast, flushQueue: vi.fn(), openModal: vi.fn(), closeModal: vi.fn(), bump: vi.fn() }));
 
@@ -96,9 +96,11 @@ describe('Titreşim ayarı', () => {
   beforeEach(() => { setS(newState(0, 'x')); h.impact.mockClear(); });
   it('varsayılan açık; kapalıyken buzz titreştirmez; eski kayıtta alan yoksa açık sayılır', () => {
     expect(S.vib).toBe(true);
+    let t = 1e6; const pn = vi.spyOn(performance, 'now').mockImplementation(() => (t += 1000)); // ardışık çağrılar ayrı tiklerde (Adım 4: tik başına en fazla bir)
     buzz(30); expect(h.impact).toHaveBeenCalledTimes(1);
     S.vib = false; buzz(30); expect(h.impact).toHaveBeenCalledTimes(1);
     delete (S as any).vib; buzz(10); expect(h.impact).toHaveBeenCalledTimes(2);
+    pn.mockRestore();
   });
 });
 

@@ -15,6 +15,7 @@ import { persist } from './persist';
 import { Analytics } from '../services/analytics';
 import { SPECIALS } from '../specials';
 import { t, tk, nm, upper, pctTxt } from '../i18n';
+import { deny } from '../ui/motion';
 
 /* ---------- 2 · piyasa raporu kartı ---------- */
 export function showMarket() {
@@ -63,7 +64,7 @@ export const ACH: { id: string; n: string; d: string; ok: () => boolean }[] = [
 /** Yeni mühürleri verir (birkaç saniyede bir). */
 export function checkAch() {
   for (const a of ACH) if (!S.ach.includes(a.id) && a.ok()) {
-    S.ach.push(a.id); toast(t('Arşive mühür: {n}', { n: t(a.n) })); Snd.unlock(); buzz(12); persist();
+    S.ach.push(a.id); toast(t('Arşive mühür: {n}', { n: t(a.n) })); Snd.unlock(); buzz.light(); persist();
     if (S.ach.length % 4 === 0) toast(t('{n} mühür · tüm kiralar kalıcı +{p}', { n: S.ach.length, p: pctTxt(S.ach.length / 4) }));
     Analytics.log('ach', { id: a.id, n: S.ach.length });
   }
@@ -121,7 +122,7 @@ export function skinStyle(p: { sk?: { c?: number; r?: number } }): string {
 }
 export function setSkin(k: DistrictKey, i: number, patch: { c?: number; r?: number; s?: boolean }) {
   const p = lotsOf(S, k)[i]; if (!p) return;
-  if (patch.c != null && !skinUnlocked(patch.c)) { toast(t('Kilitli · {lock}', { lock: t(SKIN_COLORS[patch.c].lock || '') })); Snd.no(); return; }
+  if (patch.c != null && !skinUnlocked(patch.c)) { toast(t('Kilitli · {lock}', { lock: t(SKIN_COLORS[patch.c].lock || '') })); deny(); return; }
   p.sk = { ...(p.sk || {}), ...patch }; S.cnt.skin++; ui.tileSig[i] = ''; ui.sheetSig = ''; persist(); Snd.tap();
 }
 

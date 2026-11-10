@@ -1,5 +1,5 @@
 /* ANA EKRAN — üst bilgi, arsalar, birleşik parseller, yönlendirme balonu, sokak hayatı, dokunma */
-import { CFG, COLS, ROWS, N, TYPES, DMAP, CITIES } from '../config';
+import { CFG, COLS, ROWS, N, TYPES, DMAP, CITIES, DistrictKey } from '../config';
 import { t, nm, upper, pctTxt } from '../i18n';
 import { S, lotsOf } from '../state';
 import { fmt, fmtX, clock, rand, esc } from '../format';
@@ -12,7 +12,8 @@ import { progressInfo, builtCount, lienBlocks, obstacleSvg, OBSTACLES } from '..
 import { I } from '../icons';
 import { Snd, buzz } from '../sound';
 import { $, ui, reduceMotion } from './ctx';
-import { flyCoin, toast, openModal, closeModal } from './modal';
+import { flyCoin, toast, openModal, closeModal, cashText } from './modal';
+import { pop } from './motion';
 import { openSheet, renderSheet } from './sheets';
 import { addCash } from '../game/actions';
 import { track, tasksClaimable } from '../game/tasks';
@@ -26,26 +27,41 @@ export function render() {
   const bodyCls = 'd-' + d.v + (ui.idle ? ' idle' : '') + (ssn ? ' ' + ssn : '') + (night ? ' night' : '');
   if (document.body.className !== bodyCls) document.body.className = bodyCls;
   const dn = S.city ? `${nm(CITIES[d.city].n)} · ${nm(d.n)}` : t('İl seçimi'); const dEl = $('#dname'); if (dEl.textContent !== dn) dEl.textContent = dn;
-  const ca = ui.cashAnim; let cv = S.cash;
-  if (ca) { const q = (performance.now() - ca.t0) / 500; if (q >= 1) ui.cashAnim = null; else if (q > 0) cv = ca.from + (ca.to - ca.from) * (1 - Math.pow(1 - q, 3)) + (S.cash - ca.to); else cv = ca.from + (S.cash - ca.to); }
-  $('#cash').textContent = fmt(cv);
-  // semt ilerlemesi: bu semtin yüzdesi + altta gri yazıyla sonraki semt kaporası
+  if (!ui.cashAnim) cashText(S.cash); // TOPLA sonrası sayım sürerken kasayı yalnızca sayaç döngüsü yazar (modal.ts countUp)
+  // semt ilerlemesi: bu semtin yüzdesi + altta gri yazıyla sonraki semt kaporası. Çubuğun iskeleti yalnızca türü değişince
+  // kurulur; yazılar ve doluluk (translateX) yerinde güncellenir ki geçiş oynasın
   const pi = progressInfo(k), db = $('#distBar');
-  const dh = !S.city ? '' : pi.lien
-    ? `<span class="dl"><b>${t('{d} · kaporalı', { d: nm(d.n) })}</b><i>${t('borç {x}', { x: fmt(pi.lien) })}</i></span><span class="dp"><u style="width:${Math.round(100 * (1 - pi.lien / Math.max(pi.lien, S.lienT[k] || pi.lien)))}%" class="kp"></u></span><small>${t('{n}/{m} arsa açık · borç {d} kirasının yarısıyla ödeniyor', { n: builtCount(k), m: CFG.KAPORA_LOTS, d: nm(d.n) })}</small>`
-    : `<span class="dl"><b>${nm(d.n)} · ${pctTxt(pi.pct)}</b><i>${pi.f >= N ? t('tamamlandı') : t('bitirmeye {n} arsa kaldı', { n: N - pi.f })}</i></span><span class="dp"><u style="width:${pi.pct}%"></u></span>${pi.sub ? `<small>${pi.sub}</small>` : ''}`;
-  if (db.dataset.v !== dh) { const was = db.hidden; db.dataset.v = dh; db.innerHTML = dh; db.hidden = !dh; if (was !== db.hidden) requestAnimationFrame(() => fit()); } // çubuk belirince ızgara yeniden boyutlanır
+  const mode = !S.city ? '' : pi.lien ? 'L' : pi.sub ? 'Ns' : 'N';
+  if (db.dataset.v !== mode) {
+    const was = db.hidden; db.dataset.v = mode; db.hidden = !mode;
+    db.innerHTML = mode ? `<span class="dl"><b></b><i></i></span><span class="dp"><u${mode === 'L' ? ' class="kp"' : ''}></u></span>${mode !== 'N' ? '<small></small>' : ''}` : '';
+    if (was !== db.hidden) requestAnimationFrame(() => fit()); // çubuk belirince ızgara yeniden boyutlanır
+  }
+  if (mode) {
+    const L = mode === 'L', q = (sel: string) => db.querySelector(sel) as HTMLElement | null;
+    setText(q('.dl b'), L ? t('{d} · kaporalı', { d: nm(d.n) }) : `${nm(d.n)} · ${pctTxt(pi.pct)}`);
+    setText(q('.dl i'), L ? t('borç {x}', { x: fmt(pi.lien) }) : pi.f >= N ? t('tamamlandı') : t('bitirmeye {n} arsa kaldı', { n: N - pi.f }));
+    setText(q('small'), L ? t('{n}/{m} arsa açık · borç {d} kirasının yarısıyla ödeniyor', { n: builtCount(k), m: CFG.KAPORA_LOTS, d: nm(d.n) }) : pi.sub || '');
+    setFill(q('.dp u'), L ? 1 - pi.lien / Math.max(pi.lien, S.lienT[k] || pi.lien) : pi.pct / 100);
+  }
   const rateHtml = `${t('{rate}/sn', { rate: fmt(totalRate(true), true) })}${boosted ? '<span class="x2">2x</span>' : ''}${S.premium ? '<span class="x2">PRO</span>' : ''}<span class="x2 mk">${marketChip()}</span>${S.shares ? `<span class="x2">${I.crown.replace('<svg', '<svg width="10" height="10"')} ${fmtX(1 + 0.1 * S.shares)}</span>` : ''}`;
   if (ui.rateHtml !== rateHtml) { ui.rateHtml = rateHtml; $('#rate').innerHTML = rateHtml; }
   const op = $('#offerPill'), o = S.offer;
-  if (o && !o.done) { const h = `<span class="otl">${esc(t(o.title))}</span> <i><b style="width:${o.prog / o.goal * 100}%"></b></i> ${o.prog}/${o.goal} <span class="ot">${clock(o.until - tn)}</span>`; if (op.dataset.v !== h) { op.dataset.v = h; op.innerHTML = h; } op.hidden = false; } else op.hidden = true;
+  if (o && !o.done) {
+    const ttl = t(o.title); if (op.dataset.v !== ttl) { op.dataset.v = ttl; op.innerHTML = `<span class="otl">${esc(ttl)}</span><i><b></b></i><span class="opg"></span><span class="ot"></span>`; }
+    setFill(op.querySelector('i b'), o.prog / o.goal); setText(op.querySelector('.opg'), `${o.prog}/${o.goal}`); setText(op.querySelector('.ot'), clock(o.until - tn)); op.hidden = false;
+  } else op.hidden = true;
   $('#taskDot').hidden = !tasksClaimable();
   $('#menuDot').hidden = !(canHolding() || seasonClaimable());
   // orta mühür: TOPLA (bekleyen kira + kumbara doluluğu) ya da OTO (saniyelik kira)
   const auto = S.collectMode === 'auto', pd = auto ? { amount: 0, fill: 1 } : pending();
-  const cb = $('#collectBtn'), cls = 'boost collect' + (auto ? ' auto' : pd.fill >= .999 ? ' full' : '') + (cb.classList.contains('nudge') ? ' nudge' : '');
+  const cb = $('#collectBtn'), cls = 'boost collect' + (auto ? ' auto' : pd.fill >= .999 ? ' full' : '');
   if (cb.className !== cls) cb.className = cls;
-  $('#ringFg').style.strokeDashoffset = String(245 * (1 - pd.fill));
+  // halka: yalnızca gözle görülür bir değişimde ve oyuncu boşta değilken yazılır (her tikte yeniden başlayan geçiş = sürekli boyama)
+  const ro = 245 * (1 - pd.fill);
+  if (!ui.idle && Math.abs(ro - ringV) > .6 || (ro !== ringV && (pd.fill >= .999 || pd.fill === 0))) {
+    const rf = $('#ringFg'); rf.classList.toggle('tr', ringV >= 0 && Math.abs(ro - ringV) > 12); ringV = ro; rf.style.strokeDashoffset = ro.toFixed(1);
+  }
   const main = auto ? t('OTO') : t('TOPLA'), sub = auto ? t('{rate}/sn', { rate: fmt(totalRate(true), true) }) : fmt(pd.amount);
   const cm = $('#cmain'); if (cm.textContent !== main) { cm.textContent = main; cb.setAttribute('aria-label', auto ? t('Kiralar otomatik toplanıyor') : t('Tüm kiraları topla')); }
   const cs = $('#csub'); if (cs.textContent !== sub) cs.textContent = sub;
@@ -54,11 +70,12 @@ export function render() {
   for (let i = 0; i < N; i++) {
     const el = ui.tiles[i], p = lots[i];
     let sig: string;
+    liveFill(i, el, p, k);
     const lockE = !p && lienBlocks(k);
     if (!p) sig = 'e' + (i === hintI ? 1 : 0) + (lockE ? 'L' : '');
     else if (p.ob) sig = 'ob|' + p.ob + (ui.teslim[i] && ui.teslim[i].at > performance.now() ? 1 : 0);
     else {
-      const coin = S.collectMode === 'auto' || !producing(p) ? -1 : Math.round(coinFill(k, i) * 10);
+      const coin = S.collectMode === 'auto' || !producing(p) ? -1 : 0; // doluluk çubuğu kalıcı: değeri aşağıda yerinde güncellenir
       const lb = (p.bu || 0) > tn ? 1 : 0;
       const prog = p.until ? Math.floor((1 - (p.until - tn) / p.dur) * 20) : 0; // %5 adım: gereksiz yeniden çizim yok
       const hot = producing(p) && fxMult(k, i, p, tn) > 1;
@@ -87,14 +104,29 @@ export function render() {
     const tsl = ui.teslim[i];
     if (tsl && tsl.at > performance.now()) h += `<span class="teslim"><b>${t('TESLİM')}</b><small>${tsl.txt}</small></span>`;
     // para baloncuğu yok: ince doluluk çubuğu (tek tuş modunda) ve mülke özel 2x etiketi
-    if (producing(p) && S.collectMode !== 'auto') { const f = coinFill(k, i); h += `<span class="fill${f >= .999 ? ' full' : ''}"><i style="width:${Math.round(f * 100)}%"></i></span>`; }
+    if (producing(p) && S.collectMode !== 'auto') { const f = coinFill(k, i); h += `<span class="fill${f >= .999 ? ' full' : ''}"><i style="transform:${fillTf(f)}"></i></span>`; }
     if ((p.bu || 0) > tn) h += '<span class="lb2">2x</span>';
     if (p.sk && p.sk.s && !p.until) h += `<span class="tab">${p.sp ? t('ÖZEL') : upper(t(TYPES[p.t].n))}</span>`;
     el.innerHTML = h; el.style.cssText = skinStyle(p);
     el.setAttribute('aria-label', t('{name}, seviye {lvl}', { name: p.sp ? t(specialOf(p.sp).n) : t(TYPES[p.t].n), lvl: p.lvl }) + (p.until ? t(', inşaatta') : '') + ((p.bu || 0) > tn ? t(', 2x kazanıyor') : ''));
   }
+  if (ui.pop.size) { for (const i of ui.pop) pop(ui.tiles[i] && ui.tiles[i].querySelector('svg.art')); ui.pop.clear(); } // inşaat başlangıcı / teslim
   renderLinks(); renderBubble();
   if (ui.sheet) renderSheet();
+}
+let ringV = -1;
+const setText = (el: Element | null, v: string) => { if (el && el.textContent !== v) el.textContent = v; };
+/** Doluluk (0–1): tam genişlikteki dolgu taşmayı kesen kabın içinde translateX ile kayar (genişlik/boyama yok; scaleX
+ *  taramalı kapora dolgusunu bozardı). Yalnızca değişince yazılır; geçiş compositor'da oynar. */
+const fillTf = (f: number) => `translateX(${((Math.max(0, Math.min(1, f)) - 1) * 100).toFixed(1)}%)`;
+function setFill(el: Element | null, f: number) { if (!el) return; const v = fillTf(f); const st = (el as HTMLElement).style; if (st.transform !== v) st.transform = v; }
+/** Kira doluluk çubuğu karo yeniden çizilmeden yerinde güncellenir (translateX; %1 adım). */
+function liveFill(i: number, el: HTMLElement, p: ReturnType<typeof lotsOf>[number], k: DistrictKey) {
+  if (!p || p.ob || p.until || !producing(p) || S.collectMode === 'auto') return;
+  const b = el.querySelector('.fill') as HTMLElement | null; if (!b) return;
+  const f = coinFill(k, i), full = f >= .999; if (b.classList.contains('full') !== full) b.classList.toggle('full', full);
+  // boştayken yalnızca dolunca yazılır (kare üretmesin)
+  if ((!ui.idle && Math.abs(f - +(b.dataset.f ?? -1)) >= .01) || (full && b.dataset.f !== '1')) { b.dataset.f = full ? '1' : f.toFixed(3); setFill(b.firstElementChild, f); }
 }
 /* aynı türden komşu arsalar tek parsel gibi görünür (komşuluk bonusu) */
 export function mergeSides(i: number): string {
@@ -217,14 +249,15 @@ export function drawGuilloche() {
 /* ---------- SOKAK HAYATI — araçlar, yayalar ve altın taksi; boşta durur ---------- */
 const CAR_COLORS = ['var(--sgn)', 'var(--fr)', 'var(--sol)', 'var(--aw1)', 'var(--pl)', 'var(--ofis-s)', 'var(--kafe-f)'];
 export const Street = {
-  low: null as HTMLElement | null, high: null as HTMLElement | null, n: 0,
+  low: null as HTMLElement | null, high: null as HTMLElement | null, n: 0, anims: new Set<Animation>(),
   init() {
     const g = $('#grid'); this.low = document.createElement('div'); this.low.className = 'street'; this.high = document.createElement('div'); this.high.className = 'street top';
     g.prepend(this.low); g.appendChild(this.high); this.loop();
   },
   spawn(kind: 'car' | 'ped' | 'taxi') {
     if (kind !== 'taxi' && document.body.classList.contains('night') && Math.random() < .6) return; // gece sokaklar sakin
-    if (document.hidden || (ui.idle && kind !== 'taxi') || (reduceMotion && kind !== 'taxi') || this.n > 8) return;
+    // altın taksi sınırdan ve boşta kuralından muaf: zamanı geldiyse mutlaka çıkar (ödül kaybolmaz; boştaysa oyuncu dönene dek bekler)
+    if (document.hidden || (ui.idle && kind !== 'taxi') || (reduceMotion && kind !== 'taxi') || (this.n > 8 && kind !== 'taxi')) return;
     const s = ui.sw, sh = ui.sh, g = ui.gap, off = ui.pad, Wd = COLS * s + (COLS - 1) * g + 2 * off, Ht = ROWS * sh + (ROWS - 1) * g + 2 * off, taxi = kind === 'taxi', ped = kind === 'ped';
     const horiz = Math.random() < .5, fwd = Math.random() < .5, e = document.createElement('div');
     e.className = ped ? 'ped' : 'car' + (taxi ? ' taxi' : '') + (horiz ? '' : ' v') + (fwd ? '' : ' rev');
@@ -238,13 +271,16 @@ export const Street = {
     const tf = (x: number) => horiz ? `translateX(${x}px)` : `translateY(${x}px)`;
     if (!e.animate) { e.remove(); this.n--; return; }
     const an = e.animate([{ transform: tf(from) }, { transform: tf(to) }], { duration: dur, easing: 'linear' });
-    an.onfinish = () => { e.remove(); this.n--; };
-    if (taxi) e.addEventListener('pointerdown', ev => { ev.stopPropagation(); an.cancel(); catchTaxi(e); this.n--; }, { once: true });
+    this.anims.add(an); if (ui.idle) an.pause();
+    an.onfinish = () => { this.anims.delete(an); e.remove(); this.n--; };
+    if (taxi) e.addEventListener('pointerdown', ev => { ev.stopPropagation(); this.anims.delete(an); an.cancel(); catchTaxi(e); this.n--; }, { once: true });
   },
+  /** Boşta sokak durur (pil): yoldaki araçlar olduğu yerde bekler, oyuncu dönünce devam eder. */
+  idle(on: boolean) { for (const a of this.anims) { if (on) a.pause(); else a.play(); } },
   loop() { setTimeout(() => { this.spawn(Math.random() < .25 ? 'ped' : 'car'); this.loop(); }, rand(900, 2200)); },
 };
 function catchTaxi(el: HTMLElement) {
-  const amt = Math.max(100, totalRate(false) * 120); addCash(amt); track('taxi'); Snd.reward(); buzz(20);
+  const amt = Math.max(100, totalRate(false) * 120); addCash(amt); track('taxi'); Snd.reward(); buzz.success();
   const r = el.getBoundingClientRect(), dot = document.createElement('span'); dot.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
   document.body.appendChild(dot); flyCoin(dot); setTimeout(() => dot.remove(), 50); el.remove();
   toast(t('Altın taksi: {amt}', { amt: fmt(amt) }));

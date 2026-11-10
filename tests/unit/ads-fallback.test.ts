@@ -22,7 +22,7 @@ vi.mock('../../src/game/actions', () => ({ addCash: h.addCash, addBoost: vi.fn()
 vi.mock('../../src/game/persist', () => ({ persist: vi.fn(), persistSync: vi.fn() }));
 vi.mock('../../src/game/fun', () => ({ addXp: vi.fn() }));
 vi.mock('../../src/game/tasks', () => ({ track: vi.fn() }));
-vi.mock('../../src/sound', () => ({ Snd: new Proxy({}, { get: () => () => {} }), buzz: vi.fn() }));
+vi.mock('../../src/sound', () => ({ Snd: new Proxy({}, { get: () => () => {} }), buzz: Object.assign(vi.fn(), { light: vi.fn(), medium: vi.fn(), success: vi.fn(), error: vi.fn(), select: vi.fn() }) }));
 
 import { newState, setS, S } from '../../src/state';
 import { showEvent } from '../../src/game/events';

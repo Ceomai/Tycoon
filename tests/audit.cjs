@@ -11,6 +11,14 @@ const metrics={}; const results=[];
 let section='';
 const ok=(c,m)=>{ results.push({section,name:m,pass:!!c}); log(c?'  ✓':'  ✗',m); };
 
+/** Kaydı bir sonraki yüklemede, oyun başlamadan yerleştirir ve sayfayı yeniler.
+ *  (Doğrudan localStorage + reload yarışlı: oyunun pagehide → persistSync'i test kaydını ezebiliyor.) */
+async function injectReload(p){
+  await p.evaluate(()=>sessionStorage.setItem('__inj',JSON.stringify(window.__tapuState())));
+  if(!p.__injHook){ p.__injHook=1; await p.addInitScript(()=>{ const v=sessionStorage.getItem('__inj'); if(v){ sessionStorage.removeItem('__inj'); localStorage.setItem('tapu-save-v2',v); } }); }
+  await p.reload();
+}
+
 async function open(b,o={}){
   const ctx=await b.newContext({viewport:o.vp||{width:390,height:844},deviceScaleFactor:o.dpr||2,colorScheme:o.scheme||'light',reducedMotion:o.motion||'no-preference',offline:!!o.offline,isMobile:true,hasTouch:true}); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`);
   const p=await ctx.newPage(); p.errs=[];
@@ -58,14 +66,12 @@ const fillFn=(S,a)=>{ const T=['ev','kafe','dukkan','ofis']; S.d[a.k]=Array.from
 
  log('P03 3 gün sonra dönen oyuncu (çevrimdışı kazanç tavanı)');
  p=await open(b); await start(p); await mut(p,fillFn,{k:'ist-0',t:'ev',lvl:3});
- await mut(p,S=>{ S.lastSeen=Date.now()-3*864e5; S.maxSeen=S.lastSeen; S.cash=0; }); await p.evaluate(()=>{ localStorage.setItem('tapu-save-v2',JSON.stringify(window.__tapuState())); });
- await p.reload(); await p.clock.runFor(1500);
+ await mut(p,S=>{ S.lastSeen=Date.now()-3*864e5; S.maxSeen=S.lastSeen; S.cash=0; }); await injectReload(p); await p.clock.runFor(1500);
  { const s=await S(p); const buf=s.d['ist-0'].reduce((a,q)=>a+(q?q.buf:0),0); ok(Number.isFinite(buf)&&buf>0,'P03 dönüşte kira birikmiş ('+Math.round(buf)+')'); metrics.offline3dBuf=Math.round(buf); }
  await dismiss(p); await sane(p,'P03'); await p.context().close();
 
  log('P04 saati geri alan oyuncu (hile)');
- p=await open(b); await start(p); await mut(p,S=>{ S.maxSeen=Date.now()+5*3600e3; S.lastSeen=S.maxSeen; }); await p.evaluate(()=>localStorage.setItem('tapu-save-v2',JSON.stringify(window.__tapuState())));
- await p.reload(); await p.clock.runFor(1500); { const s=await S(p); ok(s.clockFlag>=1,'P04 geri alınan saat yakalandı (clockFlag='+s.clockFlag+')'); } await dismiss(p); await sane(p,'P04'); await p.context().close();
+ p=await open(b); await start(p); await mut(p,S=>{ S.maxSeen=Date.now()+5*3600e3; S.lastSeen=S.maxSeen; }); await injectReload(p); await p.clock.runFor(1500); { const s=await S(p); ok(s.clockFlag>=1,'P04 geri alınan saat yakalandı (clockFlag='+s.clockFlag+')'); } await dismiss(p); await sane(p,'P04'); await p.context().close();
 
  log('P05 hızlı tıklayan oyuncu: TOPLA ×120, inşaat ×40, panel aç-kapa ×60');
  p=await open(b); await start(p); await mut(p,fillFn,{k:'ist-0',lvl:1}); await mut(p,S=>{ S.d['ist-0'][19]=null; S.cash=1000; });

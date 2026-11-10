@@ -16,6 +16,7 @@ import { addCash } from './actions';
 import { addXp } from './fun';
 import { persist } from './persist';
 import { Analytics } from '../services/analytics';
+import { deny } from '../ui/motion';
 
 /* ---------- kapora ---------- */
 export const kaporaOf = (k: DistrictKey) => Math.ceil(unlockInfo(k).fee * CFG.KAPORA);
@@ -28,7 +29,7 @@ export function payLien(k: DistrictKey, amount: number) {
   S.lien[k] -= amount;
   if (S.lien[k] <= 0.5) {
     delete S.lien[k]; delete S.lienT[k];
-    toast(t('{d} tapusu tamamen senin · 20 arsa açıldı', { d: nm(DMAP[k].n) })); Snd.unlock(); buzz(30);
+    toast(t('{d} tapusu tamamen senin · 20 arsa açıldı', { d: nm(DMAP[k].n) })); Snd.unlock(); buzz.success();
     ui.sheetSig = ''; ui.tileSig = []; persist();
     Analytics.log('kapora_paid', { district: k });
   }
@@ -36,7 +37,7 @@ export function payLien(k: DistrictKey, amount: number) {
 /** Kalan borcu kasadan kapatır. */
 export function closeLien(k: DistrictKey) {
   const d = S.lien[k]; if (!d) return;
-  if (S.cash < d) { Snd.no(); return; }
+  if (S.cash < d) { deny(); return; }
   S.cash -= d; payLien(k, d);
 }
 
@@ -60,9 +61,9 @@ export function placeObstacles(k: DistrictKey) {
 }
 export function clearObstacle(k: DistrictKey, i: number) {
   const p = lotsOf(S, k)[i]; if (!p || !p.ob) return;
-  const c = clearCost(k); if (S.cash < c) { Snd.no(); return; }
+  const c = clearCost(k); if (S.cash < c) { deny(); return; }
   S.cash -= c; lotsOf(S, k)[i] = null; S.cnt.ob++; addXp(10);
-  const back = Math.round(c * (1.5 + Math.random())); addCash(back); bump(); Snd.wreck(); buzz(20);
+  const back = Math.round(c * (1.5 + Math.random())); addCash(back); bump(); Snd.wreck(); buzz.light();
   if (k === S.cur) ui.teslim[i] = { at: performance.now() + 1600, txt: `+${fmt(back)}` };
   ui.sheetSig = ''; ui.tileSig[i] = ''; persist();
   const left = lmLeft();

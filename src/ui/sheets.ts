@@ -7,7 +7,8 @@ import { bld, site, svg } from '../draw';
 import { LM, lmSvg } from '../landmarks';
 import { I, small } from '../icons';
 import { Snd, buzz } from '../sound';
-import { $, ui, SheetState, syncHistory } from './ctx';
+import { $, ui, SheetState, syncHistory, reduceMotion } from './ctx';
+import { play, fadeIn, DUR, EASE } from './motion';
 import { toast } from './modal';
 import { build, upgrade, skip, demolish, lotBoost, buyDistrict, switchDistrict, buySpecial, placeSpecial, specialPrice } from '../game/actions';
 import { specialSvg, specialOf, weekSpecial } from '../specials';
@@ -40,12 +41,13 @@ import { t, tk, nm, pctTxt, LANG, LANGS } from '../i18n';
 /** Panel açar. Açık bir panelden başka panele geçilirse önceki panel geri yığınına girer (geri tuşu oraya döner);
  *  yığında zaten olan bir panele geçmek (ör. "Mülke dön", "Kılavuz") yığını o noktaya kadar geri sarar. */
 export function openSheet(s: SheetState, fromBack = false) {
-  const prev = ui.sheet, wasOpen = !!prev;
+  const prev = ui.sheet, wasOpen = !!prev; let dir = fromBack ? -1 : 1;
   if (!fromBack) {
     if (!prev) ui.sheetStack = [];
-    else if (prev !== s) { const j = ui.sheetStack.findIndex(x => x.k === s.k); if (j >= 0) ui.sheetStack.length = j; else if (prev.k !== s.k) ui.sheetStack.push(prev); }
+    else if (prev !== s) { const j = ui.sheetStack.findIndex(x => x.k === s.k); if (j >= 0) { ui.sheetStack.length = j; dir = -1; } else if (prev.k !== s.k) ui.sheetStack.push(prev); }
   }
   ui.openedAt = performance.now(); ui.sheet = s; ui.sheetSig = ''; renderSheet();
+  if (wasOpen && prev !== s) slideBody(dir); // açık panelde içerik değişimi: yönüne göre kısa kayma + belirme
   const el = $('#sheet') as HTMLElement; el.inert = false; el.removeAttribute('aria-hidden'); el.classList.add('on'); $('#scrim').classList.add('on'); Snd.tap();
   if (wasOpen) el.scrollTop = 0;
   if (!wasOpen) { ui.sheetFocus = document.activeElement as HTMLElement | null; el.focus({ preventScroll: true }); }
@@ -56,6 +58,13 @@ export function closeSheet() {
   const f = ui.sheetFocus; ui.sheetFocus = null; if (!ui.modal && f && f.isConnected && document.activeElement && (document.activeElement as HTMLElement).closest?.('#sheet')) f.focus({ preventScroll: true });
   el.inert = true; el.setAttribute('aria-hidden', 'true'); // kapalı panel (ekran dışı) odak/ekran okuyucuya kapalı
   syncHistory();
+}
+/** Panel içi geçiş (~180 ms): ileri giderken yeni içerik sağdan, geri dönerken soldan kayarak belirir. Yalnız #sheetBody
+ *  hareket eder; panelin kendisi (sürükle-kapat, sheetdrag.ts) etkilenmez. Hareketi azalt: yalnız kısa opaklık. */
+function slideBody(dir: number) {
+  const b = $('#sheetBody') as HTMLElement;
+  if (reduceMotion) { fadeIn(b, 'nav', 120); return; }
+  play(b, 'nav', [{ transform: `translateX(${dir * 28}px)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: DUR.out, easing: EASE.out });
 }
 /** Geri (Android geri tuşu, tarayıcı geri, Esc): iç içe panelde bir önceki panele döner, yoksa paneli kapatır. */
 export function sheetBack() { const prev = ui.sheetStack.pop(); if (prev && ui.sheet) openSheet(prev, true); else closeSheet(); }
@@ -506,7 +515,7 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
   if (s.k === 'guide' && a === 'open') return openSheet({ k: 'guideItem', i: +btn.dataset.i! });
   if (s.k === 'guideItem') {
     if (a === 'list') return openSheet({ k: 'guide' });
-    if (a === 'prev' || a === 'next') { s.i = (s.i || 0) + (a === 'next' ? 1 : -1); ui.sheetSig = ''; $('#sheetBody').scrollTop = 0; return; }
+    if (a === 'prev' || a === 'next') { s.i = (s.i || 0) + (a === 'next' ? 1 : -1); ui.sheetSig = ''; $('#sheetBody').scrollTop = 0; renderSheet(); slideBody(a === 'next' ? 1 : -1); return; }
   }
   if (s.k === 'set' && a === 'guide') return openSheet({ k: 'guide' });
   if (s.k === 'ref') { if (a === 'copy') copyText(S.ref.code); if (a === 'sharetext') shareTextOnly(); if (a === 'usecode') await useCode(($('#refInput') || {}).value); }
@@ -526,7 +535,7 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
   if (s.k === 'set' && a === 'region') return switchRegion(btn.dataset.r as RegionId);
   if (s.k === 'set') {
     if (a === 'sound') { S.sound = !S.sound; persist(); Snd.tap(); }
-    if (a === 'vib') { S.vib = S.vib === false; persist(); Snd.tap(); buzz(15); }
+    if (a === 'vib') { S.vib = S.vib === false; persist(); Snd.tap(); buzz.select(); }
     if (a === 'theme') { const v = btn.dataset.v; if (isTheme(v) && v !== P.theme) { P.theme = v; void savePrefs(); applyTheme(v); Snd.tap(); } }
     if (a === 'night') { S.night = S.night === false; persist(); Snd.tap(); }
     if (a === 'rifki') { S.rifki = !S.rifki; if (!S.rifki) hideTip(); persist(); Snd.tap(); }

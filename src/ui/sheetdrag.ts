@@ -2,7 +2,7 @@
    (yüksekliğin %25'i) ya da hızlı fırlatma aşılırsa kapanır, aksi halde yerine yaylanır. Yatay düzende panel sağdan
    geldiği için sağa sürükleyerek kapanır. Kapanış her zaman verilen kapatma işlevinden geçer (closeSheet: geçmiş kaydı
    ve odak aynı yoldan eşitlenir). İçerik kaydırması bozulmaz: başlık dışından başlayan dikey sürükleme yalnızca panel en
-   üstteyken ve aşağı doğruysa yakalanır. Hareketi azalt açıkken geri yaylanma/kapanış animasyonsuzdur (genel kural). */
+   üstteyken ve aşağı doğruysa yakalanır. Hareketi azalt açıkken geri yaylanma anlıktır, kapanış kısa opaklıkla olur (styles.css hareketi azalt bölümü). */
 import { ui } from './ctx';
 
 const SLOP = 8;          // yön kararından önceki hareket (px)

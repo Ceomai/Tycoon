@@ -37,7 +37,7 @@ import { bindSheetDrag } from './ui/sheetdrag';
 import { render, fit, setupGrid, drawGuilloche, Street } from './ui/board';
 import { ensureTasks } from './game/tasks';
 import { catchUp } from './game/events';
-import { collectAll } from './game/actions';
+import { collectAll, switchDistrict } from './game/actions';
 import { toast } from './ui/modal';
 import { persist, persistSync } from './game/persist';
 import { tick, pickCity, firstRun, applyRegion, showRegionNews } from './game/loop';
@@ -88,6 +88,8 @@ function handleBack(): boolean {
 
 function bindUi() {
   document.addEventListener('pointerdown', () => { Snd.init(); ui.lastInput = performance.now(); }, { capture: true });
+  // başarısız işlemde sallanacak öğe: son basılan düğme (motion.ts deny)
+  document.addEventListener('click', e => { const b = (e.target as Element | null)?.closest?.('button,[role="button"]') as HTMLElement | null; if (b) { ui.lastPress = b; ui.lastPressAt = performance.now(); } }, { capture: true });
   // Esc (masaüstü): kartı kapatılabiliyorsa kapatır; paneli iç içe olsa da tümden kapatır (geri tuşu/tarayıcı geri bir önceki panele döner)
   document.addEventListener('keydown', e => { ui.lastInput = performance.now(); if (e.key !== 'Escape') return; if (ui.modal) modalBack(); else if (ui.sheet) closeSheet(); });
   $('#collectBtn').addEventListener('click', () => {
@@ -189,7 +191,7 @@ async function boot() {
   // satın alınan paketler tüm bölgelerde geçerli
   S.premium = S.premium || P.ent.premium; S.noAds = S.noAds || P.ent.noAds; S.club = S.club || P.ent.club;
 
-  if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult, totalRate: () => totalRate(true), showTip, toast, showSummary, bigStamp }; } // uçtan uca testler için (yalnızca önizleme paketi)
+  if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult, totalRate: () => totalRate(true), showTip, toast, showSummary, bigStamp, switchDistrict }; } // uçtan uca testler için (yalnızca önizleme paketi)
   setupGrid(); Street.init(); ensureTasks(); drawGuilloche(); bindUi(); fit();
   ui.lastInput = performance.now();
   render();

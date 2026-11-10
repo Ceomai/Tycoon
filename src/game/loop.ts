@@ -44,7 +44,7 @@ export function tick() {
       if (p.until && tn >= p.until) {
         p.until = 0; if (p.up) { p.lvl++; p.up = false; } else p.lvl = 1;
         if (k === S.cur) ui.teslim[i] = { at: pt + 1600, txt: t('{type} · kat {lvl}', { type: t(TYPES[p.t].n), lvl: p.lvl }) }; // tapu teslim mührü
-        if (k === S.cur && ui.tiles[i]) { const el = ui.tiles[i]; ui.tileSig[i] = ''; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+        if (k === S.cur && ui.tiles[i]) { ui.tileSig[i] = ''; ui.pop.add(i); } // teslim: render karoyu yeniden çizince pop oynar
         doneAny = true; if (k === S.cur) doneHere = true;
       }
       if (producing(p)) {
@@ -55,7 +55,7 @@ export function tick() {
       }
     }
   }
-  if (doneAny) { Snd.done(); if (doneHere) buzz(12); ui.sheetSig = ''; }
+  if (doneAny) { Snd.done(); if (doneHere) buzz.success(); ui.sheetSig = ''; }
   if (S.fx.length) S.fx = S.fx.filter(f => f.until > tn);
   if (S.boostUntil && S.boostUntil <= tn) { S.boostUntil = 0; toast(t('Tüm mülklere 2x bitti')); }
   if (!ui.ad) S.playMs += dt;
@@ -63,7 +63,7 @@ export function tick() {
   if (S.offer && !S.offer.done && S.offer.until <= tn) { toast(t('{title}: süre doldu', { title: t(S.offer.title) })); S.offer = null; }
   if (!ui.ad && S.playMs >= S.nextTaxi) { S.nextTaxi = S.playMs + (S.offer && S.offer.k === 'taxi' ? rand(18e3, 30e3) : rand(70e3, 130e3)); Street.spawn('taxi'); }
   // boşta: animasyonlar ve sokak hayatı durur (pil)
-  const idle = pt - ui.lastInput > CFG.IDLE_MS; if (idle !== ui.idle) ui.idle = idle;
+  const idle = pt - ui.lastInput > CFG.IDLE_MS; if (idle !== ui.idle) { ui.idle = idle; Street.idle(idle); }
   // bulut: kayıt ve skor seyrek gönderilir
   if (Cloud.ready() && dirty && pt - ui.lastCloudSave > CFG.CLOUD_SAVE_MS) { ui.lastCloudSave = pt; clearDirty(); void Cloud.pushSave(); }
   Cloud.maybePostScore();

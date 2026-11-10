@@ -19,7 +19,7 @@ vi.mock('@capacitor-community/admob', () => ({
 }));
 vi.mock('../../src/ui/modal', () => ({ toast: h.toast, flushQueue: vi.fn(), openModal: vi.fn(), closeModal: vi.fn(), bump: vi.fn() }));
 vi.mock('../../src/ui/board', () => ({ render: vi.fn() }));
-vi.mock('../../src/sound', () => ({ Snd: new Proxy({}, { get: () => () => {} }), buzz: vi.fn() }));
+vi.mock('../../src/sound', () => ({ Snd: new Proxy({}, { get: () => () => {} }), buzz: Object.assign(vi.fn(), { light: vi.fn(), medium: vi.fn(), success: vi.fn(), error: vi.fn(), select: vi.fn() }) }));
 vi.mock('../../src/ui/sheets', () => ({ openSheet: vi.fn(), closeSheet: vi.fn() }));
 
 import { Ads } from '../../src/services/ads';

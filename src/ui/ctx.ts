@@ -16,7 +16,13 @@ export function syncHistory() {
     else if (!open && at) { hist.ignore = 1; clearTimeout(hist.t); hist.t = setTimeout(histSettled, 3000); history.back(); } // emniyet: popstate hiç gelmezse kilit açılır (yeniden geri yapılmaz)
   } catch { /* geçmiş kullanılamıyor */ }
 }
-export const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** Hareketi azalt (sistem ayarı). Canlı bağ: ayar oyun açıkken değişirse dinleyici günceller (modal/board/motion okur). */
+export let reduceMotion = false;
+try {
+  const mq = matchMedia('(prefers-reduced-motion: reduce)'); reduceMotion = mq.matches;
+  const on = (e: MediaQueryListEvent) => { reduceMotion = e.matches; };
+  if (mq.addEventListener) mq.addEventListener('change', on); else if ((mq as any).addListener) (mq as any).addListener(on);
+} catch { /* matchMedia yok */ }
 
 export interface SheetState { k: string; key?: string; i?: number; del?: boolean; conf?: boolean; reset?: boolean; req?: boolean; rows?: any[] | null; [x: string]: any; }
 
@@ -47,4 +53,8 @@ export const ui = {
   cashAnim: null as null | { from: number; to: number; t0: number },
   /** Tapu teslim mührü: arsa → { bitiş zamanı, yazı } */
   teslim: {} as Record<number, { at: number; txt: string }>,
+  /** Bu karede yeniden çizilen karolardan hangilerinde pop oynayacak (render sonrası WAAPI ile; loop/actions işaretler) */
+  pop: new Set<number>(),
+  /** Son basılan düğme ve anı: başarısız işlemde sallanacak öğe (motion.ts deny) */
+  lastPress: null as HTMLElement | null, lastPressAt: 0,
 };
