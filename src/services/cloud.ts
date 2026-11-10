@@ -7,6 +7,7 @@
    Oyun koduna tek bir arayüz sunar; arka ucun ne olduğu bilinmez.
    ========================================================= */
 import { CFG } from '../config';
+import type { Account, Backend, LeagueView, RedeemResult, RemoteSave } from './backend';
 import { S } from '../state';
 import { weekKey } from '../format';
 import { now } from '../economy';
@@ -14,37 +15,17 @@ import { Time } from '../time';
 import { I } from '../icons';
 import { fmt } from '../format';
 import { openModal, closeModal, toast } from '../ui/modal';
-import { writeSave, lockSaves, readRegionSave, writeRegionSave } from '../storage';
+import { writeSaveForce, lockSaves, unlockSaves, cachedRegionSave, writeRegionSave } from '../storage';
 import { REGION, REGION_ORDER, RegionId } from '../config';
 import { Snd } from '../sound';
 import { Analytics } from './analytics';
-import { showLeagueResult, type LeagueResult } from '../game/league';
+import { adUser } from './ads';
+import { showLeagueResult } from '../game/league';
 import { addCash } from '../game/actions';
 import { inviteGift } from '../game/referral';
 import { t } from '../i18n';
 
-export type RedeemResult = 'ok' | 'invalid' | 'used' | 'error';
-export interface LbRow { name: string; district: string; earned: number; me: boolean; }
-export interface Account { enabled: boolean; linked: boolean; provider: string; apple: boolean; }
-export interface RemoteSave { json: string; savedAt: number; earned: number; }
-export interface Hello { now?: number; code?: string; grants?: number; league?: { tier: number; result: LeagueResult | null }; }
-export interface LeagueView { tier: number; group: string; rows: LbRow[]; myRank: number | null; size: number; }
-
-/** Arka uçların uyguladığı arayüz. */
-export interface Backend {
-  uid: string | null;
-  init(): Promise<boolean>;
-  hello(localCode: string): Promise<Hello>;
-  account(): Account;
-  link(p: 'google' | 'apple'): Promise<'linked' | 'switched' | 'fail'>;
-  deleteAccount(): Promise<boolean>;
-  pushSave(json: string, savedAt: number, earned: number): Promise<void>;
-  pullSave(): Promise<RemoteSave | null>;
-  postScore(p: { week: string; earned: number; district: string; shares: number; total: number }): Promise<void>;
-  /** Bu haftaki lig grubum (30 kişi); henüz gruba girmediysem null. */
-  league(week: string): Promise<LeagueView | null>;
-  redeemInvite(code: string): Promise<RedeemResult>;
-}
+export type { RedeemResult, LbRow, Account, RemoteSave, Hello, LeagueView, Backend } from './backend';
 
 let be: Backend | null = null;
 let isReady = false, lastPost = 0, posted = -1;
@@ -94,7 +75,7 @@ export const Cloud = {
     const sent = Date.now();
     try {
       const h = await be.hello(S.ref.code);
-      if (h.now) Time.setServer(h.now, sent, Date.now());
+      if (typeof h.now === 'number' && Number.isFinite(h.now) && h.now > 0) Time.setServer(h.now, sent, Date.now());
       if (h.code && h.code !== S.ref.code) S.ref.code = h.code;
       if (h.grants && h.grants > 0) grantInvites(h.grants);
       if (h.league) { S.league.tier = h.league.tier; if (h.league.result) showLeagueResult(h.league.result); }
@@ -164,10 +145,11 @@ export const Cloud = {
   async deleteAccount(): Promise<boolean> {
     if (!be || !isReady) return true; // bulutta veri yok: yerel silme yeterli
     const ok = await be.deleteAccount();
-    if (ok) { isReady = false; posted = -1; lgCache = null; lastPushed = -1; }
+    if (ok) { isReady = false; posted = -1; lgCache = null; lastPushed = -1; try { localStorage.removeItem(CHECK_KEY); } catch { /* yok */ } }
     return ok;
   },
 };
+adUser.uid = () => Cloud.uid();
 
 function grantInvites(n: number) {
   S.ref.rewarded += n;
@@ -179,20 +161,23 @@ function grantInvites(n: number) {
 async function bundle(): Promise<{ json: string; earned: number }> {
   const saves: Record<string, unknown> = {}; let earned = 0;
   for (const r of REGION_ORDER) {
-    const v: any = r === REGION ? S : await readRegionSave(r);
+    const v: any = r === REGION ? S : await cachedRegionSave(r); // diğer bölgeler önbellekten (diskten her seferinde değil)
     if (v && v.city) { saves[r] = v; earned += Number(v.earned) || 0; }
   }
   return { json: JSON.stringify({ b: 1, saves }), earned };
 }
+/** Bulut kaydını yükler: önce kayıtlar kilitlenir (oyunun periyodik yazmaları yüklenen kaydı ezmesin),
+ *  yüklenen kayıt kilidi aşarak doğrudan yazılır, yazma bitince sayfa yenilenir. */
 async function adopt(json: string) {
+  let obj: any;
+  try { obj = JSON.parse(json); } catch (e) { Analytics.error(e, 'cloud_adopt'); toast(t('Bulut kaydı açılamadı')); return; }
+  lockSaves();
   try {
-    const obj = JSON.parse(json);
     if (obj && obj.b === 1 && obj.saves) {   // çok bölgeli paket
       for (const r of REGION_ORDER) if (obj.saves[r] && r !== REGION) await writeRegionSave(r as RegionId, obj.saves[r]);
-      if (obj.saves[REGION]) await writeSave(obj.saves[REGION]);
-    } else if (REGION === 'tr') await writeSave(obj); // eski tek kayıt biçimi = Türkiye
+      if (obj.saves[REGION]) await writeSaveForce(obj.saves[REGION]);
+    } else if (REGION === 'tr') await writeSaveForce(obj); // eski tek kayıt biçimi = Türkiye
     else await writeRegionSave('tr', obj);
-    lockSaves();
-    location.reload();
-  } catch (e) { Analytics.error(e, 'cloud_adopt'); toast(t('Bulut kaydı açılamadı')); }
+  } catch (e) { unlockSaves(); Analytics.error(e, 'cloud_adopt'); toast(t('Bulut kaydı açılamadı')); return; }
+  location.reload();
 }

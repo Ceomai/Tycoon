@@ -1,24 +1,23 @@
 // Gelir modeli uçtan uca testleri (tasarım M1–M8): geçiş reklamı zamanlaması, reklam kredisi, 2x ipuçları,
 // ödül çarpanları, başlangıç paketi, mağaza basamakları, jetonlar, Kulüp, Altın Tapu ilk sezon indirimi.
 // Çalıştır: npm run test:gelir
-const {chromium}=require('playwright'); const path=require('path'); const fs=require('fs');
-const URL='file://'+path.resolve(__dirname,'../dist-preview/index.html'); const out=path.resolve(__dirname,'out')+'/'; fs.mkdirSync(out,{recursive:true});
-const fails=[]; const ok=(c,m)=>{ if(!c) fails.push(m); console.log(c?'  ✓':'  ✗',m); };
-async function open(b,vp={width:390,height:844}){ const ctx=await b.newContext({viewport:vp}); const p=await ctx.newPage(); p.errs=[]; p.on('pageerror',e=>p.errs.push(e.message)); await p.clock.install(); await p.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`); await p.goto(URL); await p.clock.runFor(500);
+const {chromium}=require('playwright');
+const { serve, out, PREF_IF, vis, stateNow, mut, makeTap, dismissCards, checker } = require('./helpers.cjs');
+let URL; // http://127.0.0.1:<port>/index.html — main başında serve() ile
+const { fails, ok }=checker();
+async function open(b,vp={width:390,height:844}){ const ctx=await b.newContext({viewport:vp}); const p=await ctx.newPage(); p.errs=[]; p.on('pageerror',e=>p.errs.push(e.message)); await p.clock.install(); await p.addInitScript(PREF_IF); await p.goto(URL); await p.clock.runFor(500);
   await p.click('#modal .cityopt[data-a="ist"]',{force:true}); await p.clock.runFor(400); await p.waitForTimeout(300); await dismiss(p); return p; }
-const S=p=>p.evaluate(()=>{ const o=JSON.parse(JSON.stringify(window.__tapuState())); o._now=Date.now(); return o; });
-const mut=(p,f,a)=>p.evaluate(([f,a])=>{ (0,eval)('('+f+')')(window.__tapuState(),a); },[f.toString(),a]);
-const tap=async(p,sel)=>{ await p.click(sel,{force:true,timeout:3000}).catch(()=>p.$eval(sel,e=>e.click())); await p.clock.runFor(400); await p.waitForTimeout(300); };
+const S=stateNow;
+const tap=makeTap({run:400,wait:300,fallback:true,timeout:3000});
 const store=async p=>{ await dismiss(p); await closeAd(p); if(await vis(p,'#sheet.on')){ await p.keyboard.press('Escape'); await p.clock.runFor(400); await p.waitForTimeout(300); } await tap(p,'#menuBtn'); await tap(p,'#sheet [data-a="store"]'); };
-const vis=(p,s)=>p.isVisible(s).catch(()=>false);
-async function dismiss(p){ for(let k=0;k<5&&await vis(p,'#modal .card');k++){ await p.click(await vis(p,'#modal .card .txt')?'#modal .card .txt':'#modal .card [data-a]',{force:true}).catch(()=>{}); await p.clock.runFor(400); await p.waitForTimeout(200); } }
+const dismiss=p=>dismissCards(p,{n:5,run:400,wait:200});
 async function closeAd(p){ if(await vis(p,'#ad:not([hidden])')){ await p.clock.runFor(5600); await p.click('#adX',{force:true}); await p.clock.runFor(300); } }
 const fill=(S,a)=>{ const T=['ev','kafe','dukkan','ofis']; S.d[a.k]=Array.from({length:20},(_,i)=>({t:a.t||T[i%4],lvl:a.lvl||2,buf:0,until:0,dur:1,up:false})); };
 // kart ve ipuçlarını sustur: yalnızca test edilen davranış görünsün
 const quiet=S=>{ const d=new Date(); S.daily.last=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); S.nextEvent=9e12; S.nextOffer=9e12; S.nextCivic=9e12; S.market='x'; S.collects=50; S.rifki=false; S.fest='x'; S.starter.at=1; };
 
 (async()=>{
- const b=await chromium.launch();
+ const b=await chromium.launch(); URL=await serve();
 
  console.log('M1 geçiş reklamı zamanlaması');
  let p=await open(b); await mut(p,quiet); await mut(p,fill,{k:'ist-0'});

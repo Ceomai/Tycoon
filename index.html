@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#e8ecdf">
+<!-- Tema yanıp sönmesin: seçilen tema (src/theme.ts aynası localStorage['tapu-theme']) CSS'ten önce uygulanır. Renkler styles.css --bg (açık/koyu). -->
+<script>(function(){try{var t=localStorage.getItem('tapu-theme'),d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;document.querySelector('meta[name="theme-color"]').setAttribute('content',d?'#111815':'#e8ecdf')}catch(e){}})()</script>
 <title>Tapu</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -11,7 +13,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Tapu">
-<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}</style>
+<style>:root{padding-top:var(--safe-area-inset-top,env(safe-area-inset-top,0px));padding-bottom:var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))}[hidden]{display:none!important}</style>
 </head>
 <body>
 <div id="app">
@@ -23,14 +25,15 @@
     <svg id="guil" class="guil" viewBox="0 0 360 16" preserveAspectRatio="none" aria-hidden="true"></svg>
     <button id="distBar" class="distbar" hidden aria-label="Semt ilerlemesi"></button>
     <button id="offerPill" class="offer" hidden></button>
+    <div id="bubble" class="bubble" data-off></div>
   </header>
   <main id="board" class="board">
+    <div class="snow" aria-hidden="true"></div>
     <div class="plate"><div id="grid" class="grid"></div></div>
-    <div id="bubble" class="bubble" data-off></div>
     <button id="guideBtn" class="guidetab" aria-label="Kılavuz: oyunun kuralları"><span class="q">?</span><span class="l">KILAVUZ</span></button>
     <div id="guideHint" class="guidehint" hidden>Kurallar burada</div>
     <div id="rifki" class="rifki" hidden></div>
-    <div id="sumBar" class="sumbar" hidden></div>
+    <button id="sumBar" class="sumbar" type="button" hidden></button>
     <div id="bigStamp" class="bigstamp" hidden></div>
   </main>
   <nav class="dock">
@@ -57,8 +60,8 @@
 </div>
 
 <div id="scrim" class="scrim"></div>
-<div id="sheet" class="sheet" role="dialog" aria-modal="true"><svg id="sheetGuil" class="sguil" viewBox="0 0 360 10" preserveAspectRatio="none" aria-hidden="true"></svg><div id="sheetBody"></div></div>
-<div id="modal" class="modal" hidden></div>
+<div id="sheet" class="sheet" role="dialog" aria-modal="true" tabindex="-1" aria-hidden="true" inert><div id="sheetBar" class="shbar"><span class="grab" aria-hidden="true"></span><svg id="sheetGuil" class="sguil" viewBox="0 0 360 10" preserveAspectRatio="none" aria-hidden="true"></svg><button id="sheetX" class="sh-x" type="button" aria-label="Kapat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div><div id="sheetBody"></div></div>
+<div id="modal" class="modal" role="dialog" aria-modal="true" hidden></div>
 <div id="ad" class="adscreen" hidden></div>
 <div id="toast" class="toast" role="status"></div>
 <script type="module" src="/src/main.ts"></script>

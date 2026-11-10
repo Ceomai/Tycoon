@@ -70,7 +70,7 @@ export function checkGoals() {
       if (got.includes(gi)) return;
       const [p, n] = g.f(k); if (p < n) return;
       S.stars[k] = [...got, gi]; got.push(gi);
-      const cash = prize(k); addCash(cash); addXp(80); bump(); Snd.unlock(); buzz(20);
+      const cash = prize(k); addCash(cash); addXp(80); bump(); Snd.unlock(); buzz.success();
       Analytics.log('district_star', { district: k, goal: gi, stars: got.length });
       if (got.length >= 3) toast(t('{d}: 3 yıldız! Altın mühür · kiralar kalıcı +{p}', { d: nm(DMAP[k].n), p: pctTxt(Math.round(CFG.STAR_BONUS * 100)) }));
       else toast(t('★ {d}: {goal} · {cash}', { d: nm(DMAP[k].n), goal: g.t, cash: fmt(cash) }));

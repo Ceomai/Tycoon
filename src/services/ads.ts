@@ -10,21 +10,23 @@
    ödüllü reklamdan sonra 10 dk kredi, ilk 30 dk oyunda ve açılışın ilk 60 sn'sinde hiç çıkmaz.
    ========================================================= */
 import { Capacitor } from '@capacitor/core';
-import { AdMob, RewardAdPluginEvents, AdmobConsentStatus } from '@capacitor-community/admob';
+import { AdMob, RewardAdPluginEvents, InterstitialAdPluginEvents, AdmobConsentStatus } from '@capacitor-community/admob';
 import { CFG } from '../config';
 import { S } from '../state';
 import { I, small } from '../icons';
-import { $, ui } from '../ui/ctx';
+import { $, ui, view } from '../ui/ctx';
 import { toast, flushQueue } from '../ui/modal';
-import { openSheet } from '../ui/sheets';
-import { render } from '../ui/board';
+/** Reklam hatası bildirimi: okunabilsin diye normal bildirimden uzun (≥3.5 sn). */
+export const AD_FAIL_MS = 4000;
 import { grantReward } from '../game/actions';
 import { persist } from '../game/persist';
 import { Analytics } from './analytics';
-import { Cloud } from './cloud';
 import { adFree, instantRewards } from './purchases';
 import { rand } from '../format';
 import { t } from '../i18n';
+
+/** Ödüllü reklam SSV kullanıcı kimliği (Firebase uid). cloud.ts bağlar; ads.ts cloud.ts'i içe aktarmaz (döngü olmasın). */
+export const adUser = { uid: (): string | null => null };
 
 let dueAt = 0; // geçiş reklamı zamanı geldiği an (performance.now); 0 = beklemiyor
 /** Ödüllü reklam izlendi: kısa süre geçiş reklamı gösterilmez (reklam kredisi). */
@@ -47,6 +49,10 @@ const ids = () => {
 };
 
 let ready = false, canRequest = false, privacyRequired = false, rewardedLoaded = false, interstitialLoaded = false;
+let busy = false; // ödüllü reklam sürüyor (hazırlanıyor ya da oynuyor)
+
+/** Dismissed olayı hiç gelmezse (eklenti/ağ sorunu) oturum kilitli kalmasın: en uzun ödüllü reklamdan uzun bir güvenlik süresi. */
+const REWARD_GUARD_MS = 150_000;
 
 export const Ads = {
   native: () => Capacitor.isNativePlatform() && !__PREVIEW__,
@@ -71,27 +77,43 @@ export const Ads = {
   async preload() {
     if (!ready || !canRequest || instantRewards()) return;
     const id = ids();
-    try { if (!rewardedLoaded && id.rewarded) { await AdMob.prepareRewardVideoAd({ adId: id.rewarded, isTesting: testing(), ssv: { userId: Cloud.uid() || 'misafir', customData: 'tapu' } } as any); rewardedLoaded = true; } } catch { /* stok yok */ }
+    try { if (!rewardedLoaded && id.rewarded) { await AdMob.prepareRewardVideoAd({ adId: id.rewarded, isTesting: testing(), ssv: { userId: adUser.uid() || 'misafir', customData: 'tapu' } } as any); rewardedLoaded = true; } } catch { /* stok yok */ }
     try { if (!adFree() && !interstitialLoaded && id.interstitial) { await AdMob.prepareInterstitial({ adId: id.interstitial, isTesting: testing() }); interstitialLoaded = true; } } catch { /* stok yok */ }
   },
   async showPrivacyOptions() { if (this.native()) try { await AdMob.showPrivacyOptionsForm(); } catch { /* yok */ } },
 
-  /** Ödüllü reklam: izlenirse onReward çalışır. */
-  async rewarded(kind: string, label: string, onReward: () => void) {
+  /** Ödüllü reklam: izlenirse onReward çalışır. onFail (isteğe bağlı): reklam gösterilemez, hata verir ya da ödül
+   *  kazanılmadan kapanırsa çağrılır (ör. yokken kazancın 1 katı kaybolmasın). Aynı anda tek ödüllü reklam. */
+  async rewarded(kind: string, label: string, onReward: () => void, onFail?: () => void) {
+    if (ui.ad || busy) { onFail?.(); return; }
     Analytics.log('ad_reward_request', { kind });
     if (instantRewards()) { grantReward(onReward); toast(S.club ? t('Kulüp: ödül anında') : t('Holding: ödül anında')); return; }
     if (!this.native()) { showSimulated(true, label, onReward, kind); return; }
-    if (!ready || !canRequest) { toast(t('Reklam şu an yüklenemedi')); return; }
+    if (!ready || !canRequest) { toast(t('Reklam şu an yüklenemedi'), AD_FAIL_MS); onFail?.(); return; }
+    busy = true;
+    // Eklenti sözleşmesi (Android/iOS): showRewardVideoAd sözü YALNIZCA ödül kazanılınca çözülür;
+    // ödülsüz kapanış (Dismissed) ve gösterilememe (FailedToShow) yalnızca olay yayar. Bu yüzden
+    // bitiş Dismissed/FailedToShow olayı, gösterim hatası ya da güvenlik zaman aşımıyla belirlenir;
+    // ödül ve kuyruktaki kartlar reklam kapandıktan sonra verilir.
+    let got = false;
+    const hs: { remove: () => Promise<void> | void }[] = [];
     try {
-      if (!rewardedLoaded) { await AdMob.prepareRewardVideoAd({ adId: ids().rewarded, isTesting: testing(), ssv: { userId: Cloud.uid() || 'misafir', customData: kind } } as any); }
+      if (!rewardedLoaded) { await AdMob.prepareRewardVideoAd({ adId: ids().rewarded, isTesting: testing(), ssv: { userId: adUser.uid() || 'misafir', customData: kind } } as any); }
       rewardedLoaded = false; ui.ad = true;
-      let got = false;
-      const h = await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => { got = true; });
-      await AdMob.showRewardVideoAd();
-      h.remove(); ui.ad = false;
-      if (got) { credit(); grantReward(onReward); Analytics.log('ad_reward', { kind }); S.ads++; }
-      flushQueue(); this.preload();
-    } catch (e) { ui.ad = false; toast(t('Reklam şu an yüklenemedi')); Analytics.error(e, 'ad_rewarded'); this.preload(); }
+      let finish!: (err?: unknown) => void;
+      const done = new Promise<unknown>(r => { finish = r; });
+      hs.push(await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => { got = true; }));
+      hs.push(await AdMob.addListener(RewardAdPluginEvents.Dismissed, () => finish()));
+      hs.push(await AdMob.addListener(RewardAdPluginEvents.FailedToShow, (e: unknown) => finish(e || new Error('failed to show'))));
+      const guard = setTimeout(() => finish(), REWARD_GUARD_MS);
+      AdMob.showRewardVideoAd().then(() => { got = true; }, e => finish(e));
+      const err = await done; clearTimeout(guard);
+      if (err && !got) { toast(t('Reklam şu an yüklenemedi'), AD_FAIL_MS); Analytics.error(err, 'ad_rewarded'); }
+    } catch (e) { if (!got) toast(t('Reklam şu an yüklenemedi'), AD_FAIL_MS); Analytics.error(e, 'ad_rewarded'); }
+    finally { for (const h of hs) { try { void Promise.resolve(h.remove()).catch(() => { /* yok */ }); } catch { /* yok */ } } ui.ad = false; busy = false; }
+    if (got) { credit(); grantReward(onReward); Analytics.log('ad_reward', { kind }); S.ads++; }
+    else onFail?.();
+    flushQueue(); this.preload();
   },
   /** Geçiş reklamı (15-20 dk'da bir). */
   /** Oyun döngüsünden çağrılır (kart sırası boşsa): zamanı gelen geçiş reklamını doğal durakta gösterir. */
@@ -112,7 +134,18 @@ export const Ads = {
     Analytics.log('ad_interstitial', {});
     if (!this.native()) { showSimulated(false, '', null, 'interstitial'); return; }
     if (!ready || !canRequest || !interstitialLoaded) { this.preload(); return; }
-    try { interstitialLoaded = false; ui.ad = true; await AdMob.showInterstitial(); } catch { /* yok */ } finally { ui.ad = false; ui.lastClose = performance.now(); flushQueue(); this.preload(); }
+    // showInterstitial sözü reklam ekrana gelir gelmez çözülür; kartlar reklamın arkasında açılmasın diye kapanış olayı beklenir.
+    const hs: { remove: () => Promise<void> | void }[] = [];
+    try {
+      interstitialLoaded = false; ui.ad = true;
+      let finish!: () => void; const done = new Promise<void>(r => { finish = r; });
+      hs.push(await AdMob.addListener(InterstitialAdPluginEvents.Dismissed, () => finish()));
+      hs.push(await AdMob.addListener(InterstitialAdPluginEvents.FailedToShow, () => finish()));
+      const guard = setTimeout(() => finish(), REWARD_GUARD_MS);
+      AdMob.showInterstitial().catch(() => finish());
+      await done; clearTimeout(guard);
+    } catch { /* yok */ }
+    finally { for (const h of hs) { try { void Promise.resolve(h.remove()).catch(() => { /* yok */ }); } catch { /* yok */ } } ui.ad = false; ui.lastClose = performance.now(); flushQueue(); this.preload(); }
   },
 };
 
@@ -128,8 +161,8 @@ function showSimulated(rewarded: boolean, label: string, onReward: (() => void) 
   x.onclick = () => {
     if (!done) return;
     el.hidden = true; el.innerHTML = ''; ui.ad = false; ui.lastClose = performance.now(); S.ads++;
-    if (rewarded) { credit(); grantReward(onReward || undefined); Analytics.log('ad_reward', { kind }); } else { persist(); render(); }
+    if (rewarded) { credit(); grantReward(onReward || undefined); Analytics.log('ad_reward', { kind }); } else { persist(); view.render(); }
     flushQueue();
   };
-  const pr = $('#adPrem'); if (pr) pr.onclick = () => { if (!done) return toast(t('Reklam bitince açılır')); x.onclick(); openSheet({ k: 'store' }); };
+  const pr = $('#adPrem'); if (pr) pr.onclick = () => { if (!done) return toast(t('Reklam bitince açılır')); x.onclick(); view.openSheet({ k: 'store' }); };
 }

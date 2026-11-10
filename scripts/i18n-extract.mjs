@@ -1,4 +1,4 @@
-// i18n anahtarlarını toplar: src altındaki t('…') ve tk('…') tek tırnaklı metinler + şehir/semt adları.
+// i18n anahtarlarını toplar: src altındaki t('…') ve tk('…') tek tırnaklı metinler, tc('bağlam', '…') → "bağlam|…" + şehir/semt adları.
 // Kullanım: node scripts/i18n-extract.mjs            → scripts/i18n-keys.json yazar, eksik çevirileri listeler
 //           node scripts/i18n-extract.mjs --check    → eksik çeviri varsa çıkış kodu 1 (CI/test için)
 import fs from 'node:fs'; import path from 'node:path';
@@ -6,7 +6,13 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const files = []; (function walk(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) { if (f !== 'locales') walk(p); } else if (/\.ts$/.test(f)) files.push(p); } })(path.join(root, 'src'));
 const re = /\bt[k]?\(\s*'((?:[^'\\]|\\.)*)'/g;
 const keys = new Map();
-for (const f of files) { const s = fs.readFileSync(f, 'utf8'); let m; while ((m = re.exec(s))) { const k = m[1].replace(/\\'/g, "'").replace(/\\\\/g, '\\'); if (!keys.has(k)) keys.set(k, path.relative(root, f)); } }
+const reC = /\btc\(\s*'([^'|]+)'\s*,\s*'((?:[^'\\]|\\.)*)'/g;
+const unq = k => k.replace(/\\'/g, "'").replace(/\\\\/g, '\\');
+for (const f of files) {
+  const s = fs.readFileSync(f, 'utf8'); let m;
+  while ((m = re.exec(s))) { const k = unq(m[1]); if (!keys.has(k)) keys.set(k, path.relative(root, f)); }
+  while ((m = reC.exec(s))) { const k = m[1] + '|' + unq(m[2]); if (!keys.has(k)) keys.set(k, path.relative(root, f)); }
+}
 // özel adlar: config.ts › CITIES (n ve semt n)
 const cfg = fs.readFileSync(path.join(root, 'src/config.ts'), 'utf8');
 const names = new Set(); for (const m of cfg.matchAll(/\bn: '([^']+)'/g)) names.add(m[1]);

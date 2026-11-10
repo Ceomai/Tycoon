@@ -1,4 +1,4 @@
-// @ts-nocheck — saf SVG metni üreten çizim modülü
+// Saf SVG metni üreten çizim modülü (özel yapılar)
 /* =========================================================
    ÖZEL YAPILAR — haftanın özel tapusu (Han, Pasaj, Yalı Köşkü, Bahçeli Köşk)
    Diğer binalarla aynı 3/4 bakış (taban Y=90, derinlik 14×10), mürekkep çizgi.

@@ -7,7 +7,6 @@ import { t, tk, nm, pctTxt, LANG } from '../i18n';
 import { S, lotsOf, Plot } from '../state';
 import { fmt, loc } from '../format';
 import { now, costM, unlockInfo, filled } from '../economy';
-import { I } from '../icons';
 import { Snd, buzz } from '../sound';
 import { $, ui } from '../ui/ctx';
 import { openModal, closeModal, toast, bump } from '../ui/modal';
@@ -16,6 +15,7 @@ import { addCash } from './actions';
 import { addXp } from './fun';
 import { persist } from './persist';
 import { Analytics } from '../services/analytics';
+import { deny } from '../ui/motion';
 
 /* ---------- kapora ---------- */
 export const kaporaOf = (k: DistrictKey) => Math.ceil(unlockInfo(k).fee * CFG.KAPORA);
@@ -28,7 +28,7 @@ export function payLien(k: DistrictKey, amount: number) {
   S.lien[k] -= amount;
   if (S.lien[k] <= 0.5) {
     delete S.lien[k]; delete S.lienT[k];
-    toast(t('{d} tapusu tamamen senin · 20 arsa açıldı', { d: nm(DMAP[k].n) })); Snd.unlock(); buzz(30);
+    toast(t('{d} tapusu tamamen senin · 20 arsa açıldı', { d: nm(DMAP[k].n) })); Snd.unlock(); buzz.success();
     ui.sheetSig = ''; ui.tileSig = []; persist();
     Analytics.log('kapora_paid', { district: k });
   }
@@ -36,7 +36,7 @@ export function payLien(k: DistrictKey, amount: number) {
 /** Kalan borcu kasadan kapatır. */
 export function closeLien(k: DistrictKey) {
   const d = S.lien[k]; if (!d) return;
-  if (S.cash < d) { Snd.no(); return; }
+  if (S.cash < d) { deny(); return; }
   S.cash -= d; payLien(k, d);
 }
 
@@ -60,13 +60,13 @@ export function placeObstacles(k: DistrictKey) {
 }
 export function clearObstacle(k: DistrictKey, i: number) {
   const p = lotsOf(S, k)[i]; if (!p || !p.ob) return;
-  const c = clearCost(k); if (S.cash < c) { Snd.no(); return; }
+  const c = clearCost(k); if (S.cash < c) { deny(); return; }
   S.cash -= c; lotsOf(S, k)[i] = null; S.cnt.ob++; addXp(10);
-  const back = Math.round(c * (1.5 + Math.random())); addCash(back); bump(); Snd.wreck(); buzz(20);
+  const back = Math.round(c * (1.5 + Math.random())); addCash(back); bump(); Snd.wreck(); buzz.light();
   if (k === S.cur) ui.teslim[i] = { at: performance.now() + 1600, txt: `+${fmt(back)}` };
   ui.sheetSig = ''; ui.tileSig[i] = ''; persist();
   const left = lmLeft();
-  if (Math.random() < .08 && left.length) { const l = left[0]; S.coll.push(l.id); openModal(landmarkCard(l, ' ' + t('Molozun altından çıktı!')), () => closeModal()); }
+  if (Math.random() < CFG.LM_CHANCE && left.length) { const l = left[0]; S.coll.push(l.id); openModal(landmarkCard(l, ' ' + t('Molozun altından çıktı!')), () => closeModal()); }
   else toast(t('Arsa temizlendi · {amt} değerinde eski eşya çıktı', { amt: fmt(back) }));
   Analytics.log('obstacle_clear', { district: k });
 }
@@ -106,12 +106,12 @@ export function showDistrictCard(k: DistrictKey, onDone?: () => void) {
   const d = DMAP[k], r = DRULES[k], c = CITIES[d.city];
   if (!S.cards.includes(d.city)) S.cards.push(d.city);
   openModal(`<div class="card postcard">
-    <p class="sec" style="text-align:center;margin:0 0 8px">${t('Yeni semt · tapu teslim')}</p>
+    <p class="sec u-tc u-m0b-4">${t('Yeni semt · tapu teslim')}</p>
     <div class="post"><div class="pimg">${postcard(d.city)}<span class="pst">TAPU<br>${new Date(now()).getFullYear()}</span></div>
       <b>${nm(d.n)}</b><small>${nm(c.n)} · ${t(c.tagline)}</small></div>
     ${r ? `<div class="prule"><span class="pr">${r.kind === 'type' || r.kind === 'row' ? '+' + pctTxt(Math.round(r.x * 100)) : r.kind === 'pair' ? '+' + pctTxt(Math.round((CFG.PAIR + r.x) * 100)) : pctTxt(Math.round(r.x * 100))}</span><span><small>${t('Semtin kuralı')}</small><b>${t(r.n)}: ${lowTxt(t(r.t))}</b></span></div>` : ''}
     ${S.lien[k] ? `<p class="note">${t('Kapora ile alındı: {n} arsa açık. Kalan {debt} borç {d} kirasının yarısıyla kendiliğinden ödenir.', { n: CFG.KAPORA_LOTS, debt: fmt(S.lien[k]), d: nm(d.n) })}</p>` : ''}
-    <div class="btns"><button class="btn gold" data-a="ok">${t('Semte git')}</button></div></div>`, () => { closeModal(); onDone && onDone(); });
+    <div class="btns"><button class="btn gold" data-a="ok" data-back>${t('Semte git')}</button></div></div>`, () => { closeModal(); onDone && onDone(); });
 }
 
 /* ---------- semt özeti ---------- */
@@ -121,7 +121,9 @@ export function showSummary(k: DistrictKey, from: DistrictKey) {
   if (a < 1 || k === from) return;
   const el = $('#sumBar'); if (!el) return;
   el.innerHTML = `<span class="tl">${currency()}</span><span class="tx">${t('{d} sen {loc}yken {amt} kazandı', { d: `<b>${nm(DMAP[k].n)}</b>`, loc: loc(nm(DMAP[from].n)), amt: `<b>${fmt(a)}</b>` })}</span>`;
-  el.hidden = false; clearTimeout(sumT); sumT = setTimeout(() => { el.hidden = true; }, 4500);
+  const hide = () => { el.hidden = true; clearTimeout(sumT); };
+  el.onclick = hide; // dokununca kapanır
+  el.hidden = false; clearTimeout(sumT); sumT = setTimeout(hide, 4500);
 }
 
 /* ---------- ilerleme çubuğu: bu semtin yüzdesi + sonraki semt kaporası ---------- */

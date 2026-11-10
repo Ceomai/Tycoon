@@ -30,17 +30,20 @@ import { now, totalRate } from './economy';
 import { Time, guardRollback } from './time';
 import { loadRaw } from './storage';
 import { Snd } from './sound';
-import { $, ui } from './ui/ctx';
-import { onModalClick, justOpened } from './ui/modal';
-import { openSheet, closeSheet, onSheetAction } from './ui/sheets';
-import { render, fit, setupGrid, drawGuilloche, Street } from './ui/board';
+import { $, ui, hist, syncHistory, histSettled } from './ui/ctx';
+import { onModalClick, justOpened, modalBack, bigStamp } from './ui/modal';
+import { openSheet, closeSheet, sheetBack, onSheetAction } from './ui/sheets';
+import { bindSheetDrag } from './ui/sheetdrag';
+import { render, fit, setupGrid, drawGuilloche } from './ui/board';
+import { Street } from './ui/street';
 import { ensureTasks } from './game/tasks';
 import { catchUp } from './game/events';
-import { collectAll } from './game/actions';
+import { collectAll, switchDistrict } from './game/actions';
 import { toast } from './ui/modal';
 import { persist, persistSync } from './game/persist';
-import { tick, pickCity, firstRun, applyRegion, showRegionNews } from './game/loop';
+import { tick, resumeTick, pickCity, firstRun, applyRegion, showRegionNews } from './game/loop';
 import { P, loadPrefs, savePrefs } from './prefs';
+import { applyTheme } from './theme';
 import { anySave, loadRegionInfo } from './storage';
 import { setLang, deviceLang, t } from './i18n';
 import { REGIONS, RegionId } from './config';
@@ -51,7 +54,8 @@ import { Purchases } from './services/purchases';
 import { Ads } from './services/ads';
 import { Notify } from './services/notify';
 import { showLeagueResult } from './game/league';
-import { onTipClick } from './game/rifki';
+import { onTipClick, showTip } from './game/rifki';
+import { showSummary } from './game/district';
 
 let hiddenAt = 0;
 
@@ -62,20 +66,45 @@ function awayMs(): number {
   return Math.max(0, g.now - S.lastSeen);
 }
 
+/* Oyun döngüsü (4 Hz) ve periyodik kayıt (10 sn). Arka planda durur, öne gelince yeniden başlar. */
+let looping = false, tickIv: ReturnType<typeof setInterval> | 0 = 0, saveIv: ReturnType<typeof setInterval> | 0 = 0;
+function startLoops() {
+  if (!looping || tickIv) return;
+  tickIv = setInterval(tick, CFG.TICK_MS);
+  saveIv = setInterval(() => { if (!document.hidden) persist(); }, 10e3);
+}
+function stopLoops() { clearInterval(tickIv); clearInterval(saveIv); tickIv = saveIv = 0; }
+
+/** Arka plana geçiş: kayıt, hatırlatma planı, bulut; döngüler, sokak hayatı ve ses bağlamı durur (pil). */
 function onHide() {
   if (hiddenAt) return; hiddenAt = Date.now();
   S.lastSeen = now(); persistSync();
   void Notify.plan(); void Cloud.pushSave(); Cloud.maybePostScore(true);
+  stopLoops(); Street.stop(); Snd.suspend();
 }
 function onShow() {
   if (!hiddenAt) return; hiddenAt = 0;
   catchUp(awayMs()); S.lastSeen = now(); ui.lastInput = performance.now(); render();
+  resumeTick(); startLoops(); Street.start(); Snd.resume();
+  void Notify.cancel(); // oyuna dönüldü: planlı hatırlatmalar artık gereksiz
   if (Cloud.ready() && !Time.synced) void Cloud.hello();
+}
+
+/** Geri: (1) reklam ekranı açıksa hiçbir şey; (2) kart açıksa kapatılabilir karttır ise kapat (zorunlu kartlar kalır);
+ *  (3) panel açıksa iç içe panelde bir öncekine dön, değilse kapat. Bir şey tükettiyse true; yoksa false (uygulama arka plana). */
+function handleBack(): boolean {
+  if (ui.ad) return true;
+  if (ui.modal) { modalBack(); return true; }
+  if (ui.sheet) { sheetBack(); return true; }
+  return false;
 }
 
 function bindUi() {
   document.addEventListener('pointerdown', () => { Snd.init(); ui.lastInput = performance.now(); }, { capture: true });
-  document.addEventListener('keydown', e => { ui.lastInput = performance.now(); if (e.key === 'Escape' && ui.sheet) closeSheet(); });
+  // başarısız işlemde sallanacak öğe: son basılan düğme (motion.ts deny)
+  document.addEventListener('click', e => { const b = (e.target as Element | null)?.closest?.('button,[role="button"]') as HTMLElement | null; if (b) { ui.lastPress = b; ui.lastPressAt = performance.now(); } }, { capture: true });
+  // Esc (masaüstü): kartı kapatılabiliyorsa kapatır; paneli iç içe olsa da tümden kapatır (geri tuşu/tarayıcı geri bir önceki panele döner)
+  document.addEventListener('keydown', e => { ui.lastInput = performance.now(); if (e.key !== 'Escape') return; if (ui.modal) modalBack(); else if (ui.sheet) closeSheet(); });
   $('#collectBtn').addEventListener('click', () => {
     if (S.collectMode === 'auto') toast(t('Kiralar otomatik toplanıyor · Ayarlar’dan değiştirebilirsin'));
     else collectAll($('#collectBtn .core'));
@@ -89,26 +118,49 @@ function bindUi() {
   $('#distBar').addEventListener('click', () => openSheet({ k: 'map' }));
   $('#guideBtn').addEventListener('click', () => { $('#guideHint').hidden = true; $('#guideBtn').classList.remove('wig'); openSheet({ k: 'guide' }); });
   $('#scrim').addEventListener('click', () => { if (ui.sheet && !justOpened()) closeSheet(); });
+  // panel başlığı: X ve aşağı (yatayda sağa) sürükleyerek kapatma; ikisi de closeSheet (geçmiş/odak aynı yoldan)
+  $('#sheetX').addEventListener('click', () => { if (ui.sheet && !justOpened()) closeSheet(); });
+  bindSheetDrag($('#sheet'), $('#sheetBar'), $('#scrim'), closeSheet);
   $('#sheetBody').addEventListener('click', (e: Event) => { const b = (e.target as HTMLElement).closest('[data-a]') as HTMLButtonElement | null; if (b && !b.disabled && !justOpened()) void onSheetAction(b.dataset.a!, b); });
   $('#modal').addEventListener('click', onModalClick);
   if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => fit()).observe($('#board')); else window.addEventListener('resize', fit);
   document.addEventListener('visibilitychange', () => (document.hidden ? onHide() : onShow()));
+  // Arka planda açılan sekme (web): onHide hiç çağrılmaz; görünür olunca geçen süre catchUp ile sayılsın.
+  if (document.hidden) { S.lastSeen = now(); hiddenAt = Date.now(); }
   window.addEventListener('pagehide', () => { S.lastSeen = now(); persistSync(); });
   if (Capacitor.isNativePlatform()) {
     void App.addListener('pause', onHide);
     void App.addListener('resume', onShow);
-    // Android geri tuşu: önce panel/kart kapanır, sonra uygulama arka plana alınır
-    void App.addListener('backButton', () => { if (ui.sheet) closeSheet(); else if (!ui.modal && !ui.ad) void App.minimizeApp(); });
+    // Android geri tuşu: kart → panel (iç içe ise bir önceki) → uygulama arka plana
+    void App.addListener('backButton', () => { if (!handleBack()) void App.minimizeApp(); });
+  } else {
+    // web: panel/kart açılınca geçmişe bir kayıt eklenir; tarayıcı geri düğmesi aynı geri mantığını çalıştırır
+    hist.enabled = true;
+    window.addEventListener('popstate', () => {
+      if (hist.ignore > 0) { histSettled(); syncHistory(); return; } // arayüzden kapatınca bizim yaptığımız history.back()
+      handleBack(); syncHistory(); // hâlâ açıksa (iç içe panel, zorunlu kart) kayıt yeniden eklenir
+    });
   }
 }
 
-/** Telefona özgü ayarlar: oyun dikey tasarlandı; sistem yazı boyutu büyütülse de düzen bozulmasın.
- *  (Android WebView sistem yazı ölçeğini sayfaya uyguluyor; oyunun yazıları zaten büyük ve sabit.) */
+/** Telefona özgü ayarlar: oyun dikey tasarlandı.
+ *  Sistem yazı boyutu: WebView'in kendi metin yakınlaştırması (her px yazıyı ölçekler, tahta/alt çubuk taşar) kapalı tutulur;
+ *  bunun yerine sistemin tercih ettiği ölçek kök yazı boyutuna (rem) uygulanır. Metinler rem tabanlıdır, arsa içi etiketler
+ *  karo genişliğine bağlıdır. Düzen denendi: 390×844'te 1.3, 320×568'de 1.2 kata kadar bozulmuyor; bu yüzden üst sınır
+ *  uzun ekranda 1.3, kısa ekranda (<700px) 1.15. */
+export const TEXT_SCALE_MAX = 1.3;
 async function deviceSetup() {
   if (!Capacitor.isNativePlatform()) return;
   await Promise.all([
     ScreenOrientation.lock({ orientation: 'portrait' }).catch(() => { /* tablet/çoklu pencere: kilit desteklenmeyebilir */ }),
-    TextZoom.set({ value: 1 }).catch(() => { /* yok */ }),
+    (async () => {
+      try {
+        const pref = (await TextZoom.getPreferred()).value;
+        await TextZoom.set({ value: 1 });
+        const k = Math.min(window.innerHeight >= 700 ? TEXT_SCALE_MAX : 1.15, Math.max(1, +pref || 1)); // kısa ekranda tahta alt çubuğa taşmasın
+        if (k > 1.01) document.documentElement.style.fontSize = (16 * k).toFixed(1) + 'px';
+      } catch { /* yok */ }
+    })(),
   ]);
 }
 
@@ -117,12 +169,22 @@ function localizeStatic() {
   document.title = t('Tapu');
   const aria: [string, string][] = [
     ['#distBar', t('Semt ilerlemesi')], ['#guideBtn', t('Kılavuz: oyunun kuralları')], ['#menuBtn', t('Menü')],
-    ['#taskBtn', t('Görevler')], ['#collectBtn', t('Tüm kiraları topla')], ['#mapBtn', t('Semtler')], ['#collBtn', t('Koleksiyon')],
+    ['#taskBtn', t('Görevler')], ['#collectBtn', t('Tüm kiraları topla')], ['#mapBtn', t('Semtler')], ['#collBtn', t('Koleksiyon')], ['#sheetX', t('Kapat')],
   ];
   for (const [sel, txt] of aria) document.querySelector(sel)?.setAttribute('aria-label', txt);
   document.querySelector('.stamp')?.setAttribute('aria-label', t('Tapu'));
   const txt: [string, string][] = [['#guideBtn .l', t('KILAVUZ')], ['#guideHint', t('Kurallar burada')], ['#cmain', t('TOPLA')], ['.stamp text:nth-of-type(2)', t('ADA · PARSEL')]];
   for (const [sel, v] of txt) { const el = document.querySelector(sel); if (el) el.textContent = v; }
+}
+
+let uiReady = false;
+/** Açılış arayüz kurulmadan düşerse beyaz ekran yerine basit bir hata ekranı ve "Yeniden başlat". */
+function showBootFail() {
+  try { if (!P.lang) setLang(deviceLang()); } catch { /* Türkçe kalır */ }
+  const d = document.createElement('div'); d.className = 'bootfail'; d.setAttribute('role', 'alertdialog'); d.setAttribute('aria-modal', 'true'); d.setAttribute('aria-labelledby', 'bootFailT');
+  d.innerHTML = `<div class="card"><h3 id="bootFailT">${t('Bir sorun oluştu')}</h3><p>${t('Oyun açılırken beklenmedik bir hata oldu. Yeniden başlatmayı dene.')}</p><div class="btns"><button class="btn" type="button">${t('Yeniden başlat')}</button></div></div>`;
+  document.body.appendChild(d);
+  const b = d.querySelector('button')!; b.addEventListener('click', () => location.reload()); b.focus();
 }
 
 async function boot() {
@@ -131,6 +193,7 @@ async function boot() {
   await applyRemoteConfig();
   // dil ve bölge: mevcut oyuncu (kaydı var, tercihi yok) Türkçe/Türkiye ile devam eder
   await loadPrefs();
+  applyTheme(P.theme);
   let migrated = false;
   if (!P.region && await anySave()) { P.region = 'tr'; P.lang = P.lang || 'tr'; savePrefs(); migrated = true; }
   const first = !P.region;
@@ -143,12 +206,12 @@ async function boot() {
   // satın alınan paketler tüm bölgelerde geçerli
   S.premium = S.premium || P.ent.premium; S.noAds = S.noAds || P.ent.noAds; S.club = S.club || P.ent.club;
 
-  if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult, totalRate: () => totalRate(true) }; } // uçtan uca testler için (yalnızca önizleme paketi)
+  if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult, totalRate: () => totalRate(true), showTip, toast, showSummary, bigStamp, switchDistrict }; } // uçtan uca testler için (yalnızca önizleme paketi)
   setupGrid(); Street.init(); ensureTasks(); drawGuilloche(); bindUi(); fit();
   ui.lastInput = performance.now();
   render();
-  setInterval(tick, CFG.TICK_MS);
-  setInterval(() => { if (!document.hidden) persist(); }, 10e3);
+  looping = true; startLoops();
+  uiReady = true; // bundan sonraki hatalar (bulut, mağaza, reklam) oyunu durdurmaz; yalnızca kaydedilir
 
   // ağ işleri arayüzü bekletmez
   const cloud = Cloud.init();
@@ -168,4 +231,4 @@ if (!__PREVIEW__ && !Capacitor.isNativePlatform() && 'serviceWorker' in navigato
   window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => { /* yok */ }); });
 }
 
-void boot().catch(e => { Analytics.error(e, 'boot'); console.error(e); });
+void boot().catch(e => { Analytics.error(e, 'boot'); console.error(e); if (!uiReady) showBootFail(); });

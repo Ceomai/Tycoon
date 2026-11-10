@@ -8,17 +8,15 @@ import { fmtX, weekKey } from '../format';
 import { t } from '../i18n';
 import { now } from '../economy';
 import { Snd, buzz } from '../sound';
-import { ui } from '../ui/ctx';
+import { ui, view } from '../ui/ctx';
 import { openModal, closeModal } from '../ui/modal';
-import { closeSheet } from '../ui/sheets';
-import { render } from '../ui/board';
 import { persist } from './persist';
 import { Analytics } from '../services/analytics';
 
 export const lmLeft = (): Landmark[] => LM.filter(l => !S.coll.includes(l.id));
 export function landmarkCard(l: Landmark, extra = '') {
   return `<div class="card"><div class="lmhero bpbg">${svg(lmSvg(l.id))}</div><h3>${t(l.n)}</h3><p>${t('Koleksiyonuna eklendi. Tüm kiralar kalıcı olarak %5 arttı.')}${extra}</p>
-    <div class="btns"><button class="btn" data-a="ok">${t('Harika')}</button></div></div>`;
+    <div class="btns"><button class="btn" data-a="ok" data-back>${t('Harika')}</button></div></div>`;
 }
 
 /* Holding: herhangi bir ilin son semtinin tapusunu alınca kurulabilir. */
@@ -33,9 +31,9 @@ export function doHolding() {
   S.lien = {}; S.lienT = {}; S.dEarn = {};
   Object.assign(S, { cash: 150, earned: 0, own: fresh.own, cur: fresh.cur, d: fresh.d, fx: [], disc: 0, offer: null });
   lotsOf(S, S.cur);
-  ui.tileSig = []; ui.linkSig = ''; closeSheet(); persist(); render(); Snd.unlock(); buzz(40);
+  ui.tileSig = []; ui.linkSig = ''; view.closeSheet(); persist(); view.render(); Snd.unlock(); buzz.success();
   Analytics.log('holding', { shares: n, total: S.shares });
   openModal(`<div class="card"><div class="badge">${I.crown}</div><h3>${t('Holding kuruldu')}</h3><p>${t('{n} yeni hisse aldın. Artık tüm kiralar kalıcı olarak {x}.', { n, x: fmtX(1 + 0.1 * S.shares) })}</p>
-    <div class="btns"><button class="btn" data-a="ok">${t('Yeniden başla')}</button></div></div>`, () => closeModal());
+    <div class="btns"><button class="btn" data-a="ok" data-back>${t('Yeniden başla')}</button></div></div>`, () => closeModal());
 }
 export { N, dkey };

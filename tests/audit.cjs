@@ -3,29 +3,32 @@
 // Çalıştır: npm run test:audit  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 // Ölçümler tests/out/audit-metrics.json dosyasına yazılır (raporlar bu dosyadaki gerçek değerlerle doldurulur).
 const {chromium}=require('playwright');
-const fs=require('fs'), path=require('path');
-const URL='file://'+path.resolve(__dirname,'../dist-preview/index.html');
-const out=path.resolve(__dirname,'out')+'/'; fs.mkdirSync(out,{recursive:true});
+const fs=require('fs');
+const { serve, out, PREF_IF, stateNow, mut, makeTap, dismissCards, recorder, injectReload, vis } = require('./helpers.cjs');
+let URL; // http://127.0.0.1:<port>/index.html — main başında serve() ile
 const log=(...a)=>console.log(...a);
 const metrics={}; const results=[];
 let section='';
-const ok=(c,m)=>{ results.push({section,name:m,pass:!!c}); log(c?'  ✓':'  ✗',m); };
+const ok=recorder(results,()=>({section}));
+
+/* injectReload (helpers.cjs): kaydı bir sonraki yüklemede, oyun başlamadan yerleştirir ve sayfayı yeniler
+   (doğrudan localStorage + reload yarışlı: oyunun pagehide → persistSync'i test kaydını ezebiliyor). */
 
 async function open(b,o={}){
-  const ctx=await b.newContext({viewport:o.vp||{width:390,height:844},deviceScaleFactor:o.dpr||2,colorScheme:o.scheme||'light',reducedMotion:o.motion||'no-preference',offline:!!o.offline,isMobile:true,hasTouch:true}); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`);
+  const ctx=await b.newContext({viewport:o.vp||{width:390,height:844},deviceScaleFactor:o.dpr||2,colorScheme:o.scheme||'light',reducedMotion:o.motion||'no-preference',isMobile:true,hasTouch:true}); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`);
   const p=await ctx.newPage(); p.errs=[];
   p.on('pageerror',e=>p.errs.push(e.message)); p.on('console',m=>{ if(m.type()==='error') p.errs.push(m.text()); });
   await p.clock.install(o.time?{time:o.time}:undefined);
-  await p.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`);
+  await p.addInitScript(PREF_IF);
   if(o.init) await p.addInitScript(o.init);
   const t0=Date.now(); await p.goto(URL); p.loadMs=Date.now()-t0;
+  if(o.offline) await ctx.setOffline(true); // sayfa http'den gelir: çevrimdışılık yüklemeden hemen sonra (oyun açılırken) başlar
   await p.clock.runFor(500); return p;
 }
-const S=p=>p.evaluate(()=>{ const o=JSON.parse(JSON.stringify(window.__tapuState())); o._now=Date.now(); return o; });
-const mut=(p,fn,arg)=>p.evaluate(([f,a])=>{ const S=window.__tapuState(); (0,eval)('('+f+')')(S,a); },[fn.toString(),arg]);
-const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.clock.runFor(400); await p.waitForTimeout(350); };
-const has=(p,sel)=>p.isVisible(sel).catch(()=>false);
-async function dismiss(p){ for(let k=0;k<6;k++){ if(!(await has(p,'#modal .card'))) break; const sel=(await has(p,'#modal .card .txt'))?'#modal .card .txt':'#modal .card [data-a]'; await p.click(sel,{force:true}).catch(()=>{}); await p.clock.runFor(500); } if(await has(p,'#ad:not([hidden])')){ await p.clock.runFor(6000); await p.click('#adX',{force:true}).catch(()=>{}); } }
+const S=stateNow;
+const tap=makeTap({run:400,wait:350});
+const has=vis;
+async function dismiss(p){ await dismissCards(p,{n:6,run:500}); if(await has(p,'#ad:not([hidden])')){ await p.clock.runFor(6000); await p.click('#adX',{force:true}).catch(()=>{}); } }
 async function closeSheet(p){ await p.keyboard.press("Escape"); await p.clock.runFor(400); await p.waitForTimeout(350); }
 async function start(p,city='ist'){ if(await has(p,'#modal .citycard')){ await tap(p,`#modal .cityopt[data-a="${city}"]`); await p.clock.runFor(300); await dismiss(p); } }
 const sane=async(p,label)=>{ const s=await S(p); const bad=[];
@@ -39,7 +42,7 @@ const sane=async(p,label)=>{ const s=await S(p); const bad=[];
 const fillFn=(S,a)=>{ const T=['ev','kafe','dukkan','ofis']; S.d[a.k]=Array.from({length:20},(_,i)=>({t:a.t||T[i%4],lvl:a.lvl||2,buf:0,until:0,dur:1,up:false})); };
 
 (async()=>{
- const b=await chromium.launch();
+ const b=await chromium.launch(); URL=await serve();
  const T0=Date.now();
 
  /* ---------------- PERSONA YOLCULUKLARI ---------------- */
@@ -58,14 +61,12 @@ const fillFn=(S,a)=>{ const T=['ev','kafe','dukkan','ofis']; S.d[a.k]=Array.from
 
  log('P03 3 gün sonra dönen oyuncu (çevrimdışı kazanç tavanı)');
  p=await open(b); await start(p); await mut(p,fillFn,{k:'ist-0',t:'ev',lvl:3});
- await mut(p,S=>{ S.lastSeen=Date.now()-3*864e5; S.maxSeen=S.lastSeen; S.cash=0; }); await p.evaluate(()=>{ localStorage.setItem('tapu-save-v2',JSON.stringify(window.__tapuState())); });
- await p.reload(); await p.clock.runFor(1500);
+ await mut(p,S=>{ S.lastSeen=Date.now()-3*864e5; S.maxSeen=S.lastSeen; S.cash=0; }); await injectReload(p); await p.clock.runFor(1500);
  { const s=await S(p); const buf=s.d['ist-0'].reduce((a,q)=>a+(q?q.buf:0),0); ok(Number.isFinite(buf)&&buf>0,'P03 dönüşte kira birikmiş ('+Math.round(buf)+')'); metrics.offline3dBuf=Math.round(buf); }
  await dismiss(p); await sane(p,'P03'); await p.context().close();
 
  log('P04 saati geri alan oyuncu (hile)');
- p=await open(b); await start(p); await mut(p,S=>{ S.maxSeen=Date.now()+5*3600e3; S.lastSeen=S.maxSeen; }); await p.evaluate(()=>localStorage.setItem('tapu-save-v2',JSON.stringify(window.__tapuState())));
- await p.reload(); await p.clock.runFor(1500); { const s=await S(p); ok(s.clockFlag>=1,'P04 geri alınan saat yakalandı (clockFlag='+s.clockFlag+')'); } await dismiss(p); await sane(p,'P04'); await p.context().close();
+ p=await open(b); await start(p); await mut(p,S=>{ S.maxSeen=Date.now()+5*3600e3; S.lastSeen=S.maxSeen; }); await injectReload(p); await p.clock.runFor(1500); { const s=await S(p); ok(s.clockFlag>=1,'P04 geri alınan saat yakalandı (clockFlag='+s.clockFlag+')'); } await dismiss(p); await sane(p,'P04'); await p.context().close();
 
  log('P05 hızlı tıklayan oyuncu: TOPLA ×120, inşaat ×40, panel aç-kapa ×60');
  p=await open(b); await start(p); await mut(p,fillFn,{k:'ist-0',lvl:1}); await mut(p,S=>{ S.d['ist-0'][19]=null; S.cash=1000; });

@@ -33,6 +33,8 @@ export const rand = (a: number, b: number) => a + Math.random() * (b - a);
 export function dayKey(d = new Date()): string {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
+/** Ay anahtarı (YYYY-AA, yerel saat): tapu sezonu kimliği. */
+export const monthKey = (d = new Date()): string => dayKey(d).slice(0, 7);
 export function dayDiff(a: string, b: string): number {
   const A = a.split('-').map(Number), B = b.split('-').map(Number);
   return Math.round((Date.UTC(B[0], B[1] - 1, B[2]) - Date.UTC(A[0], A[1] - 1, A[2])) / 864e5);

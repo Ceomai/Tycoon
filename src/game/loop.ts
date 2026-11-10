@@ -4,20 +4,18 @@ import { t, nm, LANGS, setLang, LANG } from '../i18n';
 import { P, savePrefs } from '../prefs';
 import { S, setS, newState, lotsOf } from '../state';
 import { rand, dayKey, weekKey } from '../format';
-import { now, producing, rate, pending, curWeek } from '../economy';
-import { Time } from '../time';
+import { now, producing, rate, pending, curWeek, tickMemo, freezeRates } from '../economy';
 import { Snd, buzz } from '../sound';
-import { $, ui } from '../ui/ctx';
+import { $, ui, view } from '../ui/ctx';
 import { toast, openModal, closeModal } from '../ui/modal';
-import { closeSheet } from '../ui/sheets';
-import { render, Street } from '../ui/board';
+import { Street } from '../ui/street';
 import { ensureTasks } from './tasks';
 import { checkDaily } from './daily';
 import { showEvent } from './events';
 import { showOffer } from './offers';
 import { nudgeCollect, autoCollect } from './actions';
-import { persist, dirty, clearDirty } from './persist';
-import { clearSave } from '../storage';
+import { persist, persistNow, dirty, clearDirty } from './persist';
+import { clearSave, lockSaves, unlockSaves } from '../storage';
 import { Ads } from '../services/ads';
 import { Cloud } from '../services/cloud';
 import { Analytics } from '../services/analytics';
@@ -27,14 +25,22 @@ import { payLien, showDistrictCard } from './district';
 import { maybeTip } from './rifki';
 import { maybeStarter, clubTick } from './monetize';
 
-let lastT = performance.now(), lastGoals = 0;
+let lastT = performance.now(), lastGoals = 0, teslimOf = '';
 const anyProducing = () => S.own.some(k => lotsOf(S, k).some(producing));
 
 export function tick() {
   const pt = performance.now(), dt = Math.min(pt - lastT, 1000); lastT = pt;
   if (document.hidden) return;
+  tickMemo(true); // adım önbelleği (economy.ts): adım bitince (hata olsa da) kapanır
+  try { step(pt, dt); } finally { tickMemo(false); }
+}
+/** Arka plandan dönüşte: döngü yeniden başlarken ilk adımın süresi (dt) arka planda geçen süreyi saymaz (onu catchUp sayar). */
+export function resumeTick() { lastT = performance.now(); }
+function step(pt: number, dt: number) {
   const tn = now();
   S.maxSeen = Math.max(S.maxSeen, tn);
+  if (teslimOf !== S.cur) { teslimOf = S.cur; ui.teslim = {}; } // teslim mühürleri arsa sırasına bağlı: semt değişince silinir
+  let doneAny = false, doneHere = false; // uzun aradan dönüşte üst üste ses/titreşim olmasın
   for (const k of S.own) {
     const lots = lotsOf(S, k);
     for (let i = 0; i < N; i++) {
@@ -42,8 +48,8 @@ export function tick() {
       if (p.until && tn >= p.until) {
         p.until = 0; if (p.up) { p.lvl++; p.up = false; } else p.lvl = 1;
         if (k === S.cur) ui.teslim[i] = { at: pt + 1600, txt: t('{type} · kat {lvl}', { type: t(TYPES[p.t].n), lvl: p.lvl }) }; // tapu teslim mührü
-        if (k === S.cur && ui.tiles[i]) { const el = ui.tiles[i]; ui.tileSig[i] = ''; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
-        Snd.done(); buzz(12); ui.sheetSig = '';
+        if (k === S.cur && ui.tiles[i]) { ui.tileSig[i] = ''; ui.pop.add(i); } // teslim: render karoyu yeniden çizince pop oynar
+        doneAny = true; if (k === S.cur) doneHere = true;
       }
       if (producing(p)) {
         const r = rate(k, i, tn), cap = r * CFG.CAP_SEC; let g = r * dt / 1000;
@@ -53,14 +59,15 @@ export function tick() {
       }
     }
   }
+  if (doneAny) { Snd.done(); if (doneHere) buzz.success(); ui.sheetSig = ''; }
   if (S.fx.length) S.fx = S.fx.filter(f => f.until > tn);
   if (S.boostUntil && S.boostUntil <= tn) { S.boostUntil = 0; toast(t('Tüm mülklere 2x bitti')); }
   if (!ui.ad) S.playMs += dt;
   S.lastSeen = tn;
   if (S.offer && !S.offer.done && S.offer.until <= tn) { toast(t('{title}: süre doldu', { title: t(S.offer.title) })); S.offer = null; }
-  if (!ui.ad && S.playMs >= S.nextTaxi) { S.nextTaxi = S.playMs + (S.offer && S.offer.k === 'taxi' ? rand(18e3, 30e3) : rand(70e3, 130e3)); Street.spawn('taxi'); }
+  if (!ui.ad && S.playMs >= S.nextTaxi) { S.nextTaxi = S.playMs + (S.offer && S.offer.k === 'taxi' ? rand(CFG.TAXI_OFFER_MIN, CFG.TAXI_OFFER_MAX) : rand(CFG.TAXI_MIN, CFG.TAXI_MAX)); Street.spawn('taxi'); }
   // boşta: animasyonlar ve sokak hayatı durur (pil)
-  const idle = pt - ui.lastInput > CFG.IDLE_MS; if (idle !== ui.idle) ui.idle = idle;
+  const idle = pt - ui.lastInput > CFG.IDLE_MS; if (idle !== ui.idle) { ui.idle = idle; Street.idle(idle); }
   // bulut: kayıt ve skor seyrek gönderilir
   if (Cloud.ready() && dirty && pt - ui.lastCloudSave > CFG.CLOUD_SAVE_MS) { ui.lastCloudSave = pt; clearDirty(); void Cloud.pushSave(); }
   Cloud.maybePostScore();
@@ -83,7 +90,8 @@ export function tick() {
     const h = $('#guideHint'), g = $('#guideBtn'); h.hidden = false; g.classList.add('wig');
     setTimeout(() => { h.hidden = true; g.classList.remove('wig'); }, 6000);
   }
-  render();
+  freezeRates(); // çizim durumu değiştirmez: toplam kira ve bekleyen kira bu adımda bir kez hesaplanır
+  view.render();
 }
 
 const MAP_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg>';
@@ -93,7 +101,7 @@ const opt = (a: string, b: string, sm: string, sp = '', on = false, gold = false
 /** İlk açılış: dil seçimi (tasarım Y1). Cihaz dili seçili gelir. */
 export function pickLang(onDone: () => void) {
   openModal(`<div class="card citycard"><div class="badge">${GLOBE_IC}</div><h3>Dil · Language · Sprache</h3><p>${t('Cihaz dilin seçili geldi. İstediğin zaman Ayarlar’dan değiştirebilirsin.')}</p>
-    <div class="citylist">${LANGS.map(l => opt(l.id, l.n, l.sub, '', l.id === LANG)).join('')}</div></div>`,
+    <div class="citylist">${LANGS.map(l => opt(l.id, l.n, l.sub, '', l.id === LANG).replace('<button ', `<button lang="${l.id}" `)).join('')}</div></div>`,
     a => { if (!LANGS.some(l => l.id === a)) return; closeModal(); setLang(a); P.lang = LANG; savePrefs(); onDone(); });
 }
 /** Bölge seçimi (tasarım Y2): 5 ülke + Global; her bölgenin ilerlemesi ayrı. */
@@ -112,7 +120,7 @@ export function pickCity(onDone?: () => void) {
       closeModal();
       const fresh = newState(now(), weekKey(new Date(now())), c);
       Object.assign(S, { city: c, own: fresh.own, cur: fresh.cur, d: fresh.d });
-      ui.tileSig = []; ui.linkSig = ''; persist(); render(); Snd.unlock();
+      ui.tileSig = []; ui.linkSig = ''; persist(); view.render(); Snd.unlock();
       Analytics.log('start_city', { city: c });
       showDistrictCard(fresh.cur, onDone); // şehir kartpostalı + başlangıç semtinin kuralı
     });
@@ -125,11 +133,14 @@ export function applyRegion(r: RegionId) {
 /** İlk açılış akışı: dil → bölge → şehir. */
 export function firstRun(onDone?: () => void, onLang?: () => void) {
   pickLang(() => { if (onLang) onLang(); pickRegion(async r => {
+    // eski bölgenin son durumu kendi anahtarına yazılır; bölge değişirken kayıtlar kilitli (eski durum yeni bölgeye yazılmasın)
+    await persistNow(); lockSaves();
     P.region = r; P.news = true; savePrefs(); applyRegion(r);
     await clearSave(); // seçilen bölgede yeni oyun (diğer bölgelerin kayıtları korunur)
     const ent = { premium: S.premium, noAds: S.noAds, club: S.club };
     setS(Object.assign(newState(now(), weekKey(new Date(now()))), ent));
-    ui.tileSig = []; ui.linkSig = ''; render();
+    unlockSaves();
+    ui.tileSig = []; ui.linkSig = ''; view.render();
     Analytics.log('start_region', { region: r, lang: LANG });
     pickCity(onDone);
   }); });
@@ -137,19 +148,19 @@ export function firstRun(onDone?: () => void, onLang?: () => void) {
 /** Ayarlar'dan bölge değiştirme: kayıt yazılır, diğer bölgenin kaydı açılır (yoksa şehir seçimi). */
 export function switchRegion(r: RegionId) {
   if (r === P.region) return;
-  persist(); P.region = r; savePrefs(); Analytics.log('switch_region', { region: r });
-  setTimeout(() => location.reload(), 150);
+  const w = persistNow(); P.region = r; const pw = savePrefs(); Analytics.log('switch_region', { region: r });
+  void Promise.all([w, pw]).finally(() => location.reload()); // kayıt diske inmeden yenilenmez
 }
 /** Ayarlar'dan dil değiştirme: tüm metinler yeniden çizilsin diye sayfa yenilenir. */
 export function switchLang(l: string) {
   if (l === LANG) return;
-  persist(); setLang(l); P.lang = LANG; savePrefs();
-  setTimeout(() => location.reload(), 150);
+  const w = persistNow(); setLang(l); P.lang = LANG; const pw = savePrefs();
+  void Promise.all([w, pw]).finally(() => location.reload());
 }
 
 /** Yeni oyun: dil → bölge → şehir seçimi (seçilen bölgede sıfırdan; diğer bölgelerin kayıtları korunur). */
 export async function resetGame() {
-  closeSheet();
+  view.closeSheet();
   firstRun(() => { setTimeout(() => location.reload(), 300); }); // seçim bitince temiz açılış (dil ve bölge tüm metinlere yansısın)
 }
 /** Mevcut oyunculara bir kez: yeni diller ve ülkeler tanıtımı. Türkiye ilerlemesi kayıtlı kalır. */
@@ -157,7 +168,7 @@ export function showRegionNews() {
   P.news = true; savePrefs();
   openModal(`<div class="card citycard"><div class="badge">${GLOBE_IC}</div><h3>${t('Yeni: diller ve ülkeler')}</h3>
     <p>${t('Tapu artık 4 dilde ve 5 ülkede oynanıyor: Türkiye, ABD, Birleşik Krallık, Almanya, Japonya. Bir de her ülkenin en pahalı şehrini içeren Global var. Buradaki ilerlemen kayıtlı kalır.')}</p>
-    <div class="btns"><button class="btn gold" data-a="pick">${t('Dil ve bölge seç')}</button><button class="txt" data-a="stay">${t('Şimdilik burada kal')}</button></div></div>`,
+    <div class="btns"><button class="btn gold" data-a="pick">${t('Dil ve bölge seç')}</button><button class="txt" data-a="stay" data-back>${t('Şimdilik burada kal')}</button></div></div>`,
     a => { closeModal(); if (a !== 'pick') return;
       pickLang(() => pickRegion(r => { if (r === P.region) { location.reload(); return; } switchRegion(r); }, false)); });
 }

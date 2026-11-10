@@ -1,7 +1,7 @@
 /* ÖNİZLEME ARKA UCU — Claude artifact'ının paylaşılan veritabanı.
    Gerçek doğrulama yapmaz; yalnızca önizlemede sıralama ve davetleri denemek içindir.
    Uygulamada Firebase arka ucu kullanılır. */
-import type { Backend, LbRow, RedeemResult } from './cloud';
+import type { Backend, LbRow, RedeemResult } from './backend';
 import { t } from '../i18n';
 
 export async function createArtifactBackend(): Promise<Backend> {

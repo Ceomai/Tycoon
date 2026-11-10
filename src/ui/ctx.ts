@@ -1,13 +1,57 @@
 /* Arayüzün geçici durumu (kayda girmez) ve küçük DOM yardımcıları */
 export const $ = (s: string): any => document.querySelector(s);
-export const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* Web geçmişi: panel/kart açıkken geçmişin en üstünde bizim bir kaydımız ({tapu:1}) durur; tarayıcının geri düğmesi
+   (popstate) oyunun geri mantığını çalıştırır (main.ts). Arayüzden kapatınca kayıt history.back() ile geri alınır ve o
+   popstate yalnızca yeniden eşitleme yapar (çift kapanma/döngü olmasın). Karar her zaman history.state'e bakılarak
+   verilir; geri gitme sürerken yeni açılış olursa eşitleme popstate'e bırakılır. Telefonda geri tuşu doğrudan dinlenir. */
+export const hist = { ignore: 0, enabled: false, t: 0 as any };
+/** Bizim history.back()'imizin popstate'i geldi (ya da 3 sn içinde gelmedi). Bekleyen emniyet zamanlayıcısı iptal. */
+export function histSettled() { hist.ignore = 0; clearTimeout(hist.t); hist.t = 0; }
+const atOverlay = () => { try { return !!(history.state && history.state.tapu); } catch { return false; } };
+export function syncHistory() {
+  if (!hist.enabled || hist.ignore > 0) return;
+  const open = !!(ui.sheet || ui.modal), at = atOverlay();
+  try {
+    if (open && !at) history.pushState({ tapu: 1 }, '');
+    else if (!open && at) { hist.ignore = 1; clearTimeout(hist.t); hist.t = setTimeout(histSettled, 3000); history.back(); } // emniyet: popstate hiç gelmezse kilit açılır (yeniden geri yapılmaz)
+  } catch { /* geçmiş kullanılamıyor */ }
+}
+/** Hareketi azalt (sistem ayarı). Canlı bağ: ayar oyun açıkken değişirse dinleyici günceller (modal/board/motion okur). */
+export let reduceMotion = false;
+try {
+  const mq = matchMedia('(prefers-reduced-motion: reduce)'); reduceMotion = mq.matches;
+  const on = (e: MediaQueryListEvent) => { reduceMotion = e.matches; };
+  if (mq.addEventListener) mq.addEventListener('change', on); else if ((mq as any).addListener) (mq as any).addListener(on);
+} catch { /* matchMedia yok */ }
 
-export interface SheetState { k: string; key?: string; i?: number; del?: boolean; conf?: boolean; reset?: boolean; req?: boolean; rows?: any[] | null; [x: string]: any; }
+/** Alt panel türleri (sheets/ altında her birinin modülü var; kayıt tablosu sheets.ts). */
+export type SheetKind = 'plot' | 'skin' | 'map' | 'set' | 'menu' | 'tasks' | 'coll' | 'lb' | 'leagues' | 'ref' | 'arsiv' | 'sezon' | 'ozel'
+  | 'guide' | 'guideItem' | 'store' | 'holding';
+/** Açık panelin durumu. key/i: arsa (plot, skin) ya da kılavuz maddesi (guideItem: i). del/conf/reset: "Emin misin?" onayı
+ *  (3 sn sonra kendiliğinden düşer). req/v/err: lig tablosu isteği ve sonucu (lb). sel: arşivde seçili mühür. */
+export interface SheetState {
+  k: SheetKind; key?: string; i?: number;
+  del?: boolean; conf?: boolean; reset?: boolean;
+  req?: boolean; v?: unknown; err?: boolean;
+  sel?: string;
+}
+/** Oyun katmanının arayüze geri çağrıları. Oyun modülleri panel ve tahta modüllerini (ui/sheets, ui/board) doğrudan içe
+ *  aktarmaz (döngüsel bağımlılık olmasın); o modüller yüklenince kendi işlevlerini buraya kaydeder (sheets/core.ts, board.ts).
+ *  Kayıt yokken (birim testleri) hiçbir şey yapmaz. */
+export const view = {
+  render: () => { /* board.ts */ },
+  openSheet: (_s: SheetState) => { /* sheets/core.ts */ },
+  closeSheet: () => { /* sheets/core.ts */ },
+};
 
 export const ui = {
   mq: [] as [string, (a: string) => void][],
   lastDay: '',
   sheet: null as SheetState | null,
+  /** iç içe paneller: geri tuşu bir öncekine döner (menü → mağaza → geri → menü) */
+  sheetStack: [] as SheetState[],
+  /** panel/kart açılmadan önce odaktaki öğe (kapanınca odak geri verilir) */
+  sheetFocus: null as HTMLElement | null, modalFocus: null as HTMLElement | null,
   modal: false,
   ad: false,
   lastClose: 0,
@@ -17,7 +61,7 @@ export const ui = {
   tileSig: [] as string[],
   linkSig: '', sheetSig: '', rateHtml: '',
   lastNudge: 0, toastT: 0 as any,
-  size: 60, sw: 60, sh: 60, gap: 14,
+  size: 60, sw: 60, sh: 60, gap: 14, pad: 14,
   lastInput: 0, idle: false,
   breakAt: 0, bootAt: performance.now(), // geçiş reklamı: son doğal durak, açılış anı
   lastCloudSave: 0,
@@ -27,4 +71,8 @@ export const ui = {
   cashAnim: null as null | { from: number; to: number; t0: number },
   /** Tapu teslim mührü: arsa → { bitiş zamanı, yazı } */
   teslim: {} as Record<number, { at: number; txt: string }>,
+  /** Bu karede yeniden çizilen karolardan hangilerinde pop oynayacak (render sonrası WAAPI ile; loop/actions işaretler) */
+  pop: new Set<number>(),
+  /** Son basılan düğme ve anı: başarısız işlemde sallanacak öğe (motion.ts deny) */
+  lastPress: null as HTMLElement | null, lastPressAt: 0,
 };

@@ -9,10 +9,10 @@ import { Snd } from '../sound';
 import { svg } from '../draw';
 import { lmSvg } from '../landmarks';
 import { openModal, closeModal, bump, toast } from '../ui/modal';
-import { addCash, addBoost } from './actions';
+import { addCash } from './actions';
 import { track } from './tasks';
 import { lmLeft } from './collection';
-import { Ads } from '../services/ads';
+import { rewardChoice } from './reward';
 import { payLien } from './district';
 
 interface Ev { ic?: string; art?: string; title: string; text: string; big?: boolean; rw: (m: number) => string; apply: (m: number) => void; }
@@ -41,9 +41,8 @@ export function showEvent() {
     <div class="btns"><button class="btn gold" data-a="x2">${I.play} ${ev.big ? t('İzle, 2 katını al') : t('İzle, {reward}', { reward: ev.rw(2) })}</button>
     <button class="txt" data-a="x1">${ev.big ? t('Al') : ev.art ? ev.rw(1) : t('Normal ödülü al')}</button></div></div>`,
     a => {
-      track('event');
-      if (a === 'x1') { ev.apply(1); closeModal(); Snd.collect(3); }
-      if (a === 'x2') { closeModal(); Ads.rewarded('event', ev.rw(2), () => ev.apply(2)); }
+      if (a !== 'x1' && a !== 'x2') return; track('event');
+      closeModal(); rewardChoice(a === 'x2', 'event', ev.rw(2), m => { ev.apply(m); if (m === 1) Snd.collect(3); });
     });
 }
 
@@ -65,8 +64,8 @@ export function catchUp(ms: number) {
     <div class="btns"><button class="btn gold" data-a="x3">${I.play} ${t('İzle, 3 katını al')}</button>
     <button class="txt" data-a="x1">${t('Al')}</button></div></div>`,
     a => {
-      if (a === 'x1') { addCash(lump); bump(); closeModal(); Snd.collect(4); }
-      if (a === 'x3') { closeModal(); Ads.rewarded('offline', t('{amt} kira', { amt: fmt(lump * 3) }), () => { addCash(lump * 3); bump(); }); }
+      if (a !== 'x1' && a !== 'x3') return;
+      closeModal(); rewardChoice(a === 'x3', 'offline', t('{amt} kira', { amt: fmt(lump * 3) }), m => { addCash(lump * m); bump(); if (m === 1) Snd.collect(4); }, 3);
     });
 }
 

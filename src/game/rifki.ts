@@ -2,13 +2,12 @@
    RIFKI ABİ — klasik, nazik bir emlakçı; ara sıra hafif esprili tek satırlık ipuçları.
    En fazla 3 dakikada bir konuşur, × ile kapanır, Ayarlar'dan tamamen kapatılabilir.
    ========================================================= */
-import { CFG, TYPES, ORDER, DMAP, N } from '../config';
+import { CFG, ORDER, DMAP, N } from '../config';
 import { S, lotsOf } from '../state';
 import { now, pending, producing, neighbors, PAIRS, buildCost, withDisc, rate, isFull, unlockInfo } from '../economy';
 import { weekKey, loc } from '../format';
 import { t, nm, LANG } from '../i18n';
-import { $, ui, SheetState } from '../ui/ctx';
-import { openSheet } from '../ui/sheets';
+import { $, ui, SheetState, view } from '../ui/ctx';
 import { nearestGoal } from './goals';
 import { nextDistrict, kaporaOf, clearCost } from './district';
 import { weekSpecial } from '../specials';
@@ -104,12 +103,12 @@ export function showTip(tip: Tip) {
 export function maybeTip(pt: number) {
   if (!S.rifki || !S.city || ui.sheet || ui.modal || ui.ad || current) return;
   if (pt - lastAt < CFG.TIP_EVERY) return;
-  const list = tips(); if (!list.length) return;
+  const list = tips(); if (!list.length) { lastAt = pt - CFG.TIP_EVERY + 15e3; return; } // söylenecek yok: 15 sn sonra yeniden bak
   const tip = list.find(x => x.id !== lastId) || list[0];
   lastAt = pt; if (tip.id === 'save2x') last2x = performance.now(); showTip(tip);
 }
 export function onTipClick(e: Event) {
   const b = (e.target as HTMLElement).closest('[data-rk]') as HTMLElement | null; if (!b) return;
   const go = current && current.go; hideTip();
-  if (b.dataset.rk === 'go' && go) openSheet(go);
+  if (b.dataset.rk === 'go' && go) view.openSheet(go);
 }

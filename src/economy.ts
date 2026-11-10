@@ -1,15 +1,30 @@
 /* =========================================================
    EKONOMİ — kira, maliyet, süre, komşuluk ve semt/il açılışları
    ========================================================= */
-import { CFG, COLS, ROWS, N, TYPES, LV_INC, UP_COST, UP_TIME, DMAP, DistrictKey, CityId, BuildingType, TIER_M, TIER_FEE, dkey, CITIES, CITY_ORDER, DRULES, DRule } from './config';
+import { CFG, COLS, ROWS, N, TYPES, LV_INC, UP_COST, UP_TIME, DMAP, DistrictKey, BuildingType, TIER_M, TIER_FEE, dkey, CITIES, CITY_ORDER, DRULES } from './config';
 import { S, Plot, Lot, lotsOf } from './state';
 import { Time } from './time';
 import { LM } from './landmarks';
 import { marketMult, civicMult, achBonus } from './game/modifiers';
 import { weekKey } from './format';
+/* Adım önbelleği (tick-scoped memo): oyun döngüsü her adımda açar (tickMemo(true)), adım bitince kapatır. Açıkken
+   - permMult girdileri (hisse, koleksiyon, semtler, Holding, arşiv) değişmedikçe yeniden hesaplanmaz (her çağrıda yeni Set yok),
+   - curWeek saati yeniden okumaz,
+   - çizim aşamasında (freezeRates: durum artık değişmez) totalRate ve pending adım başına bir kez hesaplanır.
+   Döngü dışındaki çağrılar (dokunuş, kart, panel eylemi) önbelleksiz; sonuçlar önbelleksiz hesapla aynıdır. */
+interface Memo { pm: number; pmKey: unknown[] | null; wk: string; rates: boolean; tr: [number, number]; pd: { amount: number; fill: number } | null }
+let memo: Memo | null = null;
+export function tickMemo(on: boolean) { memo = on ? { pm: 0, pmKey: null, wk: '', rates: false, tr: [NaN, NaN], pd: null } : null; }
+export function freezeRates() { if (memo) memo.rates = true; }
+
 /** Bu hafta (piyasa raporu için; dakikada bir hesaplanır). */
 let wkC = '', wkT = 0;
-export const curWeek = () => { const t = now(); if (t - wkT > 60e3 || !wkC) { wkC = weekKey(new Date(t)); wkT = t; } return wkC; };
+export const curWeek = () => {
+  if (memo && memo.wk) return memo.wk;
+  const t = now(); if (t - wkT > 60e3 || !wkC) { wkC = weekKey(new Date(t)); wkT = t; }
+  if (memo) memo.wk = wkC;
+  return wkC;
+};
 
 /** Oyun saati: sunucuyla düzeltilmiş cihaz saati. Saat geri alınırsa (5 dk tolerans) zaman,
  *  cihaz saati son görülen ana yetişene kadar donar; böylece geri-ileri oynatmayla kazanç olmaz. */
@@ -22,7 +37,6 @@ export const cnt = (k: DistrictKey, t: BuildingType) => lotsOf(S, k).filter(p =>
 export const withDisc = (p: number) => p * (1 - S.disc);
 export const buildCost = (k: DistrictKey, t: BuildingType) => TYPES[t].cost * costM(k) * Math.pow(1.12, cnt(k, t));
 /* semt kuralı: hız ve tadilat indirimi */
-export const ruleOf = (k: DistrictKey): DRule | undefined => DRULES[k];
 const speedM = (k: DistrictKey) => { const r = DRULES[k]; return r && r.kind === 'speed' ? 1 - r.x : 1; };
 const upDiscM = (k: DistrictKey) => { const r = DRULES[k]; return r && r.kind === 'upDisc' ? 1 - r.x : 1; };
 export const buildTime = (k: DistrictKey, t: BuildingType) => TYPES[t].time * 1000 * (1 + 0.1 * cnt(k, t)) * (1 + 0.5 * tierOf(k)) * speedM(k);
@@ -74,7 +88,14 @@ export function fxMult(k: DistrictKey, i: number, p: Plot, t: number): number {
 export const citiesOwned = () => new Set(S.own.map(k => D(k).city)).size;
 export function collBonus(): number { const n = (S.coll || []).length; return n * 0.05 + (n === LM.length ? 0.1 : 0); }
 export const portfolioBonus = () => CFG.PORTFOLIO_BONUS * Math.max(0, citiesOwned() - 1);
-export const permMult = () => (1 + 0.1 * (S.shares || 0)) * (1 + collBonus()) * (1 + portfolioBonus()) * (S.premium ? 2 : 1) * (1 + achBonus());
+const permMultRaw = () => (1 + 0.1 * (S.shares || 0)) * (1 + collBonus()) * (1 + portfolioBonus()) * (S.premium ? 2 : 1) * (1 + achBonus());
+/** Kalıcı çarpan: hisse, koleksiyon, portföy (il sayısı), Holding, arşiv. Adım içinde girdileri değişmedikçe önbellekten. */
+export function permMult(): number {
+  if (!memo) return permMultRaw();
+  const key = [S, S.own, S.own.length, S.coll, S.coll && S.coll.length, S.ach, S.ach && S.ach.length, S.shares, S.premium], old = memo.pmKey;
+  if (!old || key.some((v, j) => v !== old[j])) { memo.pmKey = key; memo.pm = permMultRaw(); }
+  return memo.pm;
+}
 /** 3 yıldızlı semte kalıcı bonus. */
 export const districtMult = (k: DistrictKey) => ((S.stars && S.stars[k] ? S.stars[k].length : 0) >= 3 ? 1 + CFG.STAR_BONUS : 1);
 /** Özel yapı: semtteki en iyi (özel olmayan) binanın 3 katı; hiç bina yoksa 1. kat ofis kadar. */
@@ -96,6 +117,10 @@ export function rate(k: DistrictKey, i: number, t = now()): number {
   return b * fxMult(k, i, p, t) * (S.boostUntil > t ? 2 : 1) * ((p.bu || 0) > t ? 2 : 1); // tüm mülklere 2x × bu mülke 2x
 }
 export function totalRate(live: boolean): number {
+  if (memo && memo.rates) { const j = live ? 1 : 0; if (Number.isNaN(memo.tr[j])) memo.tr[j] = totalRateRaw(live); return memo.tr[j]; }
+  return totalRateRaw(live);
+}
+function totalRateRaw(live: boolean): number {
   let s = 0; const t = now();
   for (const k of S.own) for (let i = 0; i < N; i++) s += live ? rate(k, i, t) : baseRate(k, i);
   return s;
@@ -106,9 +131,12 @@ export function coinFill(k: DistrictKey, i: number): number {
   const c = capOf(k, i); if (!c) return p.buf >= 1 ? 1 : 0;
   return Math.min(1, p.buf / c);
 }
-export function hasCoin(k: DistrictKey, i: number): boolean { const p = lotsOf(S, k)[i]; return !!p && p.buf >= Math.max(1, baseRate(k, i) * 6); }
 /** Bekleyen toplam kira ve kumbaraların doluluğu (ortadaki TOPLA mührü için). */
 export function pending(): { amount: number; fill: number } {
+  if (memo && memo.rates) return memo.pd || (memo.pd = pendingRaw());
+  return pendingRaw();
+}
+function pendingRaw(): { amount: number; fill: number } {
   let a = 0, cap = 0; const t = now();
   for (const k of S.own) lotsOf(S, k).forEach((p, i) => { if (!producing(p)) return; a += p!.buf; cap += capOf(k, i, t); });
   return { amount: a, fill: cap ? Math.min(1, a / cap) : 0 };
@@ -138,5 +166,3 @@ export function unlockInfo(k: DistrictKey): Unlock {
 }
 /** Satın alınabilir (şartları sağlanmış) semtler: rozet ve bildirim için. */
 export const buyableDistricts = () => CITY_ORDER.flatMap(c => CITIES[c].districts.map((_, i) => dkey(c, i))).filter(k => unlockInfo(k).ok);
-export const cityOf = (k: DistrictKey): CityId => D(k).city;
-export const highestTier = () => Math.max(...S.own.map(tierOf));

@@ -15,7 +15,8 @@ export const LANGS: { id: Lang; n: string; sub: string }[] = [
   { id: 'de', n: 'Deutsch', sub: 'Auf Deutsch spielen' },
   { id: 'ja', n: '日本語', sub: '日本語でプレイ' },
 ];
-export interface Dict { s: Record<string, string>; names?: Record<string, string>; }
+import type { Dict } from './locales/dict';
+export type { Dict };
 const DICTS: Record<Lang, Dict | null> = { tr: null, en: EN, de: DE, ja: JA };
 
 export let LANG: Lang = 'tr';
@@ -34,6 +35,12 @@ const fill = (s: string, p?: Record<string, unknown>) => (p ? s.replace(/\{(\w+)
 export function t(src: string, p?: Record<string, unknown>): string {
   const d = DICTS[LANG];
   return fill((d && d.s[src]) || src, p);
+}
+/** Bağlamlı çeviri: aynı Türkçe metin farklı anlamlarda kullanılınca (ör. tema "Açık" = Light, anahtar "Açık" = On).
+ *  Sözlük anahtarı "bağlam|kaynak"; çeviri yoksa (ve Türkçede) kaynak metin görünür. Örn: tc('tema', 'Açık') */
+export function tc(ctx: string, src: string, p?: Record<string, unknown>): string {
+  const d = DICTS[LANG];
+  return fill((d && d.s[ctx + '|' + src]) || src, p);
 }
 /** Özel ad (şehir, semt) çevirisi. */
 const TR_NAMES: Record<string, string> = { Munich: 'Münih', London: 'Londra' };

@@ -31,7 +31,10 @@ const PRODUCTS: Record<ProductKey, { re: RegExp; price: string; name: string }> 
 };
 const ORDER_MATCH: ProductKey[] = ['sezonIlk', 'sezon', 'jeton15', 'jeton5', 'baslangic', 'kulup', 'reklamsiz', 'holding'];
 const ENT = { premium: 'premium', reklamsiz: 'reklamsiz', kulup: 'kulup' };
-let configured = false;
+let configured = false, purchasing = false;
+/** Telefonda mağaza durumu: fiyatlar RevenueCat'ten gelene kadar sabit (₺) fiyat gösterilmez (bölge dışında yanıltıcı). */
+export type StoreState = 'loading' | 'ready' | 'error';
+let state: StoreState = 'loading', lastUid: string | null = null;
 const pkgs: Partial<Record<ProductKey, any>> = {};
 const prices: Record<ProductKey, string> = Object.fromEntries(Object.entries(PRODUCTS).map(([k, v]) => [k, v.price])) as any;
 const native = () => Capacitor.isNativePlatform() && !__PREVIEW__;
@@ -59,38 +62,58 @@ function grant(key: ProductKey, onOk?: () => void) {
   Analytics.log('iap_purchase', { product: key });
 }
 
+/** Ürünün mağaza paketi (ilk sezon indirimi yoksa normal sezon ürünü). */
+const pkgOf = (k: ProductKey) => pkgs[k] || (k === 'sezonIlk' ? pkgs.sezon : null);
+const setState = (v: StoreState) => { if (state !== v) { state = v; ui.sheetSig = ''; } };
+
 export const Purchases = {
-  price: (k: ProductKey = 'holding') => prices[k],
+  /** Gösterilecek fiyat. Web/önizlemede simülasyon fiyatı; telefonda yalnızca mağazanın verdiği fiyat, yoksa "…". */
+  price: (k: ProductKey = 'holding') => (!native() ? prices[k] : pkgOf(k)?.product?.priceString || '…'),
   /** Altın Tapu için gösterilecek fiyat: ilk sezonda indirimli ürün varsa o. */
-  seasonPrice: () => (!S.seasonFirst ? prices.sezonIlk : prices.sezon),
-  seasonFull: () => prices.sezon,
+  seasonPrice: () => Purchases.price(!S.seasonFirst ? 'sezonIlk' : 'sezon'),
+  seasonFull: () => Purchases.price('sezon'),
+  /** Mağaza durumu (web/önizlemede her zaman hazır: test satın alma kartı). */
+  state: (): StoreState => (!native() ? 'ready' : state),
+  /** Bu ürün şu an satın alınabilir mi (telefonda paketi yüklendiyse)? */
+  can: (k: ProductKey) => !native() || (configured && !!pkgOf(k)),
   async init(uid: string | null) {
-    if (!native() || !apiKey()) return;
+    lastUid = uid;
+    if (!native()) return;
+    if (!apiKey()) { setState('error'); return; }
+    setState('loading');
     try {
-      await RC.configure({ apiKey: apiKey(), appUserID: uid || undefined } as any);
-      configured = true;
-      const { customerInfo } = await RC.getCustomerInfo() as any; apply(customerInfo);
+      if (!configured) {
+        await RC.configure({ apiKey: apiKey(), appUserID: uid || undefined } as any);
+        configured = true;
+        const { customerInfo } = await RC.getCustomerInfo() as any; apply(customerInfo);
+      }
       const off: any = await RC.getOfferings();
       const all: any[] = Object.values(off?.all || {}).flatMap((o: any) => o?.availablePackages || []);
       for (const p of all) {
         const id = identOf(p), key = ORDER_MATCH.find(k => PRODUCTS[k].re.test(id));
         if (key && !pkgs[key]) { pkgs[key] = p; if (p?.product?.priceString) prices[key] = p.product.priceString; }
       }
-    } catch (e) { Analytics.error(e, 'rc_init'); }
+      setState(Object.keys(pkgs).length ? 'ready' : 'error');
+    } catch (e) { Analytics.error(e, 'rc_init'); setState('error'); }
   },
+  /** Mağaza yüklenemediyse "Tekrar dene". */
+  retry() { if (native() && state !== 'loading') return this.init(lastUid); return Promise.resolve(); },
   async login(uid: string) { if (configured) try { const r: any = await RC.logIn({ appUserID: uid }); apply(r.customerInfo); } catch { /* yok */ } },
   /** Genel satın alma: başarılıysa onOk çalışır (tüketilen ürünlerde ödülü veren yer). */
   async buyProduct(key: ProductKey, onOk?: () => void) {
     if (!native()) {
       openModal(`<div class="card"><div class="badge">${I.crown}</div><h3>${t('Test satın alma')}</h3><p>${t('Önizlemede gerçek ödeme alınmaz. Uygulamada mağazanın ödeme ekranı açılır.')}</p>
-        <div class="btns"><button class="btn gold" data-a="ok">${t(PRODUCTS[key].name)} · ${prices[key]}</button><button class="txt" data-a="no">${t('Vazgeç')}</button></div></div>`,
+        <div class="btns"><button class="btn gold" data-a="ok">${t(PRODUCTS[key].name)} · ${prices[key]}</button><button class="txt" data-a="no" data-back>${t('Vazgeç')}</button></div></div>`,
         a => { closeModal(); if (a === 'ok') grant(key, onOk); });
       return;
     }
-    const pkg = pkgs[key] || (key === 'sezonIlk' ? pkgs.sezon : null);
+    const pkg = pkgOf(key);
     if (!configured || !pkg) { toast(t('Mağaza şu an kullanılamıyor')); return; }
+    if (purchasing) return; // ödeme ekranı açıkken ikinci dokunuş yok sayılır (çift satın alma olmasın)
+    purchasing = true;
     try { const r: any = await RC.purchasePackage({ aPackage: pkg }); apply(r.customerInfo); grant(key, onOk); }
     catch (e: any) { if (!e?.userCancelled) toast(t('Satın alma tamamlanamadı')); }
+    finally { purchasing = false; }
   },
   /** Eski çağrı: Holding paketi (önceki "Reklamsız paket" ürünü). */
   buy() { return this.buyProduct('holding'); },

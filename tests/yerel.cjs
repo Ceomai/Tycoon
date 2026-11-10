@@ -2,13 +2,13 @@
 // Global (5 şehir, 4. ve 5. şehir bedeli), bölge değiştirince kayıtların ayrı kalması, dil değiştirme,
 // İngilizce/Almanca/Japonca arayüzde Türkçe kalıntı taraması ve 320px taşma denetimi.
 // Çalıştır: npm run test:yerel
-const {chromium}=require('playwright'); const path=require('path'); const fs=require('fs');
-const URL='file://'+path.resolve(__dirname,'../dist-preview/index.html'); const out=path.resolve(__dirname,'out')+'/'; fs.mkdirSync(out,{recursive:true});
-const fails=[]; const ok=(c,m)=>{ if(!c) fails.push(m); console.log(c?'  ✓':'  ✗',m); };
-const vis=(p,s)=>p.isVisible(s).catch(()=>false);
-const tap=async(p,sel)=>{ await p.click(sel,{force:true,timeout:3000}).catch(()=>p.$eval(sel,e=>e.click())); await p.clock.runFor(400); await p.waitForTimeout(250); };
-async function dismiss(p){ for(let k=0;k<6&&await vis(p,'#modal .card');k++){ await p.click(await vis(p,'#modal .card .txt')?'#modal .card .txt':'#modal .card [data-a]',{force:true}).catch(()=>{}); await p.clock.runFor(400); await p.waitForTimeout(200); } }
-const S=p=>p.evaluate(()=>JSON.parse(JSON.stringify(window.__tapuState())));
+const {chromium}=require('playwright');
+const { serve, out, vis, state, makeTap, dismissCards, checker } = require('./helpers.cjs');
+let URL; // http://127.0.0.1:<port>/index.html — main başında serve() ile
+const { fails, ok }=checker();
+const tap=makeTap({run:400,wait:250,fallback:true,timeout:3000});
+const dismiss=p=>dismissCards(p,{n:6,run:400,wait:200});
+const S=state;
 async function fresh(b,vp={width:390,height:844},locale='en-US'){ const ctx=await b.newContext({viewport:vp,locale}); const p=await ctx.newPage(); p.errs=[]; p.on('pageerror',e=>p.errs.push(e.message)); await p.clock.install(); await p.goto(URL); await p.clock.runFor(600); await p.waitForTimeout(300); return p; }
 // Türkçeye özgü harfler (özel adlar hariç) görünür metinde kalmış mı?
 const TR_CH=/[ğışĞİŞ]|(^|\s)(ve|bir|için|kira|semt|arsa)(\s|$)/i;
@@ -17,7 +17,7 @@ async function turkishLeft(p){ return p.evaluate(([re,names])=>{ const R=new Reg
   while(n=w.nextNode()){ const el=n.parentElement; if(!el||!el.offsetParent&&el.tagName!=='BODY') continue; let t=n.nodeValue.trim(); if(!t) continue; for(const x of names) t=t.split(x).join(''); if(R.test(t)) bad.push(t.slice(0,60)); } return [...new Set(bad)].slice(0,8); },[TR_CH.source,NAMES]); }
 
 (async()=>{
- const b=await chromium.launch();
+ const b=await chromium.launch(); URL=await serve();
 
  console.log('Y1–Y3 ilk açılış: İngilizce dil, Almanya bölgesi, Berlin');
  let p=await fresh(b);

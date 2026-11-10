@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 // @ts-ignore: düğüm türleri bu projede yüklü değil; yalnızca vitest (Node) altında çalışır
 import fs from 'node:fs';
-import { setLang, t, nm, loc } from '../../src/i18n';
+import { setLang, t, tc, nm, loc } from '../../src/i18n';
 import { EN } from '../../src/locales/en';
 import { DE } from '../../src/locales/de';
 import { JA } from '../../src/locales/ja';
@@ -29,6 +29,14 @@ describe('sözlükler', () => {
   }
   it('Türkçede çeviri kaynak metnin kendisi', () => { setLang('tr'); expect(t('{n} semt', { n: 3 })).toBe('3 semt'); });
   it('eksik anahtar Türkçeye düşer', () => { setLang('en'); expect(t('olmayan anahtar')).toBe('olmayan anahtar'); });
+  it('bağlamlı çeviri: tema "Açık" = Light, düz "Açık" = On olarak kalır', () => {
+    expect(keys).toContain('tema|Açık');
+    setLang('tr'); expect(tc('tema', 'Açık')).toBe('Açık'); expect(tc('tema', 'Koyu')).toBe('Koyu'); expect(tc('tema', 'Otomatik')).toBe('Otomatik');
+    setLang('en'); expect([tc('tema', 'Otomatik'), tc('tema', 'Açık'), tc('tema', 'Koyu')]).toEqual(['Auto', 'Light', 'Dark']); expect(t('Açık')).toBe('On');
+    setLang('de'); expect([tc('tema', 'Otomatik'), tc('tema', 'Açık'), tc('tema', 'Koyu')]).toEqual(['Automatisch', 'Hell', 'Dunkel']); expect(t('Açık')).toBe('An');
+    setLang('ja'); expect([tc('tema', 'Otomatik'), tc('tema', 'Açık'), tc('tema', 'Koyu')]).toEqual(['自動', 'ライト', 'ダーク']); expect(t('Açık')).toBe('オン');
+    setLang('en'); expect(tc('başka', 'Açık')).toBe('Açık'); // bağlamı olmayan anahtar kaynak metne düşer
+  });
 });
 
 describe('biçimler', () => {
