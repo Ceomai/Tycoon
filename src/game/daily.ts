@@ -27,7 +27,8 @@ export function checkDaily() {
       const keep = Dd.streak;
       openModal(`<div class="card"><div class="badge">${I.cal}</div><h3>${t('Serin bozuldu')}</h3><p>${t('{gap} gün uğramadın. {keep} günlük serini kurtarabilirsin.', { gap: gap - 1, keep })}</p>
         <div class="btns"><button class="btn gold" data-a="save">${I.play} ${t('İzle, seriyi kurtar')}</button><button class="txt" data-a="reset">${t('Baştan başla')}</button></div></div>`,
-        a => { closeModal(); if (a === 'save') Ads.rewarded('streak', t('Seri kurtarıldı'), () => showDaily(keep + 1)); else { Dd.streak = 0; showDaily(1); } });
+        a => { closeModal(); if (a === 'save') Ads.rewarded('streak', t('Seri kurtarıldı'), () => showDaily(keep + 1), checkDaily); else { Dd.streak = 0; showDaily(1); } });
+      // reklam olmazsa seri bedava kurtarılmaz: aynı kart yeniden açılır, oyuncu tekrar deneyebilir ya da baştan başlar
       return;
     }
     Dd.streak = 0;
@@ -40,5 +41,5 @@ export function showDaily(n: number) {
   openModal(`<div class="card"><div class="badge">${I.cal}</div><h3>${t('{n}. gün kira günü', { n })}</h3><p>${t('Her gün uğra, 7. gün büyük ödül.')}</p>
     ${streakStrip(day, day - 1)}<div class="big">${fmt(amt)}</div>${big ? `<p><b>${t('Haftanın büyük kira ödülü')}</b></p>` : ''}
     <div class="btns"><button class="btn gold" data-a="x2">${I.play} ${t('İzle, {n} katını al', { n: mx })}</button><button class="txt" data-a="x1">${t('Al')}</button></div></div>`,
-    a => { closeModal(); if (a === 'x1') { claim(1); Snd.collect(5); } else Ads.rewarded('daily', t('{n} kira', { n: fmt(amt * mx) }), () => claim(mx)); });
+    a => { closeModal(); if (a === 'x1') { claim(1); Snd.collect(5); } else Ads.rewarded('daily', t('{n} kira', { n: fmt(amt * mx) }), () => claim(mx), () => { claim(1); Snd.collect(5); }); }); // reklam olmazsa 1 kat
 }

@@ -30,9 +30,9 @@ import { now, totalRate } from './economy';
 import { Time, guardRollback } from './time';
 import { loadRaw } from './storage';
 import { Snd } from './sound';
-import { $, ui } from './ui/ctx';
-import { onModalClick, justOpened } from './ui/modal';
-import { openSheet, closeSheet, onSheetAction } from './ui/sheets';
+import { $, ui, hist, syncHistory, histSettled } from './ui/ctx';
+import { onModalClick, justOpened, modalBack } from './ui/modal';
+import { openSheet, closeSheet, sheetBack, onSheetAction } from './ui/sheets';
 import { render, fit, setupGrid, drawGuilloche, Street } from './ui/board';
 import { ensureTasks } from './game/tasks';
 import { catchUp } from './game/events';
@@ -74,9 +74,19 @@ function onShow() {
   if (Cloud.ready() && !Time.synced) void Cloud.hello();
 }
 
+/** Geri: (1) reklam ekranı açıksa hiçbir şey; (2) kart açıksa kapatılabilir karttır ise kapat (zorunlu kartlar kalır);
+ *  (3) panel açıksa iç içe panelde bir öncekine dön, değilse kapat. Bir şey tükettiyse true; yoksa false (uygulama arka plana). */
+function handleBack(): boolean {
+  if (ui.ad) return true;
+  if (ui.modal) { modalBack(); return true; }
+  if (ui.sheet) { sheetBack(); return true; }
+  return false;
+}
+
 function bindUi() {
   document.addEventListener('pointerdown', () => { Snd.init(); ui.lastInput = performance.now(); }, { capture: true });
-  document.addEventListener('keydown', e => { ui.lastInput = performance.now(); if (e.key === 'Escape' && ui.sheet) closeSheet(); });
+  // Esc (masaüstü): kartı kapatılabiliyorsa kapatır; paneli iç içe olsa da tümden kapatır (geri tuşu/tarayıcı geri bir önceki panele döner)
+  document.addEventListener('keydown', e => { ui.lastInput = performance.now(); if (e.key !== 'Escape') return; if (ui.modal) modalBack(); else if (ui.sheet) closeSheet(); });
   $('#collectBtn').addEventListener('click', () => {
     if (S.collectMode === 'auto') toast(t('Kiralar otomatik toplanıyor · Ayarlar’dan değiştirebilirsin'));
     else collectAll($('#collectBtn .core'));
@@ -98,18 +108,36 @@ function bindUi() {
   if (Capacitor.isNativePlatform()) {
     void App.addListener('pause', onHide);
     void App.addListener('resume', onShow);
-    // Android geri tuşu: önce panel/kart kapanır, sonra uygulama arka plana alınır
-    void App.addListener('backButton', () => { if (ui.sheet) closeSheet(); else if (!ui.modal && !ui.ad) void App.minimizeApp(); });
+    // Android geri tuşu: kart → panel (iç içe ise bir önceki) → uygulama arka plana
+    void App.addListener('backButton', () => { if (!handleBack()) void App.minimizeApp(); });
+  } else {
+    // web: panel/kart açılınca geçmişe bir kayıt eklenir; tarayıcı geri düğmesi aynı geri mantığını çalıştırır
+    hist.enabled = true;
+    window.addEventListener('popstate', () => {
+      if (hist.ignore > 0) { histSettled(); syncHistory(); return; } // arayüzden kapatınca bizim yaptığımız history.back()
+      handleBack(); syncHistory(); // hâlâ açıksa (iç içe panel, zorunlu kart) kayıt yeniden eklenir
+    });
   }
 }
 
-/** Telefona özgü ayarlar: oyun dikey tasarlandı; sistem yazı boyutu büyütülse de düzen bozulmasın.
- *  (Android WebView sistem yazı ölçeğini sayfaya uyguluyor; oyunun yazıları zaten büyük ve sabit.) */
+/** Telefona özgü ayarlar: oyun dikey tasarlandı.
+ *  Sistem yazı boyutu: WebView'in kendi metin yakınlaştırması (her px yazıyı ölçekler, tahta/alt çubuk taşar) kapalı tutulur;
+ *  bunun yerine sistemin tercih ettiği ölçek kök yazı boyutuna (rem) uygulanır. Metinler rem tabanlıdır, arsa içi etiketler
+ *  karo genişliğine bağlıdır. Düzen denendi: 390×844'te 1.3, 320×568'de 1.2 kata kadar bozulmuyor; bu yüzden üst sınır
+ *  uzun ekranda 1.3, kısa ekranda (<700px) 1.15. */
+export const TEXT_SCALE_MAX = 1.3;
 async function deviceSetup() {
   if (!Capacitor.isNativePlatform()) return;
   await Promise.all([
     ScreenOrientation.lock({ orientation: 'portrait' }).catch(() => { /* tablet/çoklu pencere: kilit desteklenmeyebilir */ }),
-    TextZoom.set({ value: 1 }).catch(() => { /* yok */ }),
+    (async () => {
+      try {
+        const pref = (await TextZoom.getPreferred()).value;
+        await TextZoom.set({ value: 1 });
+        const k = Math.min(window.innerHeight >= 700 ? TEXT_SCALE_MAX : 1.15, Math.max(1, +pref || 1)); // kısa ekranda tahta alt çubuğa taşmasın
+        if (k > 1.01) document.documentElement.style.fontSize = (16 * k).toFixed(1) + 'px';
+      } catch { /* yok */ }
+    })(),
   ]);
 }
 

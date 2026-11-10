@@ -96,7 +96,7 @@ const opt = (a: string, b: string, sm: string, sp = '', on = false, gold = false
 /** İlk açılış: dil seçimi (tasarım Y1). Cihaz dili seçili gelir. */
 export function pickLang(onDone: () => void) {
   openModal(`<div class="card citycard"><div class="badge">${GLOBE_IC}</div><h3>Dil · Language · Sprache</h3><p>${t('Cihaz dilin seçili geldi. İstediğin zaman Ayarlar’dan değiştirebilirsin.')}</p>
-    <div class="citylist">${LANGS.map(l => opt(l.id, l.n, l.sub, '', l.id === LANG)).join('')}</div></div>`,
+    <div class="citylist">${LANGS.map(l => opt(l.id, l.n, l.sub, '', l.id === LANG).replace('<button ', `<button lang="${l.id}" `)).join('')}</div></div>`,
     a => { if (!LANGS.some(l => l.id === a)) return; closeModal(); setLang(a); P.lang = LANG; savePrefs(); onDone(); });
 }
 /** Bölge seçimi (tasarım Y2): 5 ülke + Global; her bölgenin ilerlemesi ayrı. */
@@ -163,7 +163,7 @@ export function showRegionNews() {
   P.news = true; savePrefs();
   openModal(`<div class="card citycard"><div class="badge">${GLOBE_IC}</div><h3>${t('Yeni: diller ve ülkeler')}</h3>
     <p>${t('Tapu artık 4 dilde ve 5 ülkede oynanıyor: Türkiye, ABD, Birleşik Krallık, Almanya, Japonya. Bir de her ülkenin en pahalı şehrini içeren Global var. Buradaki ilerlemen kayıtlı kalır.')}</p>
-    <div class="btns"><button class="btn gold" data-a="pick">${t('Dil ve bölge seç')}</button><button class="txt" data-a="stay">${t('Şimdilik burada kal')}</button></div></div>`,
+    <div class="btns"><button class="btn gold" data-a="pick">${t('Dil ve bölge seç')}</button><button class="txt" data-a="stay" data-back>${t('Şimdilik burada kal')}</button></div></div>`,
     a => { closeModal(); if (a !== 'pick') return;
       pickLang(() => pickRegion(r => { if (r === P.region) { location.reload(); return; } switchRegion(r); }, false)); });
 }

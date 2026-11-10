@@ -1,19 +1,32 @@
 /* Kartlar (tebligat), sıra kuyruğu, bildirim şeridi ve para uçuşu efekti */
-import { $, ui, reduceMotion } from './ctx';
+import { $, ui, reduceMotion, syncHistory } from './ctx';
 import { S } from '../state';
 import { Snd } from '../sound';
 import { closeSheet } from './sheets';
 
 let modalHandler: ((a: string) => void) | null = null;
 
+/** Kart (tebligat) açar. Kartta `data-back` taşıyan düğme varsa kart geri tuşuyla/Esc ile o düğmeye basılmış gibi
+ *  kapanır; yoksa (ilk açılış dil/bölge/il seçimi, ödül seçimi gibi zorunlu kararlar) geri tuşu kartı kapatmaz. */
 export function openModal(html: string, handler: (a: string) => void) {
   if (ui.modal || ui.ad) { ui.mq.push([html, handler]); return; }
-  closeSheet(); ui.modal = true; modalHandler = handler; ui.openedAt = performance.now();
+  const focus = ui.sheet ? ui.sheetFocus : document.activeElement as HTMLElement | null;
+  ui.modal = true; closeSheet(); modalHandler = handler; ui.openedAt = performance.now(); ui.modalFocus = focus;
   const m = $('#modal'); m.innerHTML = html; m.hidden = false; $('#scrim').classList.add('on'); Snd.unlock();
+  const card = m.querySelector('.card') as HTMLElement | null;
+  if (card) { card.setAttribute('tabindex', '-1'); const h = card.querySelector('h3'); if (h) { h.id = h.id || 'modalTitle'; m.setAttribute('aria-labelledby', h.id); } else m.removeAttribute('aria-labelledby'); card.focus({ preventScroll: true }); }
+  syncHistory();
 }
 export function closeModal() {
   ui.modal = false; modalHandler = null; $('#modal').hidden = true; $('#modal').innerHTML = ''; $('#scrim').classList.remove('on');
-  ui.lastClose = ui.breakAt = performance.now(); flushQueue();
+  ui.lastClose = ui.breakAt = performance.now();
+  const f = ui.modalFocus; ui.modalFocus = null; if (f && f.isConnected && !ui.sheet) f.focus({ preventScroll: true });
+  syncHistory(); flushQueue();
+}
+/** Geri tuşu/Esc: kart kapatılabilirse (data-back) kapatır. Kart açıkken geri her durumda burada tüketilir. */
+export function modalBack() {
+  const b = document.querySelector('#modal [data-back][data-a]') as HTMLElement | null;
+  if (b && modalHandler && !(b as HTMLButtonElement).disabled) modalHandler(b.dataset.a!);
 }
 export function flushQueue() {
   if (ui.mq.length && !ui.modal && !ui.ad) setTimeout(() => { if (ui.mq.length && !ui.modal && !ui.ad) openModal(...ui.mq.shift()!); }, 350);

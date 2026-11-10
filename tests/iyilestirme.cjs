@@ -1,5 +1,6 @@
 // İYİLEŞTİRME TESTİ (hata düzeltmeleri): otomatik toplama (OTO) açıkken açık panel her tick yeniden yazılmamalı,
 // semt satırı ve görev "Al" düğmesi basılı tutulan dokunuşla (180 ms) çalışmalı; canlı sayılar yine güncel kalmalı.
+// Adım 2a: web geri (popstate) ve kartlar, anahtar rolleri, dil adları, dokunma alanları, koyu tema kontrastı, odak halkası.
 // Çalıştır: npm run test:iy  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 const {chromium}=require('playwright');
 const path=require('path');
@@ -71,6 +72,92 @@ async function hold(p,sel){
   await hold(p,'#sheetBody [data-a="claim"][data-i="0"]');
   ok((await S(p)).tasks.list[0].claimed===true,'görev "Al" düğmesi 180 ms basılı tutunca ödül alındı');
   ok(!p.errs.length,'konsol temiz'+(p.errs.length?' ['+p.errs.slice(0,2).join('|')+']':''));
+  await p.context().close();
+
+  // ---------- Adım 2a: geri tuşu/geçmiş, erişilebilirlik, dokunma alanı, kontrast ----------
+  const back=async p=>{ await p.evaluate(()=>history.back()); await p.waitForTimeout(150); await p.clock.runFor(400); await p.waitForTimeout(50); };
+  const sheetK=p=>p.evaluate(()=>{ const s=document.querySelector('#sheet'); return s.classList.contains('on')?(document.querySelector('#sheetBody .sec,#sheetBody h3')||{}).textContent:null; });
+  const atOv=p=>p.evaluate(()=>!!(history.state&&history.state.tapu));
+
+  console.log('3) Web geri (popstate): iç içe panel, kart, döngü yok');
+  p=await open(b);
+  await p.click('#menuBtn',{force:true}); await p.clock.runFor(500);
+  ok(await atOv(p),'panel açılınca geçmişe kayıt eklendi');
+  await p.$eval('#sheetBody [data-a="store"]',e=>e.click()); await p.clock.runFor(500);
+  const hl0=await p.evaluate(()=>history.length);
+  await back(p);
+  ok(await p.isVisible('#sheet.on #sheetBody [data-a="store"]'),'Mağaza → geri: menüye döndü (panel kapanmadı)');
+  ok(await atOv(p),'iç içe geri sonrası kayıt yeniden eklendi');
+  await back(p);
+  ok(!(await sheetK(p)),'menü → geri: panel kapandı');
+  ok(!(await atOv(p)),'panel kapanınca bizim kaydımız kalmadı');
+  for(let k=0;k<4;k++){ await p.click('#menuBtn',{force:true}); await p.clock.runFor(500); await p.click('#scrim',{force:true}); await p.waitForTimeout(80); await p.clock.runFor(500); await p.waitForTimeout(80); }
+  await p.clock.runFor(1200);
+  ok(!(await atOv(p))&&!(await sheetK(p)),'arayüzden 4 kez aç/kapa: geçmişte asılı kayıt yok, panel kapalı');
+  ok(await p.evaluate(()=>history.length)<=hl0+1,'geçmiş şişmiyor (uzunluk '+await p.evaluate(()=>history.length)+')');
+  // kapatılabilir kart (piyasa raporu, data-back) geri ile kapanır
+  await p.evaluate(()=>{ const S=window.__tapuState(); S.collects=5; S.market=''; }); await p.clock.runFor(1500);
+  ok(await p.isVisible('#modal .mkcard'),'piyasa kartı açıldı');
+  ok(await p.evaluate(()=>{ const m=document.querySelector('#modal'); return m.getAttribute('role')==='dialog'&&m.getAttribute('aria-modal')==='true'&&!!document.activeElement.closest('#modal .card'); }),'kart: role=dialog, aria-modal, odak kartta');
+  await back(p);
+  ok(!(await p.isVisible('#modal .card')),'kapatılabilir kart geri ile kapandı');
+  // zorunlu karar kartı (ödüllü lig sonucu: data-back yok) geri ile kapanmaz
+  await p.evaluate(()=>window.__tapuTest.showLeagueResult({week:'iy-'+Date.now(),from:0,to:1,rank:2,size:30,seal:false})); await p.clock.runFor(500);
+  await back(p);
+  ok(await p.isVisible('#modal .lgcard'),'ödül seçimi kartı geri ile kapanmadı');
+  ok(await atOv(p),'kart hâlâ açıkken geçmiş kaydı yeniden eklendi (geri sayfadan çıkarmaz)');
+  await p.$eval('#modal [data-a="ok"]',e=>e.click()); await p.clock.runFor(1500);
+  ok(!(await p.isVisible('#modal .card'))&&!(await atOv(p)),'kart düğmeyle kapandı, kayıt geri alındı');
+  // Esc aynı geri mantığı
+  await p.click('#mapBtn',{force:true}); await p.clock.runFor(500); await p.keyboard.press('Escape'); await p.clock.runFor(500);
+  ok(!(await sheetK(p)),'Esc paneli kapattı');
+  await p.click('#menuBtn',{force:true}); await p.clock.runFor(500); await p.$eval('#sheetBody [data-a="store"]',e=>e.click()); await p.clock.runFor(500); await p.keyboard.press('Escape'); await p.clock.runFor(500);
+  ok(!(await sheetK(p))&&!(await atOv(p)),'Esc iç içe paneli de tümden kapattı, geçmiş kaydı geri alındı');
+  ok(!p.errs.length,'konsol temiz'+(p.errs.length?' ['+p.errs.slice(0,2).join('|')+']':''));
+  await p.context().close();
+
+  console.log('4) Erişilebilirlik: anahtar rolleri, dil adları, kapalı panel');
+  p=await open(b);
+  ok(await p.evaluate(()=>{ const s=document.querySelector('#sheet'); return s.inert&&s.getAttribute('aria-hidden')==='true'; }),'kapalı panel inert + aria-hidden');
+  await p.click('#menuBtn',{force:true}); await p.clock.runFor(500); await p.$eval('#sheetBody [data-a="set"]',e=>e.click()); await p.clock.runFor(500);
+  const sw=await p.evaluate(()=>[...document.querySelectorAll('#sheetBody .sw')].map(e=>({r:e.getAttribute('role'),c:e.getAttribute('aria-checked'),on:e.classList.contains('on'),l:e.getAttribute('aria-label')})));
+  ok(sw.length>=4&&sw.every(x=>x.r==='switch'&&x.c===String(x.on)&&x.l),'ayar anahtarları role=switch, aria-checked durumla aynı, etiketli ('+sw.length+')');
+  const snd0=(await S(p)).sound; await p.$eval('#sheetBody .sw[data-a="sound"]',e=>e.click()); await p.clock.runFor(400);
+  ok(await p.getAttribute('#sheetBody .sw[data-a="sound"]','aria-checked')===String(!snd0),'anahtara basınca aria-checked güncellendi');
+  const en=await p.evaluate(()=>{ const e=document.querySelector('#sheetBody .langs [data-l="en"]'); return e&&e.getAttribute('lang')+'|'+e.innerText; });
+  ok(en==='en|ENGLISH','dil adı kendi dilinde büyük harf: '+en+' (ENGLİSH değil)');
+  ok(!p.errs.length,'konsol temiz'+(p.errs.length?' ['+p.errs.slice(0,2).join('|')+']':''));
+  await p.context().close();
+
+  console.log('5) Dokunma alanları (≥44 px; elementFromPoint ile)');
+  p=await open(b);
+  const HIT=(sel)=>p.evaluate(sel=>{ const el=[...document.querySelectorAll(sel)].find(e=>e.getBoundingClientRect().width>0); if(!el) return null; el.scrollIntoView({block:'center'});
+    const r=el.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+    const own=(x,y)=>{ if(x<0||y<0||x>=innerWidth||y>=innerHeight) return false; const h=document.elementFromPoint(x,y); return !!h&&(h===el||el.contains(h)); };
+    const ext=(dx,dy)=>{ let d=0; while(d<60&&own(cx+dx*(d+1),cy+dy*(d+1))) d++; return d; };
+    return {w:ext(-1,0)+ext(1,0)+1,h:ext(0,-1)+ext(0,1)+1,right:innerWidth-r.right}; },sel);
+  const g=await HIT('#guideBtn'); ok(g&&g.w>=44&&g.h>=44&&g.right>=8,'kılavuz sekmesi: tıklama '+(g&&g.w+'×'+g.h)+', kenardan '+(g&&Math.round(g.right))+' px');
+  await p.click('#taskBtn',{force:true}); await p.clock.runFor(500); await p.waitForTimeout(400);
+  const c=await HIT('#sheetBody .chip'); ok(c&&c.h>=44,'çip tıklama yüksekliği '+(c&&c.h));
+  await p.keyboard.press('Escape'); await p.clock.runFor(500); await p.waitForTimeout(400); await p.click('#menuBtn',{force:true}); await p.clock.runFor(500); await p.waitForTimeout(400); await p.$eval('#sheetBody [data-a="set"]',e=>e.click()); await p.clock.runFor(500); await p.waitForTimeout(400);
+  const s2=await HIT('#sheetBody .sw'); ok(s2&&s2.h>=44&&s2.w>=44,'anahtar tıklama '+(s2&&s2.w+'×'+s2.h));
+  await p.keyboard.press('Escape'); await p.clock.runFor(500); await p.waitForTimeout(400); await p.click('#menuBtn',{force:true}); await p.clock.runFor(500); await p.waitForTimeout(400); await p.$eval('#sheetBody [data-a="store"]',e=>e.click()); await p.clock.runFor(500); await p.waitForTimeout(400);
+  const lk=await HIT('.note.subnote .linkbtn'); ok(lk&&lk.h>=44,'abonelik yasal linki tıklama yüksekliği '+(lk&&lk.h));
+  await p.context().close();
+
+  console.log('6) Kontrast (koyu tema; WCAG AA)');
+  p=await open(b); await p.emulateMedia({colorScheme:'dark'});
+  await p.evaluate(()=>{ const S=window.__tapuState(); S.collectMode='tap'; S.offer={k:'build',goal:2,prog:1,until:Date.now()+300000,title:'Hızlı müteahhit',rw:1000,done:false}; }); await p.clock.runFor(600);
+  const CR=await p.evaluate(()=>{ const P=s=>{ const c=document.createElement('canvas').getContext('2d'); c.fillStyle=s; const h=c.fillStyle; if(h[0]==='#') return [1,3,5].map(i=>parseInt(h.slice(i,i+2),16)); const m=h.match(/[\d.]+/g).map(Number); return m.slice(0,3); };
+    const L=c=>{ const l=c.map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)}); return .2126*l[0]+.7152*l[1]+.0722*l[2]; };
+    const R=(a,b)=>{ const x=L(P(a)),y=L(P(b)); return (Math.max(x,y)+.05)/(Math.min(x,y)+.05); };
+    const bg=e=>{ for(;e;e=e.parentElement){ const c=getComputedStyle(e).backgroundColor; if(c&&c!=='rgba(0, 0, 0, 0)'&&c!=='transparent') return c; } return getComputedStyle(document.body).backgroundColor; };
+    const q=s=>{ const e=document.querySelector(s); return e?R(getComputedStyle(e).color,bg(e)):0; };
+    return {ot:q('.offer .ot'),mk:q('.x2.mk'),bsub:q('#csub'),cmain:q('#cmain')}; });
+  for(const [k,v] of Object.entries(CR)) ok(v>=4.5,'koyu tema '+k+' kontrastı '+v.toFixed(2)+' (≥ 4.5)');
+  await p.keyboard.press('Tab'); await p.focus('#menuBtn');
+  const fr=await p.evaluate(()=>{ const e=document.activeElement, cs=getComputedStyle(e); return cs.outlineStyle!=='none'&&parseFloat(cs.outlineWidth)>=2; });
+  ok(fr,'klavye odağında görünür halka (:focus-visible)');
   await p.context().close();
 
   await b.close();

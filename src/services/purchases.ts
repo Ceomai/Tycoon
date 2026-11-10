@@ -83,7 +83,7 @@ export const Purchases = {
   async buyProduct(key: ProductKey, onOk?: () => void) {
     if (!native()) {
       openModal(`<div class="card"><div class="badge">${I.crown}</div><h3>${t('Test satın alma')}</h3><p>${t('Önizlemede gerçek ödeme alınmaz. Uygulamada mağazanın ödeme ekranı açılır.')}</p>
-        <div class="btns"><button class="btn gold" data-a="ok">${t(PRODUCTS[key].name)} · ${prices[key]}</button><button class="txt" data-a="no">${t('Vazgeç')}</button></div></div>`,
+        <div class="btns"><button class="btn gold" data-a="ok">${t(PRODUCTS[key].name)} · ${prices[key]}</button><button class="txt" data-a="no" data-back>${t('Vazgeç')}</button></div></div>`,
         a => { closeModal(); if (a === 'ok') grant(key, onOk); });
       return;
     }

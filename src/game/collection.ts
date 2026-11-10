@@ -18,7 +18,7 @@ import { Analytics } from '../services/analytics';
 export const lmLeft = (): Landmark[] => LM.filter(l => !S.coll.includes(l.id));
 export function landmarkCard(l: Landmark, extra = '') {
   return `<div class="card"><div class="lmhero bpbg">${svg(lmSvg(l.id))}</div><h3>${t(l.n)}</h3><p>${t('Koleksiyonuna eklendi. Tüm kiralar kalıcı olarak %5 arttı.')}${extra}</p>
-    <div class="btns"><button class="btn" data-a="ok">${t('Harika')}</button></div></div>`;
+    <div class="btns"><button class="btn" data-a="ok" data-back>${t('Harika')}</button></div></div>`;
 }
 
 /* Holding: herhangi bir ilin son semtinin tapusunu alınca kurulabilir. */
@@ -36,6 +36,6 @@ export function doHolding() {
   ui.tileSig = []; ui.linkSig = ''; closeSheet(); persist(); render(); Snd.unlock(); buzz(40);
   Analytics.log('holding', { shares: n, total: S.shares });
   openModal(`<div class="card"><div class="badge">${I.crown}</div><h3>${t('Holding kuruldu')}</h3><p>${t('{n} yeni hisse aldın. Artık tüm kiralar kalıcı olarak {x}.', { n, x: fmtX(1 + 0.1 * S.shares) })}</p>
-    <div class="btns"><button class="btn" data-a="ok">${t('Yeniden başla')}</button></div></div>`, () => closeModal());
+    <div class="btns"><button class="btn" data-a="ok" data-back>${t('Yeniden başla')}</button></div></div>`, () => closeModal());
 }
 export { N, dkey };

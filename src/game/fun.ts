@@ -23,7 +23,7 @@ export function showMarket() {
   const rows = ORDER.map(ty => { const v = ty === m.up ? MARKET_UP : ty === m.down ? -MARKET_DOWN : 0; return `<div class="mkr"><b>${t(TYPES[ty].n)}</b><span class="mkb"><i></i><u class="${v > 0 ? 'up' : v < 0 ? 'dn' : ''}" style="width:${Math.abs(v) * 140}%"></u></span><em class="${v > 0 ? 'up' : v < 0 ? 'dn' : ''}">${v > 0 ? '+' : v < 0 ? '−' : ''}${pctTxt(Math.round(Math.abs(v) * 100))}</em></div>`; }).join('');
   openModal(`<div class="card mkcard"><p class="sec u-m0b-2">${t('Emlak piyasası · {n}. hafta', { n: m.n })}</p><h3>${t(m.head)}</h3><p>${t(m.why)}</p>
     <div class="mkrows">${rows}</div><p class="note">${t('Her pazartesi yeni rapor; herkes için aynı, haftalık ligde de geçerli.')}</p>
-    <div class="btns"><button class="btn" data-a="ok">${t('Anladım, yatırım zamanı')}</button></div></div>`, () => closeModal());
+    <div class="btns"><button class="btn" data-a="ok" data-back>${t('Anladım, yatırım zamanı')}</button></div></div>`, () => closeModal());
 }
 export const marketChip = () => { const m = marketOf(curWeek()); return `${upper(t(TYPES[m.up].n))} ↑`; };
 

@@ -7,7 +7,7 @@ import { bld, site, svg } from '../draw';
 import { LM, lmSvg } from '../landmarks';
 import { I, small } from '../icons';
 import { Snd } from '../sound';
-import { $, ui, SheetState } from './ctx';
+import { $, ui, SheetState, syncHistory } from './ctx';
 import { toast } from './modal';
 import { build, upgrade, skip, demolish, lotBoost, buyDistrict, switchDistrict, buySpecial, placeSpecial, specialPrice } from '../game/actions';
 import { specialSvg, specialOf, weekSpecial } from '../specials';
@@ -36,8 +36,28 @@ import { leagueZones, leagueName, leagueShort, weekEndsAt, fmtLeft } from '../ga
 import { LEAGUES, LEAGUE_TOP } from '../config';
 import { t, tk, nm, pctTxt, LANG, LANGS } from '../i18n';
 
-export function openSheet(s: SheetState) { ui.openedAt = performance.now(); ui.sheet = s; ui.sheetSig = ''; renderSheet(); $('#sheet').classList.add('on'); $('#scrim').classList.add('on'); Snd.tap(); }
-export function closeSheet() { if (!ui.sheet) return; ui.sheet = null; ui.lastClose = ui.breakAt = performance.now(); $('#sheet').classList.remove('on'); if (!ui.modal) $('#scrim').classList.remove('on'); }
+/** Panel açar. Açık bir panelden başka panele geçilirse önceki panel geri yığınına girer (geri tuşu oraya döner);
+ *  yığında zaten olan bir panele geçmek (ör. "Mülke dön", "Kılavuz") yığını o noktaya kadar geri sarar. */
+export function openSheet(s: SheetState, fromBack = false) {
+  const prev = ui.sheet, wasOpen = !!prev;
+  if (!fromBack) {
+    if (!prev) ui.sheetStack = [];
+    else if (prev !== s) { const j = ui.sheetStack.findIndex(x => x.k === s.k); if (j >= 0) ui.sheetStack.length = j; else if (prev.k !== s.k) ui.sheetStack.push(prev); }
+  }
+  ui.openedAt = performance.now(); ui.sheet = s; ui.sheetSig = ''; renderSheet();
+  const el = $('#sheet') as HTMLElement; el.inert = false; el.removeAttribute('aria-hidden'); el.classList.add('on'); $('#scrim').classList.add('on'); Snd.tap();
+  if (wasOpen) el.scrollTop = 0;
+  if (!wasOpen) { ui.sheetFocus = document.activeElement as HTMLElement | null; el.focus({ preventScroll: true }); }
+  syncHistory();
+}
+export function closeSheet() {
+  if (!ui.sheet) return; ui.sheet = null; ui.sheetStack = []; ui.lastClose = ui.breakAt = performance.now(); const el = $('#sheet') as HTMLElement; el.classList.remove('on'); if (!ui.modal) $('#scrim').classList.remove('on');
+  const f = ui.sheetFocus; ui.sheetFocus = null; if (!ui.modal && f && f.isConnected && document.activeElement && (document.activeElement as HTMLElement).closest?.('#sheet')) f.focus({ preventScroll: true });
+  el.inert = true; el.setAttribute('aria-hidden', 'true'); // kapalı panel (ekran dışı) odak/ekran okuyucuya kapalı
+  syncHistory();
+}
+/** Geri (Android geri tuşu, tarayıcı geri, Esc): iç içe panelde bir önceki panele döner, yoksa paneli kapatır. */
+export function sheetBack() { const prev = ui.sheetStack.pop(); if (prev && ui.sheet) openSheet(prev, true); else closeSheet(); }
 const lvBar = (l: number) => `<div class="lv">${[1, 2, 3, 4, 5].map(k => `<i class="${k <= l ? 'on' : ''}"></i>`).join('')}</div>`;
 const discBox = () => S.disc ? `<div class="disc">${small(I.tag, 16)} ${t('%{n} müteahhit indirimi', { n: Math.round(S.disc * 100) })}</div>` : '';
 
@@ -147,7 +167,7 @@ export function renderSheet() {
           if (S.own.includes(k) && S.lien[k]) return `<div class="lienrow"><button class="drow${k === S.cur ? ' on' : ''}" data-a="go" data-k="${k}"><span class="di"><b>${nm(d.n)} · ${t('kaporalı')}</b><small>${t('{a}/{b} arsa açık · kalan borç {m}', { a: builtCount(k), b: CFG.KAPORA_LOTS, m: lv('ld' + k, () => fmt(S.lien[k] || 0)) })}</small>${rl}</span></button>
             <span class="dp"><u ${lw('lp' + k, () => (S.lien[k] ? lienPct(k) : 100))}></u></span>
             <button class="chip" data-a="payoff" data-k="${k}" ${S.cash >= S.lien[k] ? '' : 'disabled'}>${t('Borcu kapat')} · ${lv('ld' + k, () => fmt(S.lien[k] || 0))}</button></div>`;
-          if (S.own.includes(k)) return `<button class="drow${k === S.cur ? ' on' : ''}" data-a="go" data-k="${k}"><span class="di"><b>${nm(d.n)}${starsOf(k).length >= 3 ? ` <span class="gold">${t('ALTIN MÜHÜR')}</span>` : ''}</b><small>${t('{n}/20 dolu', { n: filled(k) })} · ${'★'.repeat(starsOf(k).length)}${'☆'.repeat(3 - starsOf(k).length)}</small>${rl}</span><span class="mini"><i style="width:${filled(k) / 20 * 100}%"></i></span></button>`;
+          if (S.own.includes(k)) return `<button class="drow${k === S.cur ? ' on' : ''}" data-a="go" data-k="${k}"><span class="di"><b>${nm(d.n)}${starsOf(k).length >= 3 ? ` <span class="badge-gold">${t('ALTIN MÜHÜR')}</span>` : ''}</b><small>${t('{n}/20 dolu', { n: filled(k) })} · ${'★'.repeat(starsOf(k).length)}${'☆'.repeat(3 - starsOf(k).length)}</small>${rl}</span><span class="mini"><i style="width:${filled(k) / 20 * 100}%"></i></span></button>`;
           const u = unlockInfo(k);
           if (u.ok) {
             const af = S.cash >= u.fee, kap = kaporaOf(k), kf = S.cash >= kap; if (!af) anyShort = true;
@@ -158,7 +178,7 @@ export function renderSheet() {
               <button class="btn ${af ? 'gold' : 'soft'}" data-a="buy" data-k="${k}" ${af ? '' : 'disabled'}>${t('Tapuyu al')} · ${fmt(u.fee)}<small>${t('20 arsa')}</small></button></div></div>`;
           }
           const why = u.why === 'prev-not-full' ? t('{semt} dolunca açılır', { semt: nm(CITIES[c].districts[i - 1].n) }) : u.why === 'start-not-full' ? t('{semt} dolunca açılır', { semt: nm(CITIES[start].districts[0].n) }) + ' · ' + fmt(u.fee) : t('Kilitli');
-          return `<div class="drow u-dim"><span class="di"><b>${nm(d.n)}</b><small>${why}</small></span>${I.lock}</div>`;
+          return `<div class="drow lkd"><span class="di"><b>${nm(d.n)}</b><small>${why}</small></span>${I.lock}</div>`;
         }).join('');
         return `<div class="cityhead"><span>${nm(CITIES[c].n)}</span><small>${ownedHere ? t('{n}/5 semt', { n: ownedHere }) : t(CITIES[c].tagline)}</small></div><div class="dlist">${rows}</div>`;
       }).join('') + `<p class="note">${t('Kapora: tapunun %{p}’unu öde, ilk {n} arsa hemen açılır; kalan borç o semtin kirasının yarısıyla kendiliğinden ödenir.', { p: Math.round(CFG.KAPORA * 100), n: CFG.KAPORA_LOTS })}</p><p class="note">${t('Başlangıç ilinin ilk semtini doldurunca diğer illerin ilk semtini alabilirsin. Her yeni il tüm kiralara kalıcı +%{p} katar.', { p: Math.round(CFG.PORTFOLIO_BONUS * 100) })}</p>`;
@@ -172,7 +192,7 @@ export function renderSheet() {
         const st = cur ? t('şu an oynanıyor') : inf ? t('kayıtlı · {n} semt', { n: inf.own }) : t('başlanmadı');
         return `<button class="cm${cur ? ' on' : ''}" data-a="region" data-r="${r}"><span class="rd"></span><span class="di"><b>${t(R.n)} · ${R.cur}</b><small>${R.cities.map(c => nm(CITIES[c].n)).join(' · ')} · ${st}</small></span></button>`; };
       html = `<p class="sec">${t('Dil ve bölge')}</p>
-        <div class="langs">${LANGS.map(l => `<button class="chip${l.id === LANG ? ' on' : ''}" data-a="lang" data-l="${l.id}">${l.n}</button>`).join('')}</div>
+        <div class="langs">${LANGS.map(l => `<button class="chip${l.id === LANG ? ' on' : ''}" data-a="lang" data-l="${l.id}" lang="${l.id}" aria-pressed="${l.id === LANG}">${l.n}</button>`).join('')}</div>
         <div class="cmode">${REGION_ORDER.map(regRow).join('')}</div>
         <p class="note">${t('Her bölgenin ilerlemesi, tapuları ve sırası ayrıdır. Dil yalnızca metinleri değiştirir; şehirleri ve para birimini bölge belirler. Satın aldığın paketler tüm bölgelerde geçerli.')}</p>
         <p class="sec u-mt-7">${t('Nasıl oynanır')}</p>
@@ -189,10 +209,10 @@ export function renderSheet() {
           <button class="cm${S.collectMode === 'tap' ? ' on' : ''}" data-a="cm-tap"><span class="rd"></span><span class="di"><b>${t('Tek tuşla topla')}</b><small>${t('Ortadaki TOPLA mührüne bas, bütün semtlerdeki kira tek seferde kasana geçsin.')}</small></span></button>
           <button class="cm${S.collectMode === 'auto' ? ' on' : ''}" data-a="cm-auto"><span class="rd"></span><span class="di"><b>${t('Otomatik')}</b><small>${t('Oyun açıkken kira kendiliğinden kasana akar.')}</small></span></button>
         </div>
-        <div class="srow"><span>${t('Gece görünümü (19:00–06:00)')}</span><button class="sw${S.night !== false ? ' on' : ''}" data-a="night" aria-label="${t('Gece görünümü')}"></button></div>
-        <div class="srow"><span>${t('Rıfkı Abi’nin ipuçları')}</span><button class="sw${S.rifki ? ' on' : ''}" data-a="rifki" aria-label="${t('Rıfkı Abi’nin ipuçları')}"></button></div>
-        <div class="srow"><span>${t('Ses')}</span><button class="sw${S.sound ? ' on' : ''}" data-a="sound" aria-label="${t('Ses')}"></button></div>
-        <div class="srow"><span>${t('Bildirimler')}</span><button class="sw${S.notif ? ' on' : ''}" data-a="notif" aria-label="${t('Bildirimler')}"></button></div>
+        <div class="srow"><span>${t('Gece görünümü (19:00–06:00)')}</span><button class="sw${S.night !== false ? ' on' : ''}" role="switch" aria-checked="${!!(S.night !== false)}" data-a="night" aria-label="${t('Gece görünümü')}"></button></div>
+        <div class="srow"><span>${t('Rıfkı Abi’nin ipuçları')}</span><button class="sw${S.rifki ? ' on' : ''}" role="switch" aria-checked="${!!(S.rifki)}" data-a="rifki" aria-label="${t('Rıfkı Abi’nin ipuçları')}"></button></div>
+        <div class="srow"><span>${t('Ses')}</span><button class="sw${S.sound ? ' on' : ''}" role="switch" aria-checked="${!!(S.sound)}" data-a="sound" aria-label="${t('Ses')}"></button></div>
+        <div class="srow"><span>${t('Bildirimler')}</span><button class="sw${S.notif ? ' on' : ''}" role="switch" aria-checked="${!!(S.notif)}" data-a="notif" aria-label="${t('Bildirimler')}"></button></div>
         <div class="srow"><span>${t('Reklamlar')}</span><span>${S.premium ? t('Kapalı (Holding paketi)') : S.club ? t('Kapalı (Emlak Kulübü)') : S.noAds ? t('Yalnızca isteğe bağlı (Reklamsız)') : Ads.native() ? t('Açık') : t('Test modu')}</span></div>
         <p class="sec u-mt-9">${t('Hesap ve kayıt')}</p>
         <div class="srow"><span>${t('Oyuncu kodun')}</span><span>${S.ref.code}</span></div>
@@ -287,7 +307,7 @@ export function renderSheet() {
       html = `<div class="sh-head k-${p.sp ? 'ozel' : p.t}"><div class="sh-art bpbg" style="${skinStyle(p)}">${svg(p.sp ? specialSvg(p.sp) : bld(p.t, Math.max(1, p.lvl)))}</div><div class="sh-t"><h3>${t('Görünümü seç')}</h3><p>${t(name)} · ${t('yalnızca görünüm, kira değişmez')}</p></div></div>
         <p class="sec">${t('Cephe rengi')}</p><div class="skc">${SKIN_COLORS.map((c, n) => `<button class="sw2${(sk.c ?? -1) === n ? ' on' : ''}${skinUnlocked(n) ? '' : ' lk'}" data-a="sc" data-n="${n}" style="background:${c.f}" aria-label="${t(c.n)}${skinUnlocked(n) ? '' : ' (' + t('kilitli: {s}', { s: t(c.lock!) }) + ')'}">${skinUnlocked(n) ? '' : I.lock}</button>`).join('')}<button class="sw2 none${sk.c == null ? ' on' : ''}" data-a="sc" data-n="-1" aria-label="${t('Varsayılan')}">×</button></div>
         ${p.t === 'ev' && !p.sp ? `<p class="sec">${t('Çatı')}</p><div class="skr">${ROOFS.map((r, n) => `<button class="rf2b${(sk.r || 0) === n ? ' on' : ''}" data-a="sr" data-n="${n}"><i style="background:${r.rf || 'var(--rf)'}"></i>${t(r.n)}</button>`).join('')}</div>` : ''}
-        <div class="srow"><span>${t('Tabela')}</span><button class="sw${sk.s ? ' on' : ''}" data-a="ss" aria-label="${t('Tabela')}"></button></div>
+        <div class="srow"><span>${t('Tabela')}</span><button class="sw${sk.s ? ' on' : ''}" role="switch" aria-checked="${!!(sk.s)}" data-a="ss" aria-label="${t('Tabela')}"></button></div>
         <p class="note">${t('Kilitli renkler tapu arşivinden ve tapu sezonundan açılır.')}</p>
         <div class="btns"><button class="btn soft" data-a="back">${t('Mülke dön')}</button></div>`;
     }

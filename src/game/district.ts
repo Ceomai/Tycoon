@@ -111,7 +111,7 @@ export function showDistrictCard(k: DistrictKey, onDone?: () => void) {
       <b>${nm(d.n)}</b><small>${nm(c.n)} · ${t(c.tagline)}</small></div>
     ${r ? `<div class="prule"><span class="pr">${r.kind === 'type' || r.kind === 'row' ? '+' + pctTxt(Math.round(r.x * 100)) : r.kind === 'pair' ? '+' + pctTxt(Math.round((CFG.PAIR + r.x) * 100)) : pctTxt(Math.round(r.x * 100))}</span><span><small>${t('Semtin kuralı')}</small><b>${t(r.n)}: ${lowTxt(t(r.t))}</b></span></div>` : ''}
     ${S.lien[k] ? `<p class="note">${t('Kapora ile alındı: {n} arsa açık. Kalan {debt} borç {d} kirasının yarısıyla kendiliğinden ödenir.', { n: CFG.KAPORA_LOTS, debt: fmt(S.lien[k]), d: nm(d.n) })}</p>` : ''}
-    <div class="btns"><button class="btn gold" data-a="ok">${t('Semte git')}</button></div></div>`, () => { closeModal(); onDone && onDone(); });
+    <div class="btns"><button class="btn gold" data-a="ok" data-back>${t('Semte git')}</button></div></div>`, () => { closeModal(); onDone && onDone(); });
 }
 
 /* ---------- semt özeti ---------- */

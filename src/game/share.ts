@@ -77,7 +77,7 @@ let shareBlob: Blob | null = null, shareUrl = '';
 export async function openShare() {
   closeSheet();
   openModal(`<div class="card"><h3>${t('Şehrini paylaş')}</h3><p id="shareMsg">${t('Görsel hazırlanıyor…')}</p><div id="shareBox"></div>
-    <div class="btns"><button class="btn gold" data-a="share" disabled>${I.share} ${t('Paylaş')}</button><button class="btn soft" data-a="save" disabled>${t('Kaydet')}</button><button class="txt" data-a="no">${t('Kapat')}</button></div></div>`,
+    <div class="btns"><button class="btn gold" data-a="share" disabled>${I.share} ${t('Paylaş')}</button><button class="btn soft" data-a="save" disabled>${t('Kaydet')}</button><button class="txt" data-a="no" data-back>${t('Kapat')}</button></div></div>`,
     async a => {
       if (a === 'no') { closeModal(); return; }
       if (!shareBlob) return;

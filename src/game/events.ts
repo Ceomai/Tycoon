@@ -43,7 +43,7 @@ export function showEvent() {
     a => {
       track('event');
       if (a === 'x1') { ev.apply(1); closeModal(); Snd.collect(3); }
-      if (a === 'x2') { closeModal(); Ads.rewarded('event', ev.rw(2), () => ev.apply(2)); }
+      if (a === 'x2') { closeModal(); Ads.rewarded('event', ev.rw(2), () => ev.apply(2), () => { ev.apply(1); Snd.collect(3); }); } // reklam olmazsa normal ödül
     });
 }
 
