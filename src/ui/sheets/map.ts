@@ -10,7 +10,7 @@ import { goalsOf, starsOf } from '../../game/goals';
 import { kaporaOf, builtCount, closeLien } from '../../game/district';
 import { instantRewards } from '../../services/purchases';
 import { saveTarget, boostSaving } from '../../game/monetize';
-import { t, nm, LANG } from '../../i18n';
+import { t, nm, lowTxt } from '../../i18n';
 import { Panel, STAY, closeSheet, lv, lw } from './core';
 
 /** Haritadaki 2x ipucu (saveTarget/boostSaving) birkaç saniyede bir hesaplanır. */
@@ -34,7 +34,7 @@ export const map: Panel<{ hint: ReturnType<typeof mapHint> }> = {
       const ownedHere = S.own.filter(k => DMAP[k].city === c).length;
       const rows = CITIES[c].districts.map((d, i) => {
         const k = dkey(c, i);
-        const rl = DRULES[k] ? `<em class="rl">${t(DRULES[k].n)}: ${t(DRULES[k].t).toLocaleLowerCase(LANG === 'tr' ? 'tr-TR' : LANG)}</em>` : '';
+        const rl = DRULES[k] ? `<em class="rl">${t(DRULES[k].n)}: ${lowTxt(t(DRULES[k].t))}</em>` : '';
         if (S.own.includes(k) && S.lien[k]) return `<div class="lienrow"><button class="drow${k === S.cur ? ' on' : ''}" data-a="go" data-k="${k}"><span class="di"><b>${nm(d.n)} · ${t('kaporalı')}</b><small>${t('{a}/{b} arsa açık · kalan borç {m}', { a: builtCount(k), b: CFG.KAPORA_LOTS, m: lv('ld' + k, () => fmt(S.lien[k] || 0)) })}</small>${rl}</span></button>
             <span class="dp"><u ${lw('lp' + k, () => (S.lien[k] ? lienPct(k) : 100))}></u></span>
             <button class="chip" data-a="payoff" data-k="${k}" ${S.cash >= S.lien[k] ? '' : 'disabled'}>${t('Borcu kapat')} · ${lv('ld' + k, () => fmt(S.lien[k] || 0))}</button></div>`;

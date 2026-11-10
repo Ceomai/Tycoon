@@ -2,7 +2,7 @@
    KILAVUZ — "Emlakçının el kitabı" (tasarım: K3 konu listesi, K4 konu sayfası)
    Sayılar oyunun ayarlarından okunur; Remote Config ile denge değişirse kılavuz da güncel kalır.
    ========================================================= */
-import { SERVER_FEATURES, CFG, TYPES, ORDER, LV_INC, UP_COST, UP_TIME, MAXLV, TIER_FEE, TIER_M, CITIES, CITY_ORDER, LEAGUES, GROUP_SIZE } from '../config';
+import { SERVER_FEATURES, CFG, TYPES, ORDER, LV_INC, UP_COST, UP_TIME, MAXLV, TIER_FEE, TIER_M, CITIES, CITY_ORDER, LEAGUES, GROUP_SIZE, DRULES, dkey, currency } from '../config';
 import { S } from '../state';
 import { fmt, fmtTime } from '../format';
 import { LM, lmSvg } from '../landmarks';
@@ -10,7 +10,7 @@ import { bld, svg } from '../draw';
 import { I } from '../icons';
 import { SPECIALS, specialSvg, weekSpecial } from '../specials';
 import { ACH, SEASON_LV, XP_PER } from './fun';
-import { t, nm, pctTxt } from '../i18n';
+import { t, nm, pctTxt, loc, lowTxt, LANG } from '../i18n';
 
 export interface Chapter { t: string; s: string; isNew?: boolean; art: () => string; body: string[]; facts: [string, string][]; tip?: string; }
 
@@ -19,6 +19,11 @@ const dk = (ms: number) => fmtTime(ms);
 const sec = (s: number) => fmtTime(s * 1000);
 const icon = (s: string) => `<span class="gdicon">${s}</span>`;
 
+/** Kılavuzdaki semt kuralı örneği: etkin bölgenin ilk şehrinin 2. ve 5. semti (Türkiye'de Beşiktaş ve Bebek). */
+function ruleEx() {
+  const c = CITY_ORDER[0], d = (i: number) => loc(nm(CITIES[c].districts[i].n)), r = (i: number) => lowTxt(t(DRULES[dkey(c, i)].t).replace(/ \(.*\)/, ''));
+  return { d1: d(1), r1: r(1), d2: d(4), r2: r(4) };
+}
 export function chapters(): Chapter[] {
   const T = TYPES, tierRent = Math.round(TIER_M[1] * CFG.TIER_INC * 10) / 10;
   const list: Chapter[] = [
@@ -26,7 +31,7 @@ export function chapters(): Chapter[] {
       t: t('İlk adımlar'), s: t('İl seç, arsaya dokun, ilk evini kur'),
       art: () => svg(bld('ev', 1), 'art'),
       body: [
-        t('Oyuna bir ilde başlarsın: İstanbul, İzmir ya da Ankara. Ekrandaki kareler senin <b>arsaların</b>.'),
+        t('Oyuna bir ilde başlarsın: {list} ya da {last}. Ekrandaki kareler senin <b>arsaların</b>.', { list: CITY_ORDER.slice(0, -1).map(c => nm(CITIES[c].n)).join(LANG === 'ja' ? '、' : ', '), last: nm(CITIES[CITY_ORDER[CITY_ORDER.length - 1]].n) }),
         t('Boş bir arsaya dokun, <b>Ev</b> seç. İnşaat bitince ev kira üretmeye başlar. Para birikince yeni binalar dik, kat çık, semti doldur.'),
       ],
       facts: [[t('Başlangıç kasası'), fmt(150)], [t('İlk bina'), t('Ev · {cost}', { cost: fmt(T.ev.cost) })], [t('İlk inşaat'), sec(T.ev.time)], [t('Bir semtte'), t('20 arsa')]],
@@ -44,7 +49,7 @@ export function chapters(): Chapter[] {
     },
     {
       t: t('Kira ve kumbara'), s: t('TOPLA mührü ya da otomatik · kumbara {t}’de dolar', { t: sec(CFG.CAP_SEC) }),
-      art: () => svg(bld('ev', 2), 'art') + '<span class="gdcoin">₺</span>',
+      art: () => svg(bld('ev', 2), 'art') + `<span class="gdcoin">${currency()}</span>`,
       body: [
         t('Kurduğun her bina saniye saniye kira üretir. Kira, binanın <b>kumbarasında</b> birikir; binanın altındaki ince çubuk ne kadar dolduğunu gösterir.'),
         t('Ortadaki <b>TOPLA</b> mührüne bas: bütün semtlerdeki kira tek seferde kasana geçer. Mührün halkası kumbaraların doluluğunu gösterir; kumbara dolunca kira birikmeyi bırakır. İstersen Ayarlar’dan <b>Otomatik</b>’e geç: oyun açıkken kira kendiliğinden kasana akar.'),
@@ -84,7 +89,7 @@ export function chapters(): Chapter[] {
       body: [
         t('Her ilde 5 semt var ({list}). Bir semtin 20 arsasını doldurunca sıradaki semtin <b>tapusunu</b> alabilirsin.', { list: CITY_ORDER.map(c => nm(CITIES[c].n)).join(', ') }),
         t('Paran tapuya yetmiyorsa <b>kapora</b> ver: tapunun {p}’unu öde, yeni semtin {lots} arsası hemen açılır. Kalan borç o semtin kirasının yarısıyla kendiliğinden ödenir; bitince 20 arsanın hepsi senin. Ana ekrandaki çubuk bu semtin ne kadarının dolduğunu ve sonraki kaporaya ne kadar kaldığını gösterir.', { p: pctTxt(Math.round(CFG.KAPORA * 100)), lots: CFG.KAPORA_LOTS }),
-        t('Her semtin kendine özel bir <b>kuralı</b> var (örneğin Beşiktaş’ta kafeler +%20, Bebek’te sahil sırası +%30). Yeni semtlerde 3–4 arsa gecekondu, hurda araba ya da molozla dolu gelir: küçük bir bedelle temizle, eski eşyalardan para çıkar, nadiren tarihi bir kalıntı.'),
+        t('Her semtin kendine özel bir <b>kuralı</b> var (örneğin {d1} {r1}, {d2} {r2}). Yeni semtlerde 3–4 arsa gecekondu, hurda araba ya da molozla dolu gelir: küçük bir bedelle temizle, eski eşyalardan para çıkar, nadiren tarihi bir kalıntı.', ruleEx()),
         t('Her yeni semt kademesinde bina bedelleri {m} kat, kiralar {r} kat artar. Başlangıç ilinin ilk semtini doldurunca diğer illerin ilk semtleri de satışa çıkar; her ek il tüm kiralarına kalıcı +{p} kazandırır.', { m: TIER_M[1], r: String(tierRent).replace('.', ','), p: pct(CFG.PORTFOLIO_BONUS) }),
       ],
       facts: [
