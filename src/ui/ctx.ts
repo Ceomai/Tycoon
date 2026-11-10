@@ -24,7 +24,25 @@ try {
   if (mq.addEventListener) mq.addEventListener('change', on); else if ((mq as any).addListener) (mq as any).addListener(on);
 } catch { /* matchMedia yok */ }
 
-export interface SheetState { k: string; key?: string; i?: number; del?: boolean; conf?: boolean; reset?: boolean; req?: boolean; rows?: any[] | null; [x: string]: any; }
+/** Alt panel türleri (sheets/ altında her birinin modülü var; kayıt tablosu sheets.ts). */
+export type SheetKind = 'plot' | 'skin' | 'map' | 'set' | 'menu' | 'tasks' | 'coll' | 'lb' | 'leagues' | 'ref' | 'arsiv' | 'sezon' | 'ozel'
+  | 'guide' | 'guideItem' | 'store' | 'holding';
+/** Açık panelin durumu. key/i: arsa (plot, skin) ya da kılavuz maddesi (guideItem: i). del/conf/reset: "Emin misin?" onayı
+ *  (3 sn sonra kendiliğinden düşer). req/v/err: lig tablosu isteği ve sonucu (lb). sel: arşivde seçili mühür. */
+export interface SheetState {
+  k: SheetKind; key?: string; i?: number;
+  del?: boolean; conf?: boolean; reset?: boolean;
+  req?: boolean; v?: unknown; err?: boolean;
+  sel?: string;
+}
+/** Oyun katmanının arayüze geri çağrıları. Oyun modülleri panel ve tahta modüllerini (ui/sheets, ui/board) doğrudan içe
+ *  aktarmaz (döngüsel bağımlılık olmasın); o modüller yüklenince kendi işlevlerini buraya kaydeder (sheets/core.ts, board.ts).
+ *  Kayıt yokken (birim testleri) hiçbir şey yapmaz. */
+export const view = {
+  render: () => { /* board.ts */ },
+  openSheet: (_s: SheetState) => { /* sheets/core.ts */ },
+  closeSheet: () => { /* sheets/core.ts */ },
+};
 
 export const ui = {
   mq: [] as [string, (a: string) => void][],

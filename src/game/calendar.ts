@@ -1,5 +1,5 @@
 /* =========================================================
-   MEVSİMLER — yalnızca görünüm (kışın kar, yazın plaj şemsiyeleri). Oyunda bayram ya da özel gün yok.
+   TAKVİM / MEVSİMLER — yalnızca görünüm (kışın kar, yazın plaj şemsiyeleri). Oyunda bayram ya da özel gün yok.
    ========================================================= */
 export type Season = 'kis' | 'yaz' | '';
 export function season(t: number): Season {

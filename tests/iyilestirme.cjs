@@ -6,12 +6,10 @@
 // Adım 4: animasyonlar (pop, para uçuşu→sayaç, kart kapanışı, panel/semt geçişi, basma, boşta duraklama) ve titreşim; hareketi azalt.
 // Çalıştır: npm run test:iy  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 const {chromium}=require('playwright');
-const path=require('path');
-const URL='file://'+path.resolve(__dirname,'../dist-preview/index.html');
-const PREF="if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));";
-const results=[]; const ok=(c,m)=>{ results.push({name:m,pass:!!c}); console.log(c?'  ✓':'  ✗',m); };
-const S=p=>p.evaluate(()=>JSON.parse(JSON.stringify(window.__tapuState())));
-const has=(p,sel)=>p.isVisible(sel).catch(()=>false);
+const { URL, PREF_IF: PREF, state, vis, recorder, reloadKeep } = require('./helpers.cjs');
+const results=[]; const ok=recorder(results);
+const S=state;
+const has=vis;
 
 async function open(b,o={}){
   const ctx=await b.newContext({viewport:o.vp||{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true});
@@ -221,7 +219,7 @@ async function hold(p,sel){
   ok(dk.t==='dark'&&dk.bg!==light&&dk.chk==='true','koyu seçilince data-theme=dark, zemin değişti ('+dk.bg+')');
   ok(dk.meta===dk.bg,'theme-color meta zeminle aynı ('+dk.meta+')');
   ok(dk.pref==='dark','tercih tapu-prefs\'e yazıldı');
-  await p.reload();
+  await reloadKeep(p); // ortam: başsız Chromium'da file:// localStorage yenilemede ara ara boş geliyor (helpers.cjs)
   for(let k=0;k<60&&!(await p.evaluate(()=>!!window.__tapuState&&document.documentElement.dataset.theme==='dark').catch(()=>false));k++){ await p.clock.runFor(300).catch(()=>{}); await p.waitForTimeout(250); }
   await p.clock.runFor(1500); for(let k=0;k<5&&await has(p,'#modal .card');k++){ await p.click('#modal .card [data-a]',{force:true}); await p.clock.runFor(400); } // açılış kartları (çevrimdışı kazanç vb.)
   ok(await p.evaluate(()=>document.documentElement.dataset.theme)==='dark','yeniden açılışta koyu tema uygulandı');

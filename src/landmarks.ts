@@ -1,4 +1,4 @@
-// @ts-nocheck — tarihi yapı çizimleri (SVG metni)
+// Tarihi yapı çizimleri (SVG metni)
 /* KOLEKSİYON — etkinliklerden ve altın taksiden düşen tarihi yapılar. Her biri tüm kiralara +%5, tamamı ek +%10. */
 import { tk } from './i18n';
 export interface Landmark { id: string; n: string; city: 'ist' | 'izm' | 'ank'; }

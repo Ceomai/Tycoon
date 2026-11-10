@@ -1,14 +1,12 @@
 /* Oyuncu eylemleri: topla (tek tuş / otomatik), kur, kat çık, yık, hızlandır, mülke 2x, semt al */
-import { CFG, MAXLV, ORDER, TYPES, BuildingType, DistrictKey, DMAP, CITIES } from '../config';
+import { CFG, MAXLV, ORDER, TYPES, BuildingType, DistrictKey, DMAP } from '../config';
 import { t } from '../i18n';
-import { S, lotsOf } from '../state';
+import { S, lotsOf, Plot } from '../state';
 import { now, withDisc, buildCost, buildTime, upCost, upTime, producing, unlockInfo, totalRate, pending } from '../economy';
 import { Snd, buzz } from '../sound';
-import { ui, $, reduceMotion } from '../ui/ctx';
+import { ui, $, reduceMotion, view } from '../ui/ctx';
 import { toast, bump, flyTo, countUp, showGain, bigStamp } from '../ui/modal';
 import { deny, play, fadeIn, EASE } from '../ui/motion';
-import { closeSheet } from '../ui/sheets';
-import { render } from '../ui/board';
 import { track } from './tasks';
 import { Ads } from '../services/ads';
 import { persist } from './persist';
@@ -17,6 +15,8 @@ import { weekKey, fmt } from '../format';
 import { weekSpecial, specialOf } from '../specials';
 import { addXp } from './fun';
 import { kaporaOf, lienBlocks, placeObstacles, showDistrictCard, showSummary } from './district';
+import { lmLeft } from './collection';
+import type { Landmark } from '../landmarks';
 
 export function addCash(a: number) {
   if (!Number.isFinite(a) || a <= 0) return;
@@ -44,7 +44,7 @@ export function build(k: DistrictKey, i: number, bt: BuildingType) {
   lotsOf(S, k)[i] = { t: bt, lvl: 0, buf: 0, until: now() + d, dur: d, up: false }; track('build'); addXp(15);
   Analytics.log('build', { type: bt, district: k });
   if (k === S.cur) ui.pop.add(i); // inşaat başlangıcı: karoda küçük pop (render sonrası)
-  Snd.build(); buzz.light(); persist(); closeSheet(); render();
+  Snd.build(); buzz.light(); persist(); view.closeSheet(); view.render();
 }
 export function upgrade(k: DistrictKey, i: number) {
   const p = lotsOf(S, k)[i]; if (!producing(p) || p!.sp || p!.lvl >= MAXLV) return;
@@ -54,15 +54,15 @@ export function upgrade(k: DistrictKey, i: number) {
   S.cash -= c; S.disc = 0; p.until = now() + d; p.dur = d; p.up = true; track('upgrade'); addXp(20);
   Analytics.log('upgrade', { type: p.t, level: p.lvl + 1 });
   if (k === S.cur) { ui.pop.add(i); ui.tileSig[i] = ''; }
-  Snd.build(); buzz.light(); persist(); ui.sheetSig = ''; render();
+  Snd.build(); buzz.light(); persist(); ui.sheetSig = ''; view.render();
 }
 export function demolish(k: DistrictKey, i: number) {
   const p = lotsOf(S, k)[i]; if (p && p.buf > 0) collect(k, i);
   if (p && p.sp) { S.inv.push(p.sp); toast(t('{name} depoya kaldırıldı', { name: t(specialOf(p.sp).n) })); } // özel yapı kaybolmaz
-  lotsOf(S, k)[i] = null; persist(); closeSheet(); Snd.wreck(); render();
+  lotsOf(S, k)[i] = null; persist(); view.closeSheet(); Snd.wreck(); view.render();
 }
 /** Haftanın özel tapusu: yaklaşık 2 saatlik kira geliri; haftada bir kez. */
-export const specialPrice = () => Math.max(20000, totalRate(false) * 3600 * CFG.SP_PRICE_H);
+export const specialPrice = () => Math.max(CFG.SP_PRICE_MIN, totalRate(false) * 3600 * CFG.SP_PRICE_H);
 export function buySpecial() {
   const wk = weekKey(new Date(now())), sp = weekSpecial(wk), price = specialPrice();
   if (S.ozel.week === wk && S.ozel.bought) return toast(t('Bu haftanın tapusu zaten senin'));
@@ -78,7 +78,7 @@ export function placeSpecial(k: DistrictKey, i: number, id: string) {
   S.inv.splice(at, 1);
   lotsOf(S, k)[i] = { t: 'ofis', lvl: 1, buf: 0, until: 0, dur: 1, up: false, sp: id };
   if (k === S.cur) { ui.teslim[i] = { at: performance.now() + 1600, txt: t(specialOf(id).n) }; ui.pop.add(i); }
-  Snd.unlock(); buzz.success(); persist(); closeSheet(); render();
+  Snd.unlock(); buzz.success(); persist(); view.closeSheet(); view.render();
   Analytics.log('special_place', { id, district: k });
 }
 export function skip(k: DistrictKey, i: number) {
@@ -124,10 +124,17 @@ export function lotBoost(k: DistrictKey, i: number) {
   if ((p!.bu || 0) - now() > CFG.LOT_BOOST_MAX - CFG.LOT_BOOST / 2) { toast(t('Bu mülkün 2x süresi dolu. En fazla 4 saat birikir.')); return; }
   Ads.rewarded('lotboost', t('{type}: 1 saat 2x', { type: t(TYPES[p!.t].n) }), () => {
     const q = lotsOf(S, k)[i]; if (!q) return;
-    q.bu = Math.min(Math.max(q.bu || 0, now()) + CFG.LOT_BOOST, now() + CFG.LOT_BOOST_MAX);
-    track('lotboost'); addXp(10); toast(t('{type} 2x kazanıyor', { type: t(TYPES[q.t].n) }));
+    extendLotBoost(q); addXp(10); toast(t('{type} 2x kazanıyor', { type: t(TYPES[q.t].n) }));
     Analytics.log('lot_boost', { type: q.t, district: k });
   });
+}
+/** Mülke 2x süresi: +1 saat, en fazla 4 saat birikir (reklam ve jeton aynı kural). Görev ilerlemesi sayılır. */
+function extendLotBoost(q: Plot) { q.bu = Math.min(Math.max(q.bu || 0, now()) + CFG.LOT_BOOST, now() + CFG.LOT_BOOST_MAX); track('lotboost'); }
+/** 2x jetonu: reklamsız mülke 2x (+1 saat). Reklamlı yoldan farkı: sezon puanı ve analitik yok, ödül sesi anında. */
+export function useToken(k: DistrictKey, i: number) {
+  const q = lotsOf(S, k)[i]; if (!q || S.tokens <= 0) return;
+  S.tokens--; extendLotBoost(q);
+  toast(t('2x jetonu kullanıldı · 1 saat 2x')); ui.sheetSig = ''; ui.tileSig = []; persist(); Snd.reward();
 }
 /** Tapu alımı (tam bedel) ya da kapora (%30 peşin, kalan borç semtin kirasıyla ödenir). */
 export function buyDistrict(k: DistrictKey, kapora = false) {
@@ -138,13 +145,13 @@ export function buyDistrict(k: DistrictKey, kapora = false) {
   S.cash -= pay; S.own.push(k); lotsOf(S, k);
   if (kapora) { S.lien[k] = u.fee - pay; S.lienT[k] = u.fee - pay; S.cnt.kapora++; }
   placeObstacles(k);
-  switchDistrict(k); persist(); closeSheet();
+  switchDistrict(k); persist(); view.closeSheet();
   Snd.unlock(); buzz.success();
   showDistrictCard(k);
   Analytics.log(newCity ? 'city_unlock' : 'district_unlock', { district: k, kapora });
 }
 export function switchDistrict(k: DistrictKey) {
-  if (!S.own.includes(k)) return; ui.breakAt = performance.now(); const from = S.cur; S.cur = k; ui.teslim = {}; ui.pop.clear(); showSummary(k, from); ui.tileSig = []; ui.linkSig = ''; render();
+  if (!S.own.includes(k)) return; ui.breakAt = performance.now(); const from = S.cur; S.cur = k; ui.teslim = {}; ui.pop.clear(); showSummary(k, from); ui.tileSig = []; ui.linkSig = ''; view.render();
   if (from !== k) slideIn($('.plate'), order(k) >= order(from) ? 1 : -1);
 }
 /** Semtlerin sahiplik sırası (haritadaki sıra): ileri semt sağdan, geri semt soldan kayar. */
@@ -155,11 +162,20 @@ function slideIn(el: Element | null, dir: number) {
   play(el, 'sw', [{ transform: `translateX(${dir * 24}px)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220, easing: EASE.out });
 }
 
+/** Altın taksi: TAXI_SEC saniyelik kira (en az TAXI_CASH_MIN); koleksiyon bitmediyse LM_CHANCE şansla tarihi yapı çıkar. Ses, para uçuşu ve kart
+ *  arayüzde (ui/street.ts). */
+export function catchTaxiReward(): { amt: number; lm: Landmark | null } {
+  const amt = Math.max(CFG.TAXI_CASH_MIN, totalRate(false) * CFG.TAXI_SEC); addCash(amt); track('taxi');
+  let lm: Landmark | null = null;
+  if (Math.random() < CFG.LM_CHANCE && lmLeft().length) { lm = lmLeft()[0]; S.coll.push(lm.id); }
+  persist();
+  return { amt, lm };
+}
 /** Ödüllü reklam (ya da premium) sonrası ortak işlemler. */
 export function grantReward(fn?: () => void) {
   if (fn) fn();
-  Snd.reward(); buzz.success(); S.nextAd = Math.max(S.nextAd, S.playMs + 5 * 60e3); track('ad');
-  persist(); ui.sheetSig = ''; ui.tileSig = []; render();
+  Snd.reward(); buzz.success(); S.nextAd = Math.max(S.nextAd, S.playMs + CFG.AD_REWARD_QUIET_MS); track('ad');
+  persist(); ui.sheetSig = ''; ui.tileSig = []; view.render();
 }
 /** TOPLA mührü dikkat çekmek için kısaca sallanır (WAAPI; hareketi azalt açıkken ya da boştayken oynamaz). */
 export const nudgeCollect = () => {

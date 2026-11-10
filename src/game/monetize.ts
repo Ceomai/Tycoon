@@ -9,11 +9,10 @@ import { t, nm } from '../i18n';
 import { S, lotsOf } from '../state';
 import { now, producing, rate, totalRate, unlockInfo, buyableDistricts, isFull } from '../economy';
 import { dayKey, fmt, clock } from '../format';
-import { I } from '../icons';
 import { Snd } from '../sound';
 import { ui } from '../ui/ctx';
 import { openModal, closeModal, toast, bump } from '../ui/modal';
-import { ensureSeason } from './fun';
+import { ensureSeason, claimSeason } from './fun';
 import { persist } from './persist';
 import { nextDistrict } from './district';
 import { Purchases } from '../services/purchases';
@@ -49,7 +48,7 @@ export function boostSaving(rem: number): { now: number; saved: number; lot: { k
 /* ---------- başlangıç paketi ---------- */
 export const starterActive = () => !!(S.starter.at && !S.starter.bought && now() < S.starter.at + CFG.STARTER_MS);
 export const starterLeft = () => Math.max(0, S.starter.at + CFG.STARTER_MS - now());
-const starterCash = () => Math.max(5000, totalRate(false) * CFG.STARTER_CASH_SEC);
+const starterCash = () => Math.max(CFG.STARTER_CASH_MIN, totalRate(false) * CFG.STARTER_CASH_SEC);
 /** İlk tapu duvarı: başlangıç semti dolu, sıradaki tapuya para yetmiyor. Oyun döngüsünden (kart sırası boşken) çağrılır. */
 export function maybeStarter(): boolean {
   if (S.starter.at || S.starter.bought || S.premium || S.club) return false;
@@ -82,6 +81,12 @@ export function buyStarter() {
 /** Jeton paketleri (tüketilen ürün). */
 export function buyTokens(n: 5 | 15) {
   return Purchases.buyProduct(n === 5 ? 'jeton5' : 'jeton15', () => { S.tokens += n; ui.sheetSig = ''; persist(); Snd.unlock(); toast(t('{n} adet 2x jetonu eklendi', { n })); });
+}
+
+/** Altın Tapu (sezon paneli ve mağaza). claim: sezon panelinden alınınca birikmiş altın ödüller hemen verilir; mağazadan
+ *  alınınca verilmez, sezon panelindeki "Ödülleri al" ile alınır (iki yolun davranışı bilerek farklı, korunuyor). */
+export function buySeasonGold(claim: boolean) {
+  return Purchases.buySeason(() => { ensureSeason(); S.season.gold = true; toast(t('Altın Tapu açıldı')); Snd.unlock(); ui.sheetSig = ''; persist(); if (claim) claimSeason(); });
 }
 
 /* ---------- Emlak Kulübü ---------- */

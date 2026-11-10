@@ -18,7 +18,7 @@ import {
   getFirestore, doc, getDoc, setDoc, deleteDoc, collection, query, where, orderBy, limit, getDocs, type Firestore,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable, type Functions } from 'firebase/functions';
-import type { Backend, LbRow, RedeemResult } from './cloud';
+import type { Backend, LbRow, RedeemResult } from './backend';
 import { t } from '../i18n';
 import { GROUP_SIZE } from '../config';
 

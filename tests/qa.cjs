@@ -2,23 +2,22 @@
 // Çalıştır: npm run test:e2e  (önizleme paketi dist-preview/index.html üzerinde; Playwright gerekir)
 // Tohum kayıtlar eski (v1) biçimde yazılır: böylece v1→v2 taşıma da her testte sınanır.
 const {chromium}=require('playwright');
-const path=require('path'); const URL='file://'+path.resolve(__dirname,'../dist-preview/index.html');
-const out=path.resolve(__dirname,'out')+'/'; require('fs').mkdirSync(out,{recursive:true});
+const { URL, out, PREF_IF, makeTap, dismissCards, checker } = require('./helpers.cjs');
 const log=(...a)=>console.log(...a);
 const st=async p=>{ await p.clock.runFor(300); return await p.evaluate(()=>{const o=JSON.parse(JSON.stringify(window.__tapuState())); o._now=Date.now(); return o;}); };
 const saved=async p=>p.evaluate(()=>{const w=JSON.parse(localStorage.getItem('tapu-save-v2')||'null'); return w&&JSON.parse(w.j);});
 async function page(b,opts={},seed){
-  const ctx=await b.newContext({viewport:opts.vp||{width:390,height:800}}); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`);
+  const ctx=await b.newContext({viewport:opts.vp||{width:390,height:800}}); await ctx.addInitScript(PREF_IF);
   const p=await ctx.newPage(); p.errs=[]; p.on('pageerror',e=>p.errs.push(e.message)); p.on('console',m=>{if(m.type()==='error')p.errs.push(m.text())});
   await p.clock.install(opts.time ? { time: opts.time } : undefined);
-  await p.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`); // mevcut testler: Türkçe · Türkiye (ilk açılış akışı tests/yerel.cjs'te)
+  await p.addInitScript(PREF_IF); // mevcut testler: Türkçe · Türkiye (ilk açılış akışı tests/yerel.cjs'te)
   if(seed) await p.addInitScript(`if(!sessionStorage.getItem('s')){sessionStorage.setItem('s',1);localStorage.setItem('tapu-save-v1',JSON.stringify((${seed})(Date.now())));}`);
   await p.goto(URL); await p.clock.runFor(500); return p;
 }
-const dismiss=async p=>{ for(let k=0;k<4&&await p.isVisible('#modal .card');k++){ await p.click(await p.isVisible('#modal .card .txt')?'#modal .card .txt':'#modal .card [data-a]',{force:true}); await p.waitForTimeout(500); } };
-const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.waitForTimeout(380); };
+const dismiss=p=>dismissCards(p,{n:4,wait:500,safe:false});
+const tap=makeTap({wait:380});
 (async()=>{
- const b=await chromium.launch(); const fails=[]; const ok=(c,m)=>{ if(!c){fails.push(m); log('  ✗',m);} else log('  ✓',m); };
+ const b=await chromium.launch(); const { fails, ok }=checker();
 
  log('A) ilk oyun akışı');
  let p=await page(b);

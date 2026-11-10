@@ -1,8 +1,8 @@
 // Ekran yönü testi (tasarım E0–E7): dikey/yatay telefon ve tablet boyutları, oyun sırasında döndürme, panel/kart sığması, dokunma.
 // Çalıştır: npm run test:yon (önizleme paketi; Playwright)
-const {chromium}=require('playwright'); const path=require('path'); const fs=require('fs');
-const URL='file://'+path.resolve(__dirname,'../dist-preview/index.html'); const OUT=path.resolve(__dirname,'out')+'/yon-'; fs.mkdirSync(path.resolve(__dirname,'out'),{recursive:true});
-const PREF="localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));";
+const {chromium}=require('playwright'); const fs=require('fs');
+const { URL, out, PREF } = require('./helpers.cjs');
+const OUT=out+'yon-';
 const rows=[]; const rec=(o)=>{ rows.push(o); console.log((o.ok?'  ✓ ':'  ✗ ')+o.name+(o.ok?'':'  → '+o.why)); };
 const DEV=[['iPhone SE',320,568],['Galaxy S8',360,740],['iPhone 13',390,844],['Pixel 7',412,915],['iPhone Pro Max',430,932],['iPad mini',744,1133],['iPad',820,1180]];
 async function setup(b,w,h,lang='tr'){ const ctx=await b.newContext({viewport:{width:w,height:h},hasTouch:true,isMobile:true,deviceScaleFactor:2});

@@ -15,7 +15,8 @@ export const LANGS: { id: Lang; n: string; sub: string }[] = [
   { id: 'de', n: 'Deutsch', sub: 'Auf Deutsch spielen' },
   { id: 'ja', n: '日本語', sub: '日本語でプレイ' },
 ];
-export interface Dict { s: Record<string, string>; names?: Record<string, string>; }
+import type { Dict } from './locales/dict';
+export type { Dict };
 const DICTS: Record<Lang, Dict | null> = { tr: null, en: EN, de: DE, ja: JA };
 
 export let LANG: Lang = 'tr';

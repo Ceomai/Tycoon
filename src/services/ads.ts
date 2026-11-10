@@ -14,19 +14,19 @@ import { AdMob, RewardAdPluginEvents, AdmobConsentStatus } from '@capacitor-comm
 import { CFG } from '../config';
 import { S } from '../state';
 import { I, small } from '../icons';
-import { $, ui } from '../ui/ctx';
+import { $, ui, view } from '../ui/ctx';
 import { toast, flushQueue } from '../ui/modal';
 /** Reklam hatası bildirimi: okunabilsin diye normal bildirimden uzun (≥3.5 sn). */
 export const AD_FAIL_MS = 4000;
-import { openSheet } from '../ui/sheets';
-import { render } from '../ui/board';
 import { grantReward } from '../game/actions';
 import { persist } from '../game/persist';
 import { Analytics } from './analytics';
-import { Cloud } from './cloud';
 import { adFree, instantRewards } from './purchases';
 import { rand } from '../format';
 import { t } from '../i18n';
+
+/** Ödüllü reklam SSV kullanıcı kimliği (Firebase uid). cloud.ts bağlar; ads.ts cloud.ts'i içe aktarmaz (döngü olmasın). */
+export const adUser = { uid: (): string | null => null };
 
 let dueAt = 0; // geçiş reklamı zamanı geldiği an (performance.now); 0 = beklemiyor
 /** Ödüllü reklam izlendi: kısa süre geçiş reklamı gösterilmez (reklam kredisi). */
@@ -74,7 +74,7 @@ export const Ads = {
   async preload() {
     if (!ready || !canRequest || instantRewards()) return;
     const id = ids();
-    try { if (!rewardedLoaded && id.rewarded) { await AdMob.prepareRewardVideoAd({ adId: id.rewarded, isTesting: testing(), ssv: { userId: Cloud.uid() || 'misafir', customData: 'tapu' } } as any); rewardedLoaded = true; } } catch { /* stok yok */ }
+    try { if (!rewardedLoaded && id.rewarded) { await AdMob.prepareRewardVideoAd({ adId: id.rewarded, isTesting: testing(), ssv: { userId: adUser.uid() || 'misafir', customData: 'tapu' } } as any); rewardedLoaded = true; } } catch { /* stok yok */ }
     try { if (!adFree() && !interstitialLoaded && id.interstitial) { await AdMob.prepareInterstitial({ adId: id.interstitial, isTesting: testing() }); interstitialLoaded = true; } } catch { /* stok yok */ }
   },
   async showPrivacyOptions() { if (this.native()) try { await AdMob.showPrivacyOptionsForm(); } catch { /* yok */ } },
@@ -90,7 +90,7 @@ export const Ads = {
     busy = true;
     let got = false, h: { remove: () => Promise<void> | void } | null = null;
     try {
-      if (!rewardedLoaded) { await AdMob.prepareRewardVideoAd({ adId: ids().rewarded, isTesting: testing(), ssv: { userId: Cloud.uid() || 'misafir', customData: kind } } as any); }
+      if (!rewardedLoaded) { await AdMob.prepareRewardVideoAd({ adId: ids().rewarded, isTesting: testing(), ssv: { userId: adUser.uid() || 'misafir', customData: kind } } as any); }
       rewardedLoaded = false; ui.ad = true;
       h = await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => { got = true; });
       await AdMob.showRewardVideoAd();
@@ -135,8 +135,8 @@ function showSimulated(rewarded: boolean, label: string, onReward: (() => void) 
   x.onclick = () => {
     if (!done) return;
     el.hidden = true; el.innerHTML = ''; ui.ad = false; ui.lastClose = performance.now(); S.ads++;
-    if (rewarded) { credit(); grantReward(onReward || undefined); Analytics.log('ad_reward', { kind }); } else { persist(); render(); }
+    if (rewarded) { credit(); grantReward(onReward || undefined); Analytics.log('ad_reward', { kind }); } else { persist(); view.render(); }
     flushQueue();
   };
-  const pr = $('#adPrem'); if (pr) pr.onclick = () => { if (!done) return toast(t('Reklam bitince açılır')); x.onclick(); openSheet({ k: 'store' }); };
+  const pr = $('#adPrem'); if (pr) pr.onclick = () => { if (!done) return toast(t('Reklam bitince açılır')); x.onclick(); view.openSheet({ k: 'store' }); };
 }

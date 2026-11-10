@@ -34,13 +34,14 @@ import { $, ui, hist, syncHistory, histSettled } from './ui/ctx';
 import { onModalClick, justOpened, modalBack, bigStamp } from './ui/modal';
 import { openSheet, closeSheet, sheetBack, onSheetAction } from './ui/sheets';
 import { bindSheetDrag } from './ui/sheetdrag';
-import { render, fit, setupGrid, drawGuilloche, Street } from './ui/board';
+import { render, fit, setupGrid, drawGuilloche } from './ui/board';
+import { Street } from './ui/street';
 import { ensureTasks } from './game/tasks';
 import { catchUp } from './game/events';
 import { collectAll, switchDistrict } from './game/actions';
 import { toast } from './ui/modal';
 import { persist, persistSync } from './game/persist';
-import { tick, pickCity, firstRun, applyRegion, showRegionNews } from './game/loop';
+import { tick, resumeTick, pickCity, firstRun, applyRegion, showRegionNews } from './game/loop';
 import { P, loadPrefs, savePrefs } from './prefs';
 import { applyTheme } from './theme';
 import { anySave, loadRegionInfo } from './storage';
@@ -65,14 +66,26 @@ function awayMs(): number {
   return Math.max(0, g.now - S.lastSeen);
 }
 
+/* Oyun döngüsü (4 Hz) ve periyodik kayıt (10 sn). Arka planda durur, öne gelince yeniden başlar. */
+let looping = false, tickIv: ReturnType<typeof setInterval> | 0 = 0, saveIv: ReturnType<typeof setInterval> | 0 = 0;
+function startLoops() {
+  if (!looping || tickIv) return;
+  tickIv = setInterval(tick, CFG.TICK_MS);
+  saveIv = setInterval(() => { if (!document.hidden) persist(); }, 10e3);
+}
+function stopLoops() { clearInterval(tickIv); clearInterval(saveIv); tickIv = saveIv = 0; }
+
+/** Arka plana geçiş: kayıt, hatırlatma planı, bulut; döngüler, sokak hayatı ve ses bağlamı durur (pil). */
 function onHide() {
   if (hiddenAt) return; hiddenAt = Date.now();
   S.lastSeen = now(); persistSync();
   void Notify.plan(); void Cloud.pushSave(); Cloud.maybePostScore(true);
+  stopLoops(); Street.stop(); Snd.suspend();
 }
 function onShow() {
   if (!hiddenAt) return; hiddenAt = 0;
   catchUp(awayMs()); S.lastSeen = now(); ui.lastInput = performance.now(); render();
+  resumeTick(); startLoops(); Street.start(); Snd.resume();
   void Notify.cancel(); // oyuna dönüldü: planlı hatırlatmalar artık gereksiz
   if (Cloud.ready() && !Time.synced) void Cloud.hello();
 }
@@ -195,9 +208,8 @@ async function boot() {
   setupGrid(); Street.init(); ensureTasks(); drawGuilloche(); bindUi(); fit();
   ui.lastInput = performance.now();
   render();
-  setInterval(tick, CFG.TICK_MS);
+  looping = true; startLoops();
   uiReady = true; // bundan sonraki hatalar (bulut, mağaza, reklam) oyunu durdurmaz; yalnızca kaydedilir
-  setInterval(() => { if (!document.hidden) persist(); }, 10e3);
 
   // ağ işleri arayüzü bekletmez
   const cloud = Cloud.init();

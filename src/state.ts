@@ -33,7 +33,6 @@ export interface State {
   stars: Record<DistrictKey, number[]>; // semt hedefleri: kazanılan hedeflerin sırası
   inv: string[];                   // depodaki özel yapılar (yerleştirilmeyi bekleyen)
   ozel: { week: string; bought: boolean }; // haftanın özel tapusu
-  fest: string;                    // bayram ikramiyesinin alındığı gün
   rifki: boolean;                  // Rıfkı Abi'nin ipuçları açık mı
   lien: Record<DistrictKey, number>; // kaporalı semtlerin kalan borcu
   lienT: Record<DistrictKey, number>; // kaporalı semtlerin ilk borcu (ilerleme için)
@@ -75,7 +74,7 @@ export function newState(now: number, weekKey: string, city: CityId | null = nul
     sound: true, notif: true, collects: 0, ads: 0, skipHint: 0, seen: { ev: true },
     daily: { last: '', streak: 0 }, tasks: null, shares: 0, coll: [],
     ref: { code: makeCode(), used: false, rewarded: 0 }, week: { key: weekKey, earned: 0 },
-    offer: null, premium: false, clockFlag: 0, league: { tier: 0, seals: 0, last: '' }, guideHint: false, collectMode: 'tap', stars: {}, inv: [], ozel: { week: '', bought: false }, fest: '', rifki: true, lien: {}, lienT: {}, dEarn: {}, cards: [],
+    offer: null, premium: false, clockFlag: 0, league: { tier: 0, seals: 0, last: '' }, guideHint: false, collectMode: 'tap', stars: {}, inv: [], ozel: { week: '', bought: false }, rifki: true, lien: {}, lienT: {}, dEarn: {}, cards: [],
     market: '', ach: [], cnt: { ob: 0, civic: 0, skin: 0, kapora: 0 }, civic: {}, nextCivic: 12 * 60e3, night: true, vib: true, tokens: 0, skinsU: [], season: { id: '', xp: 0, got: [], ggot: [], gold: false },
     noAds: false, club: false, starter: { at: 0, bought: false }, seasonFirst: false, adCredit: 0, clubDay: '',
   };

@@ -1,4 +1,4 @@
-import type { Dict } from '../i18n';
+import type { Dict } from './dict';
 /* Otomatik üretildi: node scripts/i18n-build.mjs (kaynak: scripts/i18n/de.json, scripts/names.json). Elle düzenlemeyin. */
 export const DE: Dict = {
   s: {

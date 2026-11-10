@@ -2,13 +2,12 @@
    RIFKI ABİ — klasik, nazik bir emlakçı; ara sıra hafif esprili tek satırlık ipuçları.
    En fazla 3 dakikada bir konuşur, × ile kapanır, Ayarlar'dan tamamen kapatılabilir.
    ========================================================= */
-import { CFG, TYPES, ORDER, DMAP, N } from '../config';
+import { CFG, ORDER, DMAP, N } from '../config';
 import { S, lotsOf } from '../state';
 import { now, pending, producing, neighbors, PAIRS, buildCost, withDisc, rate, isFull, unlockInfo } from '../economy';
 import { weekKey, loc } from '../format';
 import { t, nm, LANG } from '../i18n';
-import { $, ui, SheetState } from '../ui/ctx';
-import { openSheet } from '../ui/sheets';
+import { $, ui, SheetState, view } from '../ui/ctx';
 import { nearestGoal } from './goals';
 import { nextDistrict, kaporaOf, clearCost } from './district';
 import { weekSpecial } from '../specials';
@@ -111,5 +110,5 @@ export function maybeTip(pt: number) {
 export function onTipClick(e: Event) {
   const b = (e.target as HTMLElement).closest('[data-rk]') as HTMLElement | null; if (!b) return;
   const go = current && current.go; hideTip();
-  if (b.dataset.rk === 'go' && go) openSheet(go);
+  if (b.dataset.rk === 'go' && go) view.openSheet(go);
 }

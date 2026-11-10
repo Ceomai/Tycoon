@@ -9,9 +9,8 @@ import { now, totalRate } from '../economy';
 import { specialSvg } from '../specials';
 import { bld, site, emptyLot } from '../draw';
 import { I } from '../icons';
-import { $ } from '../ui/ctx';
+import { $, view } from '../ui/ctx';
 import { openModal, closeModal, toast } from '../ui/modal';
-import { closeSheet } from '../ui/sheets';
 import { track } from './tasks';
 import { Analytics } from '../services/analytics';
 import { t, nm, upper, loc } from '../i18n';
@@ -75,7 +74,7 @@ const toBase64 = (b: Blob) => new Promise<string>(ok => { const fr = new FileRea
 
 let shareBlob: Blob | null = null, shareUrl = '';
 export async function openShare() {
-  closeSheet();
+  view.closeSheet();
   openModal(`<div class="card"><h3>${t('Şehrini paylaş')}</h3><p id="shareMsg">${t('Görsel hazırlanıyor…')}</p><div id="shareBox"></div>
     <div class="btns"><button class="btn gold" data-a="share" disabled>${I.share} ${t('Paylaş')}</button><button class="btn soft" data-a="save" disabled>${t('Kaydet')}</button><button class="txt" data-a="no" data-back>${t('Kapat')}</button></div></div>`,
     async a => {

@@ -115,7 +115,7 @@ describe('haftalık lig', () => {
 });
 
 import { largestGroup, pairsCount, goalsOf } from '../../src/game/goals';
-import { season } from '../../src/game/festival';
+import { season } from '../../src/game/calendar';
 import { loc } from '../../src/format';
 import { neighborBonus, baseRate, specialBase } from '../../src/economy';
 import { weekSpecial } from '../../src/specials';

@@ -2,13 +2,12 @@
 // Global (5 şehir, 4. ve 5. şehir bedeli), bölge değiştirince kayıtların ayrı kalması, dil değiştirme,
 // İngilizce/Almanca/Japonca arayüzde Türkçe kalıntı taraması ve 320px taşma denetimi.
 // Çalıştır: npm run test:yerel
-const {chromium}=require('playwright'); const path=require('path'); const fs=require('fs');
-const URL='file://'+path.resolve(__dirname,'../dist-preview/index.html'); const out=path.resolve(__dirname,'out')+'/'; fs.mkdirSync(out,{recursive:true});
-const fails=[]; const ok=(c,m)=>{ if(!c) fails.push(m); console.log(c?'  ✓':'  ✗',m); };
-const vis=(p,s)=>p.isVisible(s).catch(()=>false);
-const tap=async(p,sel)=>{ await p.click(sel,{force:true,timeout:3000}).catch(()=>p.$eval(sel,e=>e.click())); await p.clock.runFor(400); await p.waitForTimeout(250); };
-async function dismiss(p){ for(let k=0;k<6&&await vis(p,'#modal .card');k++){ await p.click(await vis(p,'#modal .card .txt')?'#modal .card .txt':'#modal .card [data-a]',{force:true}).catch(()=>{}); await p.clock.runFor(400); await p.waitForTimeout(200); } }
-const S=p=>p.evaluate(()=>JSON.parse(JSON.stringify(window.__tapuState())));
+const {chromium}=require('playwright');
+const { URL, out, vis, state, makeTap, dismissCards, checker } = require('./helpers.cjs');
+const { fails, ok }=checker();
+const tap=makeTap({run:400,wait:250,fallback:true,timeout:3000});
+const dismiss=p=>dismissCards(p,{n:6,run:400,wait:200});
+const S=state;
 async function fresh(b,vp={width:390,height:844},locale='en-US'){ const ctx=await b.newContext({viewport:vp,locale}); const p=await ctx.newPage(); p.errs=[]; p.on('pageerror',e=>p.errs.push(e.message)); await p.clock.install(); await p.goto(URL); await p.clock.runFor(600); await p.waitForTimeout(300); return p; }
 // Türkçeye özgü harfler (özel adlar hariç) görünür metinde kalmış mı?
 const TR_CH=/[ğışĞİŞ]|(^|\s)(ve|bir|için|kira|semt|arsa)(\s|$)/i;

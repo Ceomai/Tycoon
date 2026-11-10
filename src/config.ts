@@ -131,6 +131,15 @@ export const CFG = {
   STARTER_MS: 48 * 3600e3,     // başlangıç paketi süresi
   STARTER_CASH_SEC: 7200,      // başlangıç paketi nakdi (sn kira)
   STARTER_TOKENS: 5,
+  STARTER_CASH_MIN: 5000,      // başlangıç paketi en düşük nakdi
+  AD_REWARD_QUIET_MS: 5 * 60e3, // ödüllü reklamdan sonra sıradaki geçiş reklamı en az bu kadar ertelenir
+  // altın taksi, tarihi yapı şansı, özel tapu
+  TAXI_MIN: 70e3, TAXI_MAX: 130e3, // altın taksi aralığı (oyun süresi)
+  TAXI_OFFER_MIN: 18e3, TAXI_OFFER_MAX: 30e3, // "taksi yakala" fırsatı sürerken aralık
+  TAXI_SEC: 120,               // altın taksi ödülü (sn kira) ...
+  TAXI_CASH_MIN: 100,          // ... en az
+  LM_CHANCE: 0.08,             // altın taksiden ve moloz temizliğinden tarihi yapı çıkma şansı
+  SP_PRICE_MIN: 20000,         // haftanın özel tapusu en düşük fiyatı
 };
 export type Cfg = typeof CFG;
 

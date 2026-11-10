@@ -1,9 +1,8 @@
 /* Kartlar (tebligat), sıra kuyruğu, bildirim şeridi ve para uçuşu efekti */
-import { $, ui, reduceMotion, syncHistory } from './ctx';
+import { $, ui, reduceMotion, syncHistory, view } from './ctx';
 import { S } from '../state';
 import { Snd } from '../sound';
 import { fmt } from '../format';
-import { closeSheet } from './sheets';
 import { play, pulse, fadeIn, DUR, EASE } from './motion';
 
 let modalHandler: ((a: string) => void) | null = null;
@@ -13,7 +12,7 @@ let modalHandler: ((a: string) => void) | null = null;
 export function openModal(html: string, handler: (a: string) => void) {
   if (ui.modal || ui.ad) { ui.mq.push([html, handler]); return; }
   const focus = ui.sheet ? ui.sheetFocus : document.activeElement as HTMLElement | null;
-  ui.modal = true; closeSheet(); modalHandler = handler; ui.openedAt = performance.now(); ui.modalFocus = focus;
+  ui.modal = true; view.closeSheet(); modalHandler = handler; ui.openedAt = performance.now(); ui.modalFocus = focus;
   dropGhost(); // kapanmakta olan kart hemen gider (kesilebilir)
   const m = $('#modal'); m.innerHTML = html; m.hidden = false; $('#scrim').classList.add('on'); Snd.unlock();
   if (reduceMotion) fadeIn(m.querySelector('.card'), 'in', 140);

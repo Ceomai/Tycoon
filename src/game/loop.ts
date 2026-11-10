@@ -4,13 +4,11 @@ import { t, nm, LANGS, setLang, LANG } from '../i18n';
 import { P, savePrefs } from '../prefs';
 import { S, setS, newState, lotsOf } from '../state';
 import { rand, dayKey, weekKey } from '../format';
-import { now, producing, rate, pending, curWeek } from '../economy';
-import { Time } from '../time';
+import { now, producing, rate, pending, curWeek, tickMemo, freezeRates } from '../economy';
 import { Snd, buzz } from '../sound';
-import { $, ui } from '../ui/ctx';
+import { $, ui, view } from '../ui/ctx';
 import { toast, openModal, closeModal } from '../ui/modal';
-import { closeSheet } from '../ui/sheets';
-import { render, Street } from '../ui/board';
+import { Street } from '../ui/street';
 import { ensureTasks } from './tasks';
 import { checkDaily } from './daily';
 import { showEvent } from './events';
@@ -33,6 +31,12 @@ const anyProducing = () => S.own.some(k => lotsOf(S, k).some(producing));
 export function tick() {
   const pt = performance.now(), dt = Math.min(pt - lastT, 1000); lastT = pt;
   if (document.hidden) return;
+  tickMemo(true); // adım önbelleği (economy.ts): adım bitince (hata olsa da) kapanır
+  try { step(pt, dt); } finally { tickMemo(false); }
+}
+/** Arka plandan dönüşte: döngü yeniden başlarken ilk adımın süresi (dt) arka planda geçen süreyi saymaz (onu catchUp sayar). */
+export function resumeTick() { lastT = performance.now(); }
+function step(pt: number, dt: number) {
   const tn = now();
   S.maxSeen = Math.max(S.maxSeen, tn);
   if (teslimOf !== S.cur) { teslimOf = S.cur; ui.teslim = {}; } // teslim mühürleri arsa sırasına bağlı: semt değişince silinir
@@ -61,7 +65,7 @@ export function tick() {
   if (!ui.ad) S.playMs += dt;
   S.lastSeen = tn;
   if (S.offer && !S.offer.done && S.offer.until <= tn) { toast(t('{title}: süre doldu', { title: t(S.offer.title) })); S.offer = null; }
-  if (!ui.ad && S.playMs >= S.nextTaxi) { S.nextTaxi = S.playMs + (S.offer && S.offer.k === 'taxi' ? rand(18e3, 30e3) : rand(70e3, 130e3)); Street.spawn('taxi'); }
+  if (!ui.ad && S.playMs >= S.nextTaxi) { S.nextTaxi = S.playMs + (S.offer && S.offer.k === 'taxi' ? rand(CFG.TAXI_OFFER_MIN, CFG.TAXI_OFFER_MAX) : rand(CFG.TAXI_MIN, CFG.TAXI_MAX)); Street.spawn('taxi'); }
   // boşta: animasyonlar ve sokak hayatı durur (pil)
   const idle = pt - ui.lastInput > CFG.IDLE_MS; if (idle !== ui.idle) { ui.idle = idle; Street.idle(idle); }
   // bulut: kayıt ve skor seyrek gönderilir
@@ -86,7 +90,8 @@ export function tick() {
     const h = $('#guideHint'), g = $('#guideBtn'); h.hidden = false; g.classList.add('wig');
     setTimeout(() => { h.hidden = true; g.classList.remove('wig'); }, 6000);
   }
-  render();
+  freezeRates(); // çizim durumu değiştirmez: toplam kira ve bekleyen kira bu adımda bir kez hesaplanır
+  view.render();
 }
 
 const MAP_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg>';
@@ -115,7 +120,7 @@ export function pickCity(onDone?: () => void) {
       closeModal();
       const fresh = newState(now(), weekKey(new Date(now())), c);
       Object.assign(S, { city: c, own: fresh.own, cur: fresh.cur, d: fresh.d });
-      ui.tileSig = []; ui.linkSig = ''; persist(); render(); Snd.unlock();
+      ui.tileSig = []; ui.linkSig = ''; persist(); view.render(); Snd.unlock();
       Analytics.log('start_city', { city: c });
       showDistrictCard(fresh.cur, onDone); // şehir kartpostalı + başlangıç semtinin kuralı
     });
@@ -135,7 +140,7 @@ export function firstRun(onDone?: () => void, onLang?: () => void) {
     const ent = { premium: S.premium, noAds: S.noAds, club: S.club };
     setS(Object.assign(newState(now(), weekKey(new Date(now()))), ent));
     unlockSaves();
-    ui.tileSig = []; ui.linkSig = ''; render();
+    ui.tileSig = []; ui.linkSig = ''; view.render();
     Analytics.log('start_region', { region: r, lang: LANG });
     pickCity(onDone);
   }); });
@@ -155,7 +160,7 @@ export function switchLang(l: string) {
 
 /** Yeni oyun: dil → bölge → şehir seçimi (seçilen bölgede sıfırdan; diğer bölgelerin kayıtları korunur). */
 export async function resetGame() {
-  closeSheet();
+  view.closeSheet();
   firstRun(() => { setTimeout(() => location.reload(), 300); }); // seçim bitince temiz açılış (dil ve bölge tüm metinlere yansısın)
 }
 /** Mevcut oyunculara bir kez: yeni diller ve ülkeler tanıtımı. Türkiye ilerlemesi kayıtlı kalır. */

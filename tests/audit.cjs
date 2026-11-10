@@ -3,37 +3,30 @@
 // Çalıştır: npm run test:audit  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 // Ölçümler tests/out/audit-metrics.json dosyasına yazılır (raporlar bu dosyadaki gerçek değerlerle doldurulur).
 const {chromium}=require('playwright');
-const fs=require('fs'), path=require('path');
-const URL='file://'+path.resolve(__dirname,'../dist-preview/index.html');
-const out=path.resolve(__dirname,'out')+'/'; fs.mkdirSync(out,{recursive:true});
+const fs=require('fs');
+const { URL, out, PREF_IF, stateNow, mut, makeTap, dismissCards, recorder, injectReload, vis } = require('./helpers.cjs');
 const log=(...a)=>console.log(...a);
 const metrics={}; const results=[];
 let section='';
-const ok=(c,m)=>{ results.push({section,name:m,pass:!!c}); log(c?'  ✓':'  ✗',m); };
+const ok=recorder(results,()=>({section}));
 
-/** Kaydı bir sonraki yüklemede, oyun başlamadan yerleştirir ve sayfayı yeniler.
- *  (Doğrudan localStorage + reload yarışlı: oyunun pagehide → persistSync'i test kaydını ezebiliyor.) */
-async function injectReload(p){
-  await p.evaluate(()=>sessionStorage.setItem('__inj',JSON.stringify(window.__tapuState())));
-  if(!p.__injHook){ p.__injHook=1; await p.addInitScript(()=>{ const v=sessionStorage.getItem('__inj'); if(v){ sessionStorage.removeItem('__inj'); localStorage.setItem('tapu-save-v2',v); } }); }
-  await p.reload();
-}
+/* injectReload (helpers.cjs): kaydı bir sonraki yüklemede, oyun başlamadan yerleştirir ve sayfayı yeniler
+   (doğrudan localStorage + reload yarışlı: oyunun pagehide → persistSync'i test kaydını ezebiliyor). */
 
 async function open(b,o={}){
   const ctx=await b.newContext({viewport:o.vp||{width:390,height:844},deviceScaleFactor:o.dpr||2,colorScheme:o.scheme||'light',reducedMotion:o.motion||'no-preference',offline:!!o.offline,isMobile:true,hasTouch:true}); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`);
   const p=await ctx.newPage(); p.errs=[];
   p.on('pageerror',e=>p.errs.push(e.message)); p.on('console',m=>{ if(m.type()==='error') p.errs.push(m.text()); });
   await p.clock.install(o.time?{time:o.time}:undefined);
-  await p.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`);
+  await p.addInitScript(PREF_IF);
   if(o.init) await p.addInitScript(o.init);
   const t0=Date.now(); await p.goto(URL); p.loadMs=Date.now()-t0;
   await p.clock.runFor(500); return p;
 }
-const S=p=>p.evaluate(()=>{ const o=JSON.parse(JSON.stringify(window.__tapuState())); o._now=Date.now(); return o; });
-const mut=(p,fn,arg)=>p.evaluate(([f,a])=>{ const S=window.__tapuState(); (0,eval)('('+f+')')(S,a); },[fn.toString(),arg]);
-const tap=async(p,sel)=>{ await p.click(sel,{force:true}); await p.clock.runFor(400); await p.waitForTimeout(350); };
-const has=(p,sel)=>p.isVisible(sel).catch(()=>false);
-async function dismiss(p){ for(let k=0;k<6;k++){ if(!(await has(p,'#modal .card'))) break; const sel=(await has(p,'#modal .card .txt'))?'#modal .card .txt':'#modal .card [data-a]'; await p.click(sel,{force:true}).catch(()=>{}); await p.clock.runFor(500); } if(await has(p,'#ad:not([hidden])')){ await p.clock.runFor(6000); await p.click('#adX',{force:true}).catch(()=>{}); } }
+const S=stateNow;
+const tap=makeTap({run:400,wait:350});
+const has=vis;
+async function dismiss(p){ await dismissCards(p,{n:6,run:500}); if(await has(p,'#ad:not([hidden])')){ await p.clock.runFor(6000); await p.click('#adX',{force:true}).catch(()=>{}); } }
 async function closeSheet(p){ await p.keyboard.press("Escape"); await p.clock.runFor(400); await p.waitForTimeout(350); }
 async function start(p,city='ist'){ if(await has(p,'#modal .citycard')){ await tap(p,`#modal .cityopt[data-a="${city}"]`); await p.clock.runFor(300); await dismiss(p); } }
 const sane=async(p,label)=>{ const s=await S(p); const bad=[];

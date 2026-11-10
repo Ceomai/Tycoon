@@ -3,7 +3,7 @@
    ========================================================= */
 import { DMAP, ORDER, TYPES, LEAGUE_TOP, DistrictKey, BuildingType, N, CFG } from '../config';
 import { S, lotsOf } from '../state';
-import { fmt, weekKey } from '../format';
+import { fmt, weekKey, monthKey } from '../format';
 import { now, totalRate, filled, curWeek, isFull, producing } from '../economy';
 import { LM } from '../landmarks';
 import { Snd, buzz } from '../sound';
@@ -128,7 +128,7 @@ export function setSkin(k: DistrictKey, i: number, patch: { c?: number; r?: numb
 
 /* ---------- 8 · tapu sezonu ---------- */
 export const SEASON_LV = 30, XP_PER = 500;
-export const seasonId = (t = now()) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+export const seasonId = (t = now()) => monthKey(new Date(t));
 const MONTHS = [tk('Ocak'), tk('Şubat'), tk('Mart'), tk('Nisan'), tk('Mayıs'), tk('Haziran'), tk('Temmuz'), tk('Ağustos'), tk('Eylül'), tk('Ekim'), tk('Kasım'), tk('Aralık')];
 export const seasonName = (id: string) => t(MONTHS[(parseInt(id.split('-')[1], 10) || 1) - 1]);
 export function seasonLeft(t = now()) { const d = new Date(t); return +new Date(d.getFullYear(), d.getMonth() + 1, 1) - t; }

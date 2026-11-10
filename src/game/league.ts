@@ -10,10 +10,11 @@ import { openModal, closeModal, bump } from '../ui/modal';
 import { addCash } from './actions';
 import { addXp } from './fun';
 import { persist } from './persist';
-import { Ads } from '../services/ads';
+import { rewardChoice } from './reward';
 import { Analytics } from '../services/analytics';
 
-export interface LeagueResult { week: string; from: number; to: number; rank: number; size: number; seal: boolean; }
+import type { LeagueResult } from '../services/backend';
+export type { LeagueResult };
 
 /** Bölge sınırları: küçük gruplarda daha az kişi yükselir; 15 kişinin altında kimse düşmez. */
 export function leagueZones(size: number, tier: number) {
@@ -66,6 +67,6 @@ export function showLeagueResult(r: LeagueResult) {
     <p>${t('{league} grubunda <b>{rank}.</b> oldun ({size} emlakçı).', { league: leagueName(r.from), rank: r.rank, size: r.size })} ${note}</p>
     ${rows.length ? `<div class="lgrw">${rows.map(([a, b]) => `<div><span>${a}</span><b>${b}</b></div>`).join('')}</div>` : ''}
     <div class="btns">${cash ? `<button class="btn gold" data-a="x2">${t('İzle, ikramiyeyi 2 katına çıkar')}</button>` : ''}<button class="txt" data-a="ok"${cash ? '' : ' data-back'}>${cash ? t('Al') : t('Tamam')}</button></div></div>`,
-    a => { closeModal(); if (a === 'x2') Ads.rewarded('league', t('{amt} ikramiye', { amt: fmt(cash * 2) }), () => grant(2), () => grant(1)); else grant(1); }); // reklam olmazsa 1 kat
+    a => { closeModal(); rewardChoice(a === 'x2', 'league', t('{amt} ikramiye', { amt: fmt(cash * 2) }), grant); });
 }
 export { CFG };

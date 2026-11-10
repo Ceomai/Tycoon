@@ -7,6 +7,7 @@
    Oyun koduna tek bir arayüz sunar; arka ucun ne olduğu bilinmez.
    ========================================================= */
 import { CFG } from '../config';
+import type { Account, Backend, LeagueView, RedeemResult, RemoteSave } from './backend';
 import { S } from '../state';
 import { weekKey } from '../format';
 import { now } from '../economy';
@@ -14,37 +15,17 @@ import { Time } from '../time';
 import { I } from '../icons';
 import { fmt } from '../format';
 import { openModal, closeModal, toast } from '../ui/modal';
-import { writeSaveForce, lockSaves, unlockSaves, readRegionSave, writeRegionSave } from '../storage';
+import { writeSaveForce, lockSaves, unlockSaves, cachedRegionSave, writeRegionSave } from '../storage';
 import { REGION, REGION_ORDER, RegionId } from '../config';
 import { Snd } from '../sound';
 import { Analytics } from './analytics';
-import { showLeagueResult, type LeagueResult } from '../game/league';
+import { adUser } from './ads';
+import { showLeagueResult } from '../game/league';
 import { addCash } from '../game/actions';
 import { inviteGift } from '../game/referral';
 import { t } from '../i18n';
 
-export type RedeemResult = 'ok' | 'invalid' | 'used' | 'error';
-export interface LbRow { name: string; district: string; earned: number; me: boolean; }
-export interface Account { enabled: boolean; linked: boolean; provider: string; apple: boolean; }
-export interface RemoteSave { json: string; savedAt: number; earned: number; }
-export interface Hello { now?: number; code?: string; grants?: number; league?: { tier: number; result: LeagueResult | null }; }
-export interface LeagueView { tier: number; group: string; rows: LbRow[]; myRank: number | null; size: number; }
-
-/** Arka uçların uyguladığı arayüz. */
-export interface Backend {
-  uid: string | null;
-  init(): Promise<boolean>;
-  hello(localCode: string): Promise<Hello>;
-  account(): Account;
-  link(p: 'google' | 'apple'): Promise<'linked' | 'switched' | 'fail'>;
-  deleteAccount(): Promise<boolean>;
-  pushSave(json: string, savedAt: number, earned: number): Promise<void>;
-  pullSave(): Promise<RemoteSave | null>;
-  postScore(p: { week: string; earned: number; district: string; shares: number; total: number }): Promise<void>;
-  /** Bu haftaki lig grubum (30 kişi); henüz gruba girmediysem null. */
-  league(week: string): Promise<LeagueView | null>;
-  redeemInvite(code: string): Promise<RedeemResult>;
-}
+export type { RedeemResult, LbRow, Account, RemoteSave, Hello, LeagueView, Backend } from './backend';
 
 let be: Backend | null = null;
 let isReady = false, lastPost = 0, posted = -1;
@@ -168,6 +149,7 @@ export const Cloud = {
     return ok;
   },
 };
+adUser.uid = () => Cloud.uid();
 
 function grantInvites(n: number) {
   S.ref.rewarded += n;
@@ -179,7 +161,7 @@ function grantInvites(n: number) {
 async function bundle(): Promise<{ json: string; earned: number }> {
   const saves: Record<string, unknown> = {}; let earned = 0;
   for (const r of REGION_ORDER) {
-    const v: any = r === REGION ? S : await readRegionSave(r);
+    const v: any = r === REGION ? S : await cachedRegionSave(r); // diğer bölgeler önbellekten (diskten her seferinde değil)
     if (v && v.city) { saves[r] = v; earned += Number(v.earned) || 0; }
   }
   return { json: JSON.stringify({ b: 1, saves }), earned };

@@ -7,7 +7,7 @@ import { I } from '../icons';
 import { Snd, buzz } from '../sound';
 import { openModal, closeModal, bump } from '../ui/modal';
 import { addCash } from './actions';
-import { Ads } from '../services/ads';
+import { rewardChoice } from './reward';
 import { persist } from './persist';
 import { t, tk } from '../i18n';
 
@@ -32,5 +32,5 @@ export function offerComplete() {
   openModal(`<div class="card"><div class="badge">${I.check}</div><h3>${t('{title} tamam', { title: t(o.title) })}</h3><p>${t('Süre bitmeden başardın.')}</p>
     <div class="big">${fmt(o.rw)}</div>
     <div class="btns"><button class="btn gold" data-a="x2">${I.play} ${t('İzle, {n} katını al', { n: 2 })}</button><button class="txt" data-a="x1">${t('Al')}</button></div></div>`,
-    a => { closeModal(); if (a === 'x1') claim(1); else Ads.rewarded('offer', t('{n} ödül', { n: fmt(o.rw * 2) }), () => claim(2), () => claim(1)); }); // reklam olmazsa 1 kat
+    a => { closeModal(); rewardChoice(a === 'x2', 'offer', t('{n} ödül', { n: fmt(o.rw * 2) }), claim); });
 }

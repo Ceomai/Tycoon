@@ -6,9 +6,10 @@ import { now, totalRate } from '../economy';
 import { I } from '../icons';
 import { Snd } from '../sound';
 import { openModal, closeModal, bump } from '../ui/modal';
-import { addCash, addBoost } from './actions';
+import { addCash } from './actions';
 import { addXp } from './fun';
 import { Ads } from '../services/ads';
+import { rewardChoice } from './reward';
 import { persist } from './persist';
 import { Analytics } from '../services/analytics';
 import { t } from '../i18n';
@@ -41,5 +42,5 @@ export function showDaily(n: number) {
   openModal(`<div class="card"><div class="badge">${I.cal}</div><h3>${t('{n}. gün kira günü', { n })}</h3><p>${t('Her gün uğra, 7. gün büyük ödül.')}</p>
     ${streakStrip(day, day - 1)}<div class="big">${fmt(amt)}</div>${big ? `<p><b>${t('Haftanın büyük kira ödülü')}</b></p>` : ''}
     <div class="btns"><button class="btn gold" data-a="x2">${I.play} ${t('İzle, {n} katını al', { n: mx })}</button><button class="txt" data-a="x1">${t('Al')}</button></div></div>`,
-    a => { closeModal(); if (a === 'x1') { claim(1); Snd.collect(5); } else Ads.rewarded('daily', t('{n} kira', { n: fmt(amt * mx) }), () => claim(mx), () => { claim(1); Snd.collect(5); }); }); // reklam olmazsa 1 kat
+    a => { closeModal(); rewardChoice(a === 'x2', 'daily', t('{n} kira', { n: fmt(amt * mx) }), m => { claim(m); if (m === 1) Snd.collect(5); }, mx); });
 }

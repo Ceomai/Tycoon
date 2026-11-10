@@ -1,24 +1,22 @@
-/* ANA EKRAN — üst bilgi, arsalar, birleşik parseller, yönlendirme balonu, sokak hayatı, dokunma */
+/* ANA EKRAN — üst bilgi, arsalar, birleşik parseller, yönlendirme balonu, dokunma (sokak hayatı: street.ts) */
 import { CFG, COLS, ROWS, N, TYPES, DMAP, CITIES, DistrictKey } from '../config';
 import { t, nm, upper, pctTxt } from '../i18n';
 import { S, lotsOf } from '../state';
-import { fmt, fmtX, clock, rand, esc } from '../format';
-import { now, totalRate, coinFill, fxMult, producing, buyableDistricts, pending, unlockInfo } from '../economy';
+import { fmt, fmtX, clock, esc } from '../format';
+import { now, totalRate, coinFill, fxMult, producing, buyableDistricts, pending } from '../economy';
 import { bld, site, emptyLot, svg } from '../draw';
 import { specialSvg, specialOf } from '../specials';
-import { season } from '../game/festival';
+import { season } from '../game/calendar';
 import { skinStyle, marketChip, seasonClaimable } from '../game/fun';
 import { progressInfo, builtCount, lienBlocks, obstacleSvg, OBSTACLES } from '../game/district';
 import { I } from '../icons';
-import { Snd, buzz } from '../sound';
-import { $, ui, reduceMotion } from './ctx';
-import { flyCoin, toast, openModal, closeModal, cashText } from './modal';
+import { Snd } from '../sound';
+import { $, ui, view } from './ctx';
+import { cashText } from './modal';
 import { pop } from './motion';
 import { openSheet, renderSheet } from './sheets';
-import { addCash } from '../game/actions';
-import { track, tasksClaimable } from '../game/tasks';
-import { canHolding, lmLeft, landmarkCard } from '../game/collection';
-import { persist } from '../game/persist';
+import { tasksClaimable } from '../game/tasks';
+import { canHolding } from '../game/collection';
 
 export function render() {
   const tn = now(), k = S.cur, d = DMAP[k], boosted = S.boostUntil > tn;
@@ -245,45 +243,4 @@ export function drawGuilloche() {
   let h = ''; for (let k = 0; k < 3; k++) { let d = ''; for (let x = 0; x <= 360; x += 4) d += (x ? 'L' : 'M') + x + ' ' + (5 + Math.sin(x / 360 * Math.PI * 10 + k * 1.1) * 3.6).toFixed(1); h += `<path d="${d}" fill="none" stroke="var(--guil)" stroke-width=".7"/>`; }
   $('#sheetGuil').innerHTML = h;
 }
-
-/* ---------- SOKAK HAYATI — araçlar, yayalar ve altın taksi; boşta durur ---------- */
-const CAR_COLORS = ['var(--sgn)', 'var(--fr)', 'var(--sol)', 'var(--aw1)', 'var(--pl)', 'var(--ofis-s)', 'var(--kafe-f)'];
-export const Street = {
-  low: null as HTMLElement | null, high: null as HTMLElement | null, n: 0, anims: new Set<Animation>(),
-  init() {
-    const g = $('#grid'); this.low = document.createElement('div'); this.low.className = 'street'; this.high = document.createElement('div'); this.high.className = 'street top';
-    g.prepend(this.low); g.appendChild(this.high); this.loop();
-  },
-  spawn(kind: 'car' | 'ped' | 'taxi') {
-    if (kind !== 'taxi' && document.body.classList.contains('night') && Math.random() < .6) return; // gece sokaklar sakin
-    // altın taksi sınırdan ve boşta kuralından muaf: zamanı geldiyse mutlaka çıkar (ödül kaybolmaz; boştaysa oyuncu dönene dek bekler)
-    if (document.hidden || (ui.idle && kind !== 'taxi') || (reduceMotion && kind !== 'taxi') || (this.n > 8 && kind !== 'taxi')) return;
-    const s = ui.sw, sh = ui.sh, g = ui.gap, off = ui.pad, Wd = COLS * s + (COLS - 1) * g + 2 * off, Ht = ROWS * sh + (ROWS - 1) * g + 2 * off, taxi = kind === 'taxi', ped = kind === 'ped';
-    const horiz = Math.random() < .5, fwd = Math.random() < .5, e = document.createElement('div');
-    e.className = ped ? 'ped' : 'car' + (taxi ? ' taxi' : '') + (horiz ? '' : ' v') + (fwd ? '' : ' rev');
-    if (!ped && !taxi) e.style.setProperty('--cc', CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)]);
-    const len = taxi ? 18 : ped ? 3 : 14, thick = taxi ? 8 : ped ? 3 : 6;
-    let from: number, to: number;
-    if (horiz) { const r = 1 + Math.floor(Math.random() * (ROWS - 1)); const cy = off + r * (sh + g) - g / 2; e.style.top = (ped ? cy + (fwd ? 5 : -8) : (taxi ? cy - thick / 2 : (fwd ? cy + 1 : cy - 1 - thick))) + 'px'; from = fwd ? -len : Wd; to = fwd ? Wd : -len; }
-    else { const c = 1 + Math.floor(Math.random() * (COLS - 1)); const cx = off + c * (s + g) - g / 2; e.style.left = (ped ? cx + (fwd ? 5 : -8) : (taxi ? cx - thick / 2 : (fwd ? cx - 1 - thick : cx + 1))) + 'px'; from = fwd ? -len : Ht; to = fwd ? Ht : -len; }
-    const speed = taxi ? 28 : ped ? 9 : rand(38, 64), dur = Math.abs(to - from) / speed * 1000;
-    (taxi ? this.high : this.low)!.appendChild(e); this.n++;
-    const tf = (x: number) => horiz ? `translateX(${x}px)` : `translateY(${x}px)`;
-    if (!e.animate) { e.remove(); this.n--; return; }
-    const an = e.animate([{ transform: tf(from) }, { transform: tf(to) }], { duration: dur, easing: 'linear' });
-    this.anims.add(an); if (ui.idle) an.pause();
-    an.onfinish = () => { this.anims.delete(an); e.remove(); this.n--; };
-    if (taxi) e.addEventListener('pointerdown', ev => { ev.stopPropagation(); this.anims.delete(an); an.cancel(); catchTaxi(e); this.n--; }, { once: true });
-  },
-  /** Boşta sokak durur (pil): yoldaki araçlar olduğu yerde bekler, oyuncu dönünce devam eder. */
-  idle(on: boolean) { for (const a of this.anims) { if (on) a.pause(); else a.play(); } },
-  loop() { setTimeout(() => { this.spawn(Math.random() < .25 ? 'ped' : 'car'); this.loop(); }, rand(900, 2200)); },
-};
-function catchTaxi(el: HTMLElement) {
-  const amt = Math.max(100, totalRate(false) * 120); addCash(amt); track('taxi'); Snd.reward(); buzz.success();
-  const r = el.getBoundingClientRect(), dot = document.createElement('span'); dot.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
-  document.body.appendChild(dot); flyCoin(dot); setTimeout(() => dot.remove(), 50); el.remove();
-  toast(t('Altın taksi: {amt}', { amt: fmt(amt) }));
-  if (Math.random() < .08 && lmLeft().length) { const l = lmLeft()[0]; S.coll.push(l.id); openModal(landmarkCard(l, ' ' + t('Altın taksiden çıktı!')), () => closeModal()); }
-  persist();
-}
+view.render = render;

@@ -1,4 +1,4 @@
-// @ts-nocheck — saf SVG metni üreten çizim modülü (girdi/çıktı string)
+// Saf SVG metni üreten çizim modülü (girdi/çıktı string)
 /* =========================================================
    ÇİZİM — gerçekçi 3/4 görünüm. Seviye = kat sayısı.
    Ev mimarisi semtin "v" değerine göre: 0 kırma çatı, 1 tuğla apartman, 2 rezidans,
@@ -7,7 +7,7 @@
    ========================================================= */
 import { DMAP } from './config';
 import { S } from './state';
-import { season } from './game/festival';
+import { season } from './game/calendar';
 const D=14, DD=10, Y=90, TAN=DD/D, ANG=Math.atan(TAN)*180/Math.PI;
 const BW={ev:46,kafe:52,dukkan:52,ofis:36};
 const FH={ev:11,kafe:10,dukkan:10,ofis:6};
@@ -15,11 +15,12 @@ const OF=[0,4,6,8,10,12];
 function H(t,lv){ if(lv<=0) return 0; if(t==='ev') return 3+11*lv; if(t==='kafe') return 14+10*(lv-1); if(t==='dukkan') return 15+10*(lv-1); return 8+6*OF[lv]; }
 const BX=t=>(100-BW[t]-D)/2;
 export const r1=n=>+(+n).toFixed(2);
-export const P=(...a)=>a.map(p=>r1(p[0])+','+r1(p[1])).join(' ');
-function prism(x,yb,W,h,cf,cs,ct,d,dd){
+/** SVG nokta listesi ("x,y x,y …"); tercihler (prefs.ts P) ile karışmasın diye pts. */
+const pts=(...a)=>a.map(p=>r1(p[0])+','+r1(p[1])).join(' ');
+function prism(x,yb,W,h,cf,cs,ct?,d?,dd?){
   d=d==null?D:d; dd=dd==null?DD:dd; const yt=yb-h;
-  return `<rect class="${cf}" x="${r1(x)}" y="${r1(yt)}" width="${r1(W)}" height="${r1(h)}"/><polygon class="${cs}" points="${P([x+W,yb],[x+W+d,yb-dd],[x+W+d,yt-dd],[x+W,yt])}"/>`
-    +(ct?`<polygon class="${ct}" points="${P([x,yt],[x+W,yt],[x+W+d,yt-dd],[x+d,yt-dd])}"/>`:'');
+  return `<rect class="${cf}" x="${r1(x)}" y="${r1(yt)}" width="${r1(W)}" height="${r1(h)}"/><polygon class="${cs}" points="${pts([x+W,yb],[x+W+d,yb-dd],[x+W+d,yt-dd],[x+W,yt])}"/>`
+    +(ct?`<polygon class="${ct}" points="${pts([x,yt],[x+W,yt],[x+W+d,yt-dd],[x+d,yt-dd])}"/>`:'');
 }
 // yan cephe: yerel (u,y) koordinatları eğik düzleme taşınır
 const side=(x,W,inner)=>`<g transform="translate(${r1(x+W)} 0) skewY(${-ANG.toFixed(2)})">${inner}</g>`;
@@ -28,7 +29,7 @@ function win(x,y,w,h){
     +`<rect class="fr" x="${r1(x+w/2-.3)}" y="${r1(y)}" width=".6" height="${h}"/><rect class="fr" x="${r1(x-.8)}" y="${r1(y+h)}" width="${r1(w+1.6)}" height="1.1"/>`;
 }
 function swin(u,y,w,h){ return `<rect class="fr" x="${u}" y="${r1(y)}" width="${w}" height="${h}"/><rect class="gl2" x="${r1(u+.7)}" y="${r1(y+.7)}" width="${r1(w-1.4)}" height="${r1(h-1.4)}"/>`; }
-function shadow(t){ const x=BX(t),W=BW[t]; return `<polygon class="sh" points="${P([x+2,Y+1.5],[x+W+3,Y+1.5],[x+W+D+7,Y-DD+1],[x+D+6,Y-DD+1])}"/>`; }
+function shadow(t){ const x=BX(t),W=BW[t]; return `<polygon class="sh" points="${pts([x+2,Y+1.5],[x+W+3,Y+1.5],[x+W+D+7,Y-DD+1],[x+D+6,Y-DD+1])}"/>`; }
 
 // Ev, semte göre mimari değiştirir: 0 Kadıköy kırma çatı, 1 Beşiktaş tuğla apartman, 2 Şişli modern rezidans,
 // 3 Nişantaşı tarihi taş apartman (kemerli pencere, korniş, mansart çatı), 4 Bebek yalı (ahşap kaplama, cumba, geniş saçak)
@@ -60,18 +61,18 @@ function drawEv(lv,o){
   s+=side(x,W,sd);
   if(o&&o.noRoof) return s;
   if(v===1||v===2||v===5){ // düz çatı: parapet, su deposu, güneş paneli
-    s+=`<polygon class="t" points="${P([x,yt],[x+W,yt],[x+W+D,yt-DD],[x+D,yt-DD])}"/><rect class="sl" x="${x-.5}" y="${r1(yt-1.6)}" width="${W+1}" height="1.8"/>`;
+    s+=`<polygon class="t" points="${pts([x,yt],[x+W,yt],[x+W+D,yt-DD],[x+D,yt-DD])}"/><rect class="sl" x="${x-.5}" y="${r1(yt-1.6)}" width="${W+1}" height="1.8"/>`;
     const tx=x+W*.62, ty=yt-DD*.5;
     s+=`<rect class="tk2" x="${r1(tx)}" y="${r1(ty-5)}" width="7" height="5"/><ellipse class="tk2" cx="${r1(tx+3.5)}" cy="${r1(ty)}" rx="3.5" ry="1.4"/><ellipse class="tk" cx="${r1(tx+3.5)}" cy="${r1(ty-5)}" rx="3.5" ry="1.4"/>`;
-    if(lv>=2){ const px=x+4, py=yt-2; s+=`<polygon class="sol" points="${P([px,py],[px+13,py],[px+17,py-6],[px+4,py-6])}"/>`; }
+    if(lv>=2){ const px=x+4, py=yt-2; s+=`<polygon class="sol" points="${pts([px,py],[px+13,py],[px+17,py-6],[px+4,py-6])}"/>`; }
     if(v===2&&lv>=3) s+=`<rect class="gl2" x="${x-.5}" y="${r1(yt-5)}" width="${W+1}" height="3.4" opacity=".55"/>`;
     return s;
   }
   if(v===3){ // mansart çatı + çatı pencereleri
     const mh=10;
-    s+=`<polygon class="rf2" points="${P([x+W+1,yt],[x+W+1+D,yt-DD],[x+W-3+D,yt-DD-mh],[x+W-3,yt-mh])}"/>`;
-    s+=`<polygon class="rf" points="${P([x-1,yt],[x+W+1,yt],[x+W-3,yt-mh],[x+3,yt-mh])}"/>`;
-    s+=`<polygon class="sl" points="${P([x+3,yt-mh],[x+W-3,yt-mh],[x+W-3+D,yt-mh-DD],[x+3+D,yt-mh-DD])}"/>`;
+    s+=`<polygon class="rf2" points="${pts([x+W+1,yt],[x+W+1+D,yt-DD],[x+W-3+D,yt-DD-mh],[x+W-3,yt-mh])}"/>`;
+    s+=`<polygon class="rf" points="${pts([x-1,yt],[x+W+1,yt],[x+W-3,yt-mh],[x+3,yt-mh])}"/>`;
+    s+=`<polygon class="sl" points="${pts([x+3,yt-mh],[x+W-3,yt-mh],[x+W-3+D,yt-mh-DD],[x+3+D,yt-mh-DD])}"/>`;
     s+=win(x+9,yt-8,6,5)+win(x+W-15,yt-8,6,5);
     s+=prism(x+W-8, yt-mh-DD*.4, 3.4, 6,'ch','ch2','ch2',2.4,1.7);
     return s;
@@ -79,16 +80,16 @@ function drawEv(lv,o){
   // kırma çatı (Kadıköy) ya da geniş saçaklı yalı çatısı (Bebek)
   const ov=v===4?5:2, rb=yt+1, l=x-ov, r=x+W+ov, rh=v===4?11:12, ins=10;
   const rl=[l+ins+D/2, rb-rh-DD/2], rr=[r-ins+D/2, rb-rh-DD/2];
-  s+=`<polygon class="rf2" points="${P([r,rb],[r+D,rb-DD],rr)}"/>`;
-  s+=`<polygon class="rf" points="${P([l,rb],[r,rb],rr,rl)}"/>`;
+  s+=`<polygon class="rf2" points="${pts([r,rb],[r+D,rb-DD],rr)}"/>`;
+  s+=`<polygon class="rf" points="${pts([l,rb],[r,rb],rr,rl)}"/>`;
   if(v===4) s+=`<rect class="sl" x="${r1(l)}" y="${r1(rb)}" width="${r1(r-l)}" height="1.2"/>`;
   s+=prism(r+D*.35-2, rb-DD*.35-3, 3.4, 7,'ch','ch2','ch2',2.4,1.7);
   let ln=''; for(let k=1;k<4;k++){ const f=k/4; ln+=`M${r1(l+(rl[0]-l)*f)} ${r1(rb+(rl[1]-rb)*f)}L${r1(r+(rr[0]-r)*f)} ${r1(rb+(rr[1]-rb)*f)}`; }
   s+=`<path class="rfl" d="${ln}"/>`;
   if(v===0&&lv>=3){ // güneş enerjisi paneli + depo
     const vx=rl[0]-l, vy=rl[1]-rb, a=[l+10+vx*.12, rb+vy*.12], f=.5;
-    s+=`<polygon class="solf" points="${P(a,[a[0]+14,a[1]],[a[0]+14+vx*f,a[1]+vy*f],[a[0]+vx*f,a[1]+vy*f])}"/>`;
-    s+=`<polygon class="sol" points="${P([a[0]+.8,a[1]-.6],[a[0]+13.2,a[1]-.6],[a[0]+13.2+vx*(f-.06),a[1]+vy*(f-.06)],[a[0]+.8+vx*(f-.06),a[1]+vy*(f-.06)])}"/>`;
+    s+=`<polygon class="solf" points="${pts(a,[a[0]+14,a[1]],[a[0]+14+vx*f,a[1]+vy*f],[a[0]+vx*f,a[1]+vy*f])}"/>`;
+    s+=`<polygon class="sol" points="${pts([a[0]+.8,a[1]-.6],[a[0]+13.2,a[1]-.6],[a[0]+13.2+vx*(f-.06),a[1]+vy*(f-.06)],[a[0]+.8+vx*(f-.06),a[1]+vy*(f-.06)])}"/>`;
     s+=`<rect class="tk" x="${r1(a[0]+vx*f)}" y="${r1(a[1]+vy*f-3.4)}" width="14" height="3.6" rx="1.8"/>`;
   }
   if(v===0&&lv>=4){ const cx=r+D-4, cy=rb-DD-2; s+=`<path class="rl" d="M${r1(cx)} ${r1(cy)}l2 3"/><ellipse class="tk" cx="${r1(cx)}" cy="${r1(cy)}" rx="2.4" ry="3.2" transform="rotate(-25 ${r1(cx)} ${r1(cy)})"/>`; }
@@ -105,7 +106,7 @@ function drawKafe(lv,o){
   s+=`<path d="${mu}" stroke="var(--fr)" stroke-width=".8"/>`;
   s+=`<rect class="fr" x="${x+W-11}" y="${Y-11}" width="8" height="11"/><rect class="dr" x="${x+W-10.3}" y="${Y-10.3}" width="6.6" height="10.3"/><rect class="gl" x="${x+W-9.3}" y="${Y-9.3}" width="4.6" height="4"/>`;
   const n=8, sw=(W+2)/n;
-  for(let k=0;k<n;k++){ const a=x-1+k*sw; s+=`<polygon class="${k%2?'aw2':'aw1'}" points="${P([a,Y-14.5],[a+sw,Y-14.5],[a+sw-2,Y-9.5],[a-2,Y-9.5])}"/>`; }
+  for(let k=0;k<n;k++){ const a=x-1+k*sw; s+=`<polygon class="${k%2?'aw2':'aw1'}" points="${pts([a,Y-14.5],[a+sw,Y-14.5],[a+sw-2,Y-9.5],[a-2,Y-9.5])}"/>`; }
   s+=`<rect class="pl2" x="${x-2}" y="${Y-3}" width="5" height="3"/><circle class="tr" cx="${x+.5}" cy="${Y-4.6}" r="2.7"/>`;
   let sd=swin(3,Y-11,8,8);
   for(let k=1;k<lv;k++){ const fb=Y-14-(k-1)*10, wy=fb-8.2;
@@ -116,7 +117,7 @@ function drawKafe(lv,o){
   if(!nr){
     const tx=x+W*.66, ty=yt-DD*.5;
     s+=`<rect class="tk2" x="${r1(tx)}" y="${r1(ty-5)}" width="7" height="5"/><ellipse class="tk2" cx="${r1(tx+3.5)}" cy="${r1(ty)}" rx="3.5" ry="1.4"/><ellipse class="tk" cx="${r1(tx+3.5)}" cy="${r1(ty-5)}" rx="3.5" ry="1.4"/>`;
-    if(lv>=2){ const px=x+5, py=yt-2; s+=`<polygon class="sol" points="${P([px,py],[px+15,py],[px+20,py-6.5],[px+5,py-6.5])}"/><path class="mu" d="M${px+7.5} ${py}l5 -6.5"/>`; }
+    if(lv>=2){ const px=x+5, py=yt-2; s+=`<polygon class="sol" points="${pts([px,py],[px+15,py],[px+20,py-6.5],[px+5,py-6.5])}"/><path class="mu" d="M${px+7.5} ${py}l5 -6.5"/>`; }
   }
   return s;
 }
@@ -151,7 +152,7 @@ function drawDukkan(lv,o){
 function drawOfis(lv,o){
   const W=BW.ofis, x=BX('ofis'), h=H('ofis',lv), yt=Y-h, nr=o&&o.noRoof;
   let s=prism(x,Y,W,h,'f','s',nr?null:'t');
-  s+=`<polygon class="rfx" points="${P([x,yt+h*.25],[x+W*.4,yt],[x+W*.72,yt],[x,yt+h*.62])}"/>`;
+  s+=`<polygon class="rfx" points="${pts([x,yt+h*.25],[x+W*.4,yt],[x+W*.72,yt],[x,yt+h*.62])}"/>`;
   let m=''; for(let xx=x+6;xx<x+W-1;xx+=6) m+=`M${xx} ${r1(yt)}V${Y-8}`; for(let yy=Y-8;yy>yt+.5;yy-=6) m+=`M${x} ${yy}h${W}`;
   s+=`<path class="mu" d="${m}"/>`;
   let sm=''; for(let u=4.7;u<D;u+=4.7) sm+=`M${r1(u)} ${r1(yt)}V${Y-8}`; for(let yy=Y-8;yy>yt+.5;yy-=6) sm+=`M0 ${yy}h${D}`;
@@ -176,7 +177,7 @@ function skeleton(t,yb,h){
   for(let k=fh;k<=h+.01;k+=fh){ const yy=yb-k; s+=`<rect class="cn" x="${r1(x)}" y="${r1(yy)}" width="${W}" height="1.8"/>`; sd+=`<rect class="cn" x="0" y="${r1(yy)}" width="${D}" height="1.8"/>`; }
   s+=side(x,W,sd);
   const full=Math.floor(h/fh+1e-6)*fh;
-  if(full>0){ const yy=yb-full; s+=`<polygon class="sl" points="${P([x,yy],[x+W,yy],[x+W+D,yy-DD],[x+D,yy-DD])}"/>`; }
+  if(full>0){ const yy=yb-full; s+=`<polygon class="sl" points="${pts([x,yy],[x+W,yy],[x+W+D,yy-DD],[x+D,yy-DD])}"/>`; }
   return s;
 }
 function scaffold(t,yb,h){

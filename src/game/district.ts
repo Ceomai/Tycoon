@@ -7,7 +7,6 @@ import { t, tk, nm, pctTxt, LANG } from '../i18n';
 import { S, lotsOf, Plot } from '../state';
 import { fmt, loc } from '../format';
 import { now, costM, unlockInfo, filled } from '../economy';
-import { I } from '../icons';
 import { Snd, buzz } from '../sound';
 import { $, ui } from '../ui/ctx';
 import { openModal, closeModal, toast, bump } from '../ui/modal';
@@ -67,7 +66,7 @@ export function clearObstacle(k: DistrictKey, i: number) {
   if (k === S.cur) ui.teslim[i] = { at: performance.now() + 1600, txt: `+${fmt(back)}` };
   ui.sheetSig = ''; ui.tileSig[i] = ''; persist();
   const left = lmLeft();
-  if (Math.random() < .08 && left.length) { const l = left[0]; S.coll.push(l.id); openModal(landmarkCard(l, ' ' + t('Molozun altından çıktı!')), () => closeModal()); }
+  if (Math.random() < CFG.LM_CHANCE && left.length) { const l = left[0]; S.coll.push(l.id); openModal(landmarkCard(l, ' ' + t('Molozun altından çıktı!')), () => closeModal()); }
   else toast(t('Arsa temizlendi · {amt} değerinde eski eşya çıktı', { amt: fmt(back) }));
   Analytics.log('obstacle_clear', { district: k });
 }
