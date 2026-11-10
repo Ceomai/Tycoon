@@ -6,7 +6,7 @@ import { now, PAIRS, ruleMult, neighborBonus, pairAdj, spAdj, districtMult, neig
 import { bld, site, svg } from '../draw';
 import { LM, lmSvg } from '../landmarks';
 import { I, small } from '../icons';
-import { Snd } from '../sound';
+import { Snd, buzz } from '../sound';
 import { $, ui, SheetState, syncHistory } from './ctx';
 import { toast } from './modal';
 import { build, upgrade, skip, demolish, lotBoost, buyDistrict, switchDistrict, buySpecial, placeSpecial, specialPrice } from '../game/actions';
@@ -23,7 +23,7 @@ import { openShare, copyText, shareTextOnly } from '../game/share';
 import { useCode } from '../game/referral';
 import { persist } from '../game/persist';
 import { Cloud } from '../services/cloud';
-import { Purchases, adFree, instantRewards } from '../services/purchases';
+import { Purchases, adFree, instantRewards, type ProductKey } from '../services/purchases';
 import { saveTarget, boostSaving, starterActive, starterLeft, showStarter, buyTokens } from '../game/monetize';
 import { Notify } from '../services/notify';
 import { Ads } from '../services/ads';
@@ -31,6 +31,7 @@ import { resetGame, switchLang, switchRegion } from '../game/loop';
 import { REGIONS, REGION_ORDER, REGION, RegionId, SERVER_FEATURES } from '../config';
 import { REGION_INFO, wipeAllSaves } from '../storage';
 import { P, savePrefs } from '../prefs';
+import { applyTheme, isTheme, type Theme } from '../theme';
 import { chapters } from '../game/guide';
 import { leagueZones, leagueName, leagueShort, weekEndsAt, fmtLeft } from '../game/league';
 import { LEAGUES, LEAGUE_TOP } from '../config';
@@ -58,6 +59,8 @@ export function closeSheet() {
 }
 /** Geri (Android geri tuşu, tarayıcı geri, Esc): iç içe panelde bir önceki panele döner, yoksa paneli kapatır. */
 export function sheetBack() { const prev = ui.sheetStack.pop(); if (prev && ui.sheet) openSheet(prev, true); else closeSheet(); }
+/** Telefonda mağaza fiyatı yüklenmemiş ürünün düğmesi kapalı. */
+const off = (k: ProductKey) => (Purchases.can(k) ? '' : ' disabled');
 const lvBar = (l: number) => `<div class="lv">${[1, 2, 3, 4, 5].map(k => `<i class="${k <= l ? 'on' : ''}"></i>`).join('')}</div>`;
 const discBox = () => S.disc ? `<div class="disc">${small(I.tag, 16)} ${t('%{n} müteahhit indirimi', { n: Math.round(S.disc * 100) })}</div>` : '';
 
@@ -186,7 +189,7 @@ export function renderSheet() {
   }
   else if (s.k === 'set') {
     const acct = Cloud.account();
-    sig = 's|' + LANG + REGION + JSON.stringify(REGION_INFO) + S.night + S.rifki + S.collectMode + S.sound + S.notif + S.premium + S.noAds + S.club + (s.reset ? 1 : 0) + (s.del ? 1 : 0) + JSON.stringify(acct) + Ads.privacyRequired();
+    sig = 's|' + LANG + REGION + JSON.stringify(REGION_INFO) + P.theme + S.night + S.rifki + S.collectMode + S.sound + (S.vib !== false) + S.notif + S.premium + S.noAds + S.club + (s.reset ? 1 : 0) + (s.del ? 1 : 0) + JSON.stringify(acct) + Ads.privacyRequired();
     if (sig !== ui.sheetSig) {
       const regRow = (r: RegionId) => { const R = REGIONS[r], cur = r === REGION, inf = REGION_INFO[r];
         const st = cur ? t('şu an oynanıyor') : inf ? t('kayıtlı · {n} semt', { n: inf.own }) : t('başlanmadı');
@@ -209,9 +212,11 @@ export function renderSheet() {
           <button class="cm${S.collectMode === 'tap' ? ' on' : ''}" data-a="cm-tap"><span class="rd"></span><span class="di"><b>${t('Tek tuşla topla')}</b><small>${t('Ortadaki TOPLA mührüne bas, bütün semtlerdeki kira tek seferde kasana geçsin.')}</small></span></button>
           <button class="cm${S.collectMode === 'auto' ? ' on' : ''}" data-a="cm-auto"><span class="rd"></span><span class="di"><b>${t('Otomatik')}</b><small>${t('Oyun açıkken kira kendiliğinden kasana akar.')}</small></span></button>
         </div>
+        <div class="srow srow-col"><span id="thmL">${t('Tema')}</span><div class="seg" role="radiogroup" aria-labelledby="thmL">${([['auto', t('Otomatik')], ['light', t('Açık renk')], ['dark', t('Koyu renk')]] as [Theme, string][]).map(([v, l]) => `<button class="chip${P.theme === v ? ' on' : ''}" role="radio" aria-checked="${P.theme === v}" data-a="theme" data-v="${v}">${l}</button>`).join('')}</div></div>
         <div class="srow"><span>${t('Gece görünümü (19:00–06:00)')}</span><button class="sw${S.night !== false ? ' on' : ''}" role="switch" aria-checked="${!!(S.night !== false)}" data-a="night" aria-label="${t('Gece görünümü')}"></button></div>
         <div class="srow"><span>${t('Rıfkı Abi’nin ipuçları')}</span><button class="sw${S.rifki ? ' on' : ''}" role="switch" aria-checked="${!!(S.rifki)}" data-a="rifki" aria-label="${t('Rıfkı Abi’nin ipuçları')}"></button></div>
         <div class="srow"><span>${t('Ses')}</span><button class="sw${S.sound ? ' on' : ''}" role="switch" aria-checked="${!!(S.sound)}" data-a="sound" aria-label="${t('Ses')}"></button></div>
+        <div class="srow"><span>${t('Titreşim')}</span><button class="sw${S.vib !== false ? ' on' : ''}" role="switch" aria-checked="${S.vib !== false}" data-a="vib" aria-label="${t('Titreşim')}"></button></div>
         <div class="srow"><span>${t('Bildirimler')}</span><button class="sw${S.notif ? ' on' : ''}" role="switch" aria-checked="${!!(S.notif)}" data-a="notif" aria-label="${t('Bildirimler')}"></button></div>
         <div class="srow"><span>${t('Reklamlar')}</span><span>${S.premium ? t('Kapalı (Holding paketi)') : S.club ? t('Kapalı (Emlak Kulübü)') : S.noAds ? t('Yalnızca isteğe bağlı (Reklamsız)') : Ads.native() ? t('Açık') : t('Test modu')}</span></div>
         <p class="sec u-mt-9">${t('Hesap ve kayıt')}</p>
@@ -269,9 +274,9 @@ export function renderSheet() {
   }
   else if (s.k === 'lb') {
     // tasarım: L1 · haftalık lig tablosu
-    if (!s.req) { s.req = true; s.v = undefined; Cloud.league().then(v => { s.v = v; ui.sheetSig = ''; }).catch(() => { s.v = null; ui.sheetSig = ''; }); }
+    if (!s.req) { s.req = true; s.v = undefined; s.err = false; Cloud.league().then(v => { s.v = v; ui.sheetSig = ''; }).catch(() => { s.v = null; s.err = true; ui.sheetSig = ''; }); } // hata ≠ boş grup
     const left = fmtLeft(weekEndsAt(tn) - tn), v = s.v;
-    sig = 'lb|' + (v === undefined ? '-' : v ? v.rows.length + ':' + v.myRank + ':' + v.tier : 'x') + Cloud.ready() + left;
+    sig = 'lb|' + (v === undefined ? '-' : s.err ? 'E' : v ? v.rows.length + ':' + v.myRank + ':' + v.tier : 'x') + Cloud.ready() + left;
     if (sig !== ui.sheetSig) {
       const tier = v ? v.tier : S.league.tier, wk = (S.week.key || '').split('H')[1] || '';
       const head = `<div class="lghead"><div><p class="sec">${t('Haftalık lig')}${wk ? ' · ' + t('{n}. hafta', { n: +wk }) : ''}</p>
@@ -279,7 +284,8 @@ export function renderSheet() {
         <small class="lgsub">${v ? t('{n} emlakçı', { n: v.size }) + ' · ' : ''}${t('bitişe {s}', { s: left })}</small></div>${leagueSeal(tier)}</div>`;
       let list = '';
       if (!Cloud.ready()) list = `<p class="note u-mt0">${t('Lig internet bağlantısıyla çalışır. Bu hafta <b>{m}</b> kira topladın; bağlanınca grubuna katılırsın.', { m: lv('wk', () => fmt(S.week.earned)) })}</p>`;
-      else if (v === undefined) list = `<p class="note u-mt0">${t('Grubun yükleniyor…')}</p>`;
+      else if (v === undefined) list = `<p class="note u-mt0" role="status">${t('Grubun yükleniyor…')}</p>`;
+      else if (s.err) list = `<div class="sterr" role="alert"><p>${t('Lig tablosu yüklenemedi')}<small>${t('Bağlantı sorunu olabilir. Bu haftaki kazancın cihazında duruyor.')}</small></p><button class="chip" data-a="lbretry">${t('Tekrar dene')}</button></div>`;
       else if (!v) list = `<p class="note u-mt0">${t('Bu hafta grubuna henüz yerleşmedin. Biraz kira topla; ilk skorunla sana yakın 30 emlakçılık gruba katılırsın.')}</p>`;
       else {
         const z = leagueZones(v.size, v.tier), parts: string[] = [];
@@ -327,7 +333,7 @@ export function renderSheet() {
   else if (s.k === 'sezon') {
     // tasarım: H8 · tapu sezonu
     ensureSeason(); const lv = seasonLevel(), sv = S.season;
-    sig = 'se|' + S.seasonFirst + sv.id + sv.xp + sv.got.length + sv.ggot.length + sv.gold + Math.floor(seasonLeft() / 3600e3);
+    sig = 'se|' + S.seasonFirst + sv.id + sv.xp + sv.got.length + sv.ggot.length + sv.gold + Math.floor(seasonLeft() / 3600e3) + Purchases.state() + Purchases.seasonPrice();
     if (sig !== ui.sheetSig) {
       const from = Math.max(1, Math.min(SEASON_LV - 5, lv - 1)), cols = Array.from({ length: 6 }, (_, q) => from + q);
       const cell = (l: number, gold: boolean) => { const r = seasonReward(l, gold), got = (gold ? sv.ggot : sv.got).includes(l), ready = l <= lv && !got && (!gold || sv.gold); return `<span class="sc ${gold ? 'g' : ''}${got ? ' got' : ready ? ' rd' : ''}${l > lv || (gold && !sv.gold) ? ' lk' : ''}">${r.label}</span>`; };
@@ -338,7 +344,7 @@ export function renderSheet() {
           <span class="sl">${t('ÜCRETSİZ')}</span>${cols.map(l => cell(l, false)).join('')}
           <span class="sl g">${t('ALTIN')}</span>${cols.map(l => cell(l, true)).join('')}</div>
         <div class="btns"><button class="btn gold" data-a="sclaim" ${seasonClaimable() ? '' : 'disabled'}>${t('Ödülleri al')}</button></div>
-        ${sv.gold ? `<p class="note u-tc">${t('Altın Tapu bu sezon açık · her basamakta ek ödül')}</p>` : `<div class="gbox"><span><b>${t('Altın Tapu')}</b><small>${t('Her basamakta ek ödül, sezona özel altın cephe ve 30. basamakta özel yapı.')}</small></span><button class="btn gprice" data-a="sgold">${!S.seasonFirst ? `<s>${Purchases.seasonFull()}</s>` : ''}${Purchases.seasonPrice()}</button></div>`}
+        ${sv.gold ? `<p class="note u-tc">${t('Altın Tapu bu sezon açık · her basamakta ek ödül')}</p>` : `<div class="gbox"><span><b>${t('Altın Tapu')}</b><small>${t('Her basamakta ek ödül, sezona özel altın cephe ve 30. basamakta özel yapı.')}</small></span><button class="btn gprice" data-a="sgold"${off(!S.seasonFirst ? 'sezonIlk' : 'sezon')}>${!S.seasonFirst ? `<s>${Purchases.seasonFull()}</s>` : ''}${Purchases.seasonPrice()}</button></div>`}
         <p class="note">${t('Ödüller: nakit, 2x jetonu (bir mülke reklamsız 1 saat 2x), cephe renkleri; 30. basamakta büyük ödül. Her ayın başında yeni sezon.')}</p>`;
     }
   }
@@ -406,14 +412,15 @@ export function renderSheet() {
   }
   else if (s.k === 'store') {
     // tasarım M6–M7: üç basamak + jetonlar + Altın Tapu
-    sig = 'st|' + S.premium + S.noAds + S.club + S.tokens + S.seasonFirst + (S.season && S.season.gold) + starterActive() + Purchases.price('holding') + Purchases.price('reklamsiz');
+    sig = 'st|' + S.premium + S.noAds + S.club + S.tokens + S.seasonFirst + (S.season && S.season.gold) + starterActive() + Purchases.state() + Purchases.price('holding') + Purchases.price('reklamsiz');
     if (sig !== ui.sheetSig) {
       const li = (ok: boolean, x: string) => `<li class="${ok ? '' : 'no'}">${ok ? I.check : '–'}<span>${x}</span></li>`;
       const tier = (key: string, name: string, items: [boolean, string][], price: string, own: boolean, tag = '', best = false, sub = '') =>
         `<div class="tier${best ? ' best' : ''}">${tag ? `<span class="ttag">${tag}</span>` : ''}<div class="tl"><b>${name}</b><ul>${items.map(([o, x]) => li(o, x)).join('')}</ul></div>
-          ${own ? `<button class="btn" disabled>${t('Aktif')}</button>` : `<button class="btn${best ? ' gold' : ''}" data-a="buyp" data-p="${key}">${price}${sub ? `<small>${sub}</small>` : ''}</button>`}</div>`;
-      const ss = S.season && S.season.gold;
+          ${own ? `<button class="btn" disabled>${t('Aktif')}</button>` : `<button class="btn${best ? ' gold' : ''}" data-a="buyp" data-p="${key}"${off(key as ProductKey)}>${price}${sub ? `<small>${sub}</small>` : ''}</button>`}</div>`;
+      const ss = S.season && S.season.gold, st = Purchases.state();
       html = `<div class="sh-head"><div class="badge u-m0">${I.crown}</div><div class="sh-t"><h3>${t('Mağaza')}</h3><p>${t('Oyun aynı; yalnızca reklam ve hız tercihi')}</p></div></div>
+        ${st === 'error' ? `<div class="sterr" role="alert"><p>${t('Mağaza şu an kullanılamıyor')}<small>${t('Fiyatlar yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.')}</small></p><button class="chip" data-a="storeretry">${t('Tekrar dene')}</button></div>` : st === 'loading' ? `<p class="note u-mt0" role="status">${t('Fiyatlar yükleniyor…')}</p>` : ''}
         ${starterActive() ? `<button class="drow starterrow" data-a="starter"><span class="ic">${I.crown}<span class="dot"></span></span><span class="di"><b>${t('Başlangıç paketi')}</b><small>${t('Yalnızca bir kez · bitiş {c}', { c: lv('stl', () => clock(starterLeft())) })}</small></span><span class="pr">${Purchases.price('baslangic')}</span></button>` : ''}
         <p class="sec">${t('Paketler')}</p>
         ${tier('reklamsiz', t('Reklamsız'), [[true, t('Geçiş reklamı yok')], [true, t('Ödüllü reklamlar isteğe bağlı, ödül verir')], [false, t('Ödüller anında')], [false, t('Kalıcı 2x kira')]], Purchases.price('reklamsiz'), adFree())}
@@ -421,11 +428,11 @@ export function renderSheet() {
         ${tier('kulup', t('Emlak Kulübü'), [[true, t('Geçiş reklamı yok')], [true, t('Ödüller anında')], [true, t('Her gün 1 adet 2x jetonu')], [true, t('Altın Tapu sezonu dahil')], [false, t('Kalıcı 2x kira')]], Purchases.price('kulup'), S.club, t('ABONELİK'), false, t('/ay'))}
         ${S.club ? '' : `<p class="note subnote">${t('Emlak Kulübü aylık otomatik yenilenen bir aboneliktir. Ödeme, satın almayı onayladığında mağaza hesabından alınır; dönem bitmeden en az 24 saat önce iptal edilmezse aynı fiyatla yenilenir. Aboneliğini mağaza hesap ayarlarından yönetebilir ve iptal edebilirsin.')} <button class="linkbtn" data-a="privacy">${t('Gizlilik politikası')}</button> · <button class="linkbtn" data-a="terms">${t('Kullanım koşulları')}</button></p>`}
         <p class="sec">${t('2x jetonu · reklamsız 1 saat 2x')}</p>
-        <div class="jets"><div class="jet"><span class="h2c">2x</span><b>× 5</b><small>${t('5 saat 2x')}</small><button class="btn" data-a="jet" data-n="5">${Purchases.price('jeton5')}</button></div>
-          <div class="jet best"><span class="ttag">${t('%25 KÂR')}</span><span class="h2c">2x</span><b>× 15</b><small>${t('15 saat 2x')}</small><button class="btn gold" data-a="jet" data-n="15">${Purchases.price('jeton15')}</button></div></div>
+        <div class="jets"><div class="jet"><span class="h2c">2x</span><b>× 5</b><small>${t('5 saat 2x')}</small><button class="btn" data-a="jet" data-n="5"${off('jeton5')}>${Purchases.price('jeton5')}</button></div>
+          <div class="jet best"><span class="ttag">${t('%25 KÂR')}</span><span class="h2c">2x</span><b>× 15</b><small>${t('15 saat 2x')}</small><button class="btn gold" data-a="jet" data-n="15"${off('jeton15')}>${Purchases.price('jeton15')}</button></div></div>
         <p class="note">${t('Elindeki jeton: <b>{n}</b>. Jeton, mülk panelindeki “2x jetonu kullan” düğmesiyle harcanır.', { n: S.tokens })}</p>
         <p class="sec">${t('Tapu sezonu')}</p>
-        ${ss ? `<p class="note u-tc">${t('Altın Tapu bu sezon açık')}${S.club ? ' · ' + t('Kulüp ile dahil') : ''}</p>` : `<div class="gbox"><span><b>${t('Altın Tapu')}</b><small>${!S.seasonFirst ? t('İlk sezonuna özel yarı fiyat.') + ' ' : ''}${t('Her basamakta ek ödül, 30. basamakta özel yapı.')}</small></span><button class="btn gprice" data-a="sgold">${!S.seasonFirst ? `<s>${Purchases.seasonFull()}</s>` : ''}${Purchases.seasonPrice()}</button></div>`}
+        ${ss ? `<p class="note u-tc">${t('Altın Tapu bu sezon açık')}${S.club ? ' · ' + t('Kulüp ile dahil') : ''}</p>` : `<div class="gbox"><span><b>${t('Altın Tapu')}</b><small>${!S.seasonFirst ? t('İlk sezonuna özel yarı fiyat.') + ' ' : ''}${t('Her basamakta ek ödül, 30. basamakta özel yapı.')}</small></span><button class="btn gprice" data-a="sgold"${off(!S.seasonFirst ? 'sezonIlk' : 'sezon')}>${!S.seasonFirst ? `<s>${Purchases.seasonFull()}</s>` : ''}${Purchases.seasonPrice()}</button></div>`}
         <p class="note">${t('Holding’i alan Reklamsız’ı da almış sayılır. Kulüp iptal edilince geçiş reklamı geri gelir; kazanılan jetonlar ve sezon ödülleri kalır.')}</p>
         <div class="btns"><button class="txt" data-a="restore">${t('Satın alımları geri yükle')}</button></div>`;
     }
@@ -482,7 +489,7 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
   }
   if (s.k === 'menu') { if (a === 'share') return openShare(); if (a === 'starter') { closeSheet(); return showStarter(); } return openSheet({ k: a }); }
   if (s.k === 'tasks') { if (a === 'daily') { closeSheet(); ui.lastDay = ''; return; } if (a === 'claim') claimTask(+btn.dataset.i!); if (a === 'bonus') claimBonus(); }
-  if (s.k === 'lb') { if (a === 'ref') return openSheet({ k: 'ref' }); if (a === 'leagues') return openSheet({ k: 'leagues' }); }
+  if (s.k === 'lb') { if (a === 'ref') return openSheet({ k: 'ref' }); if (a === 'leagues') return openSheet({ k: 'leagues' }); if (a === 'lbretry') { s.req = false; s.err = false; } }
   if (s.k === 'leagues' && a === 'back') return openSheet({ k: 'lb' });
   if (s.k === 'ozel' && a === 'buyozel') return buySpecial();
   if (s.k === 'skin') {
@@ -510,6 +517,7 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
     if (a === 'starter') { closeSheet(); return showStarter(); }
     if (a === 'sgold') return Purchases.buySeason(() => { ensureSeason(); S.season.gold = true; toast(t('Altın Tapu açıldı')); Snd.unlock(); ui.sheetSig = ''; persist(); });
     if (a === 'restore') return Purchases.restore();
+    if (a === 'storeretry') { void Purchases.retry(); ui.sheetSig = ''; return; }
     if (a === 'privacy') { window.open(PRIVACY_URL, '_blank'); return; }
     if (a === 'terms') { window.open(TERMS_URL, '_blank'); return; }
   }
@@ -518,6 +526,8 @@ export async function onSheetAction(a: string, btn: HTMLElement) {
   if (s.k === 'set' && a === 'region') return switchRegion(btn.dataset.r as RegionId);
   if (s.k === 'set') {
     if (a === 'sound') { S.sound = !S.sound; persist(); Snd.tap(); }
+    if (a === 'vib') { S.vib = S.vib === false; persist(); Snd.tap(); buzz(15); }
+    if (a === 'theme') { const v = btn.dataset.v; if (isTheme(v) && v !== P.theme) { P.theme = v; void savePrefs(); applyTheme(v); Snd.tap(); } }
     if (a === 'night') { S.night = S.night === false; persist(); Snd.tap(); }
     if (a === 'rifki') { S.rifki = !S.rifki; if (!S.rifki) hideTip(); persist(); Snd.tap(); }
     if (a === 'cm-tap' || a === 'cm-auto') { S.collectMode = a === 'cm-auto' ? 'auto' : 'tap'; ui.tileSig = []; persist(); Snd.tap(); toast(S.collectMode === 'auto' ? t('Kiralar otomatik toplanacak') : t('Kiraları TOPLA mührüyle toplayacaksın')); }

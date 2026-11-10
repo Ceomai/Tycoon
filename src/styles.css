@@ -198,9 +198,17 @@ svg .sgn{fill:var(--sgn)} svg .sgw{fill:none;stroke:var(--on-accent);stroke-widt
 .scrim.on{opacity:1;pointer-events:auto}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;max-width:480px;margin:0 auto;background:var(--surface);
   padding:var(--sp-5) max(var(--sp-10),var(--sa-r)) calc(var(--sp-10) + var(--sa-b)) max(var(--sp-10),var(--sa-l));
-  transform:translateY(105%);transition:transform .28s var(--ease-out);max-height:min(88%,calc(100% - var(--sa-t) - 8px));overflow-y:auto;border-radius:var(--r-4xl) var(--r-4xl) 0 0;box-shadow:var(--sh-sheet);padding-top:var(--sp-5)}
+  transform:translateY(105%);transition:transform .28s var(--ease-out);max-height:min(88%,calc(100% - var(--sa-t) - 8px));overflow-y:auto;overscroll-behavior:contain;border-radius:var(--r-4xl) var(--r-4xl) 0 0;box-shadow:var(--sh-sheet);padding-top:0}
 .sheet.on{transform:none}
 .grab{width:36px;height:4px;border-radius:var(--r-pill);background:var(--line);margin:0 auto var(--sp-7)}
+/* panel başlığı: tutamak + süs şeridi + kapat (X). Kaydırınca üstte kalır; buradan başlayan sürükleme paneli kapatır (sheetdrag.ts) */
+.shbar{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:var(--sp-4);height:48px;margin:0 calc(-1 * var(--sp-4)) var(--sp-3) 0;background:var(--surface);touch-action:none;cursor:grab}
+.shbar .grab{position:absolute;left:50%;top:var(--sp-3);margin:0 0 0 -18px;background:var(--muted)}
+.shbar .sguil{flex:1;min-width:0;margin:var(--sp-3) 0 0}
+.sh-x{flex:none;width:44px;height:44px;display:grid;place-items:center;border:none;background:transparent;color:var(--ink);cursor:pointer;border-radius:var(--r-md);padding:0;margin-top:var(--sp-2)}
+.sh-x svg{width:22px;height:22px}
+.sh-x:active{background:var(--bg)}
+.sheet.drag{transition:none}
 .bpbg{background-color:var(--bp);background-image:linear-gradient(var(--bp-l) 1px,transparent 1px),linear-gradient(90deg,var(--bp-l) 1px,transparent 1px);background-size:10px 10px;background-position:-1px -1px}
 .sh-head{display:flex;align-items:center;gap:var(--sp-7);margin-bottom:var(--sp-8)}
 .sh-art{width:84px;height:84px;flex:none;position:relative;overflow:hidden;border-radius:var(--r-md);box-shadow:0 0 0 1.5px var(--ink)}
@@ -258,6 +266,10 @@ svg .sgn{fill:var(--sgn)} svg .sgw{fill:none;stroke:var(--on-accent);stroke-widt
 .rules b{color:var(--ink);font-weight:600}
 .srow{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-6) 0;border-top:1px solid var(--line);font:500 var(--fs-6) var(--ui)}
 .srow span:last-child{font-size:var(--fs-4);color:var(--muted)}
+.srow.srow-col{flex-direction:column;align-items:stretch;gap:var(--sp-5)}
+.seg{display:flex;gap:var(--sp-4)} /* tema seçimi: çip segment */
+.seg .chip{flex:1 1 0;min-width:0;padding-left:var(--sp-3);padding-right:var(--sp-3);background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.seg .chip.on{background:var(--ink);color:var(--surface);box-shadow:none}
 .sw{width:52px;height:30px;border-radius:var(--r-pill);border:none;background:var(--line);position:relative;cursor:pointer;flex:none;box-shadow:inset 0 0 0 1.5px var(--muted)}
 .sw::before{content:"";position:absolute;inset:-7px -4px} /* dokunma alanı 44px */
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:var(--r-round);background:var(--surface);box-shadow:var(--sh-knob);transition:transform var(--dur-fast)}
@@ -760,6 +772,13 @@ body.idle .bigstamp,body.idle .gain{animation-play-state:running!important}
 .jet b{font:700 var(--fs-8)/1 var(--cond);letter-spacing:.04em}
 .jet small{font:500 var(--fs-1) var(--mono);color:var(--muted)}
 .jet .btn{width:100%;min-height:48px}
+/* boş/yükleniyor/hata durumları: mağaza, lig */
+.bootfail{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:max(var(--sp-10),var(--sa-t)) var(--sp-10) max(var(--sp-10),var(--sa-b));background:var(--bg);color:var(--ink)}
+.bootfail .card{max-width:360px;width:100%;padding-top:var(--sp-12)}
+
+.sterr{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-6);margin:0 0 var(--sp-8);padding:var(--sp-6) var(--sp-7);border-radius:var(--r-lg);box-shadow:inset 0 0 0 1.5px var(--stamp);background:color-mix(in srgb,var(--stamp) 8%,var(--surface))}
+.sterr p{flex:1 1 180px;margin:0;font:600 var(--fs-5) var(--ui);color:var(--ink)}
+.sterr small{display:block;margin-top:var(--sp-1);font:500 var(--fs-3) var(--ui);color:var(--muted)}
 .btn.gprice{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}
 .btn.gprice s{font:500 var(--fs-xs) var(--mono)}
 .starterrow .pr{font:700 var(--fs-5) var(--cond);letter-spacing:.04em;color:var(--stamp)}
@@ -804,8 +823,9 @@ body.idle .bigstamp,body.idle .gain{animation-play-state:running!important}
   .guidehint{position:fixed;left:max(14px,var(--sa-l));right:auto;top:auto;bottom:calc(max(12px,var(--sa-b)) + 48px)}
   .guidehint::after{right:auto;left:18px;top:auto;bottom:-6px;margin-top:0;border:6px solid transparent;border-bottom:none;border-top-color:var(--ink)}
   /* paneller sağdan açılır, tahta solda görünür kalır */
-  .sheet{left:auto;right:0;top:0;margin:0;max-width:none;width:min(460px,52vw);max-height:100%;height:100%;padding-top:max(var(--sp-5),var(--sa-t));border-radius:var(--r-4xl) 0 0 var(--r-4xl);transform:translateX(105%)}
+  .sheet{left:auto;right:0;top:0;margin:0;max-width:none;width:min(460px,52vw);max-height:100%;height:100%;padding-top:var(--sa-t);border-radius:var(--r-4xl) 0 0 var(--r-4xl);transform:translateX(105%)}
   .sheet.on{transform:none}
+  .shbar .grab{display:none} /* yandan açılan panelde aşağı tutamağı yanıltıcı: sağa kaydırarak ya da X ile kapanır */
   /* bina kartları küçük: dördü tek ekranda */
   .bcard svg{height:56px}
   .bcard .bn{font-size:var(--fs-5);padding-top:var(--sp-2)}

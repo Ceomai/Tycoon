@@ -67,7 +67,7 @@ export function showStarter() {
       <li><span class="pk">2x</span><span><b>${t('{n} adet 2x jetonu', { n: CFG.STARTER_TOKENS })}</b><small>${t('istediğin binaya, reklamsız 1 sa 2x')}</small></span></li>
       <li><span class="pk"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="10" fill="#d98b6c" stroke="var(--ink)" stroke-width="1.5"/></svg></span><span><b>${t('Tuğla kırmızısı cephe')}</b><small>${t('pakete özel renk')}</small></span></li></ul>
     <div class="pkfoot"><span></span><span class="tm">${t('Bitiş {time}', { time: clock(starterLeft()) })}</span></div>
-    <div class="btns"><button class="btn gold" data-a="buy">${t('Satın al · {price}', { price: Purchases.price('baslangic') })}</button><button class="txt" data-a="no" data-back>${t('Belki sonra')}</button></div></div>`,
+    <div class="btns"><button class="btn gold" data-a="buy"${Purchases.can('baslangic') ? '' : ' disabled'}>${t('Satın al · {price}', { price: Purchases.price('baslangic') })}</button><button class="txt" data-a="no" data-back>${t('Belki sonra')}</button></div></div>`,
     a => { closeModal(); if (a === 'buy') buyStarter(); });
 }
 export function buyStarter() {

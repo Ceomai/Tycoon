@@ -1,6 +1,7 @@
 // İYİLEŞTİRME TESTİ (hata düzeltmeleri): otomatik toplama (OTO) açıkken açık panel her tick yeniden yazılmamalı,
 // semt satırı ve görev "Al" düğmesi basılı tutulan dokunuşla (180 ms) çalışmalı; canlı sayılar yine güncel kalmalı.
 // Adım 2a: web geri (popstate) ve kartlar, anahtar rolleri, dil adları, dokunma alanları, koyu tema kontrastı, odak halkası.
+// Adım 2b: panel tutamağı/X/sürükleyerek kapatma, tema seçimi, titreşim ayarı, lig hata durumu, açılış hata ekranı.
 // Çalıştır: npm run test:iy  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 const {chromium}=require('playwright');
 const path=require('path');
@@ -10,9 +11,9 @@ const results=[]; const ok=(c,m)=>{ results.push({name:m,pass:!!c}); console.log
 const S=p=>p.evaluate(()=>JSON.parse(JSON.stringify(window.__tapuState())));
 const has=(p,sel)=>p.isVisible(sel).catch(()=>false);
 
-async function open(b){
-  const ctx=await b.newContext({viewport:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true});
-  await ctx.addInitScript(PREF);
+async function open(b,o={}){
+  const ctx=await b.newContext({viewport:o.vp||{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true});
+  await ctx.addInitScript(PREF); if(o.init) await ctx.addInitScript(o.init);
   const p=await ctx.newPage(); p.errs=[]; p.on('pageerror',e=>p.errs.push(e.message));
   await p.clock.install(); await p.goto(URL); await p.clock.runFor(700);
   await p.click('#modal .cityopt[data-a="ist"]',{force:true}); await p.clock.runFor(400);
@@ -158,6 +159,101 @@ async function hold(p,sel){
   await p.keyboard.press('Tab'); await p.focus('#menuBtn');
   const fr=await p.evaluate(()=>{ const e=document.activeElement, cs=getComputedStyle(e); return cs.outlineStyle!=='none'&&parseFloat(cs.outlineWidth)>=2; });
   ok(fr,'klavye odağında görünür halka (:focus-visible)');
+  await p.context().close();
+
+  // ---------- Adım 2b ----------
+  const isOn=p=>p.evaluate(()=>document.querySelector('#sheet').classList.contains('on'));
+  const settle=async p=>{ await p.clock.runFor(500); await p.waitForTimeout(250); };
+  /** CDP ile tek parmak sürükleme (adım başına 16 ms sahte saat: hız ölçümü kararlı) */
+  async function swipe(p,x0,y0,x1,y1,steps=10){
+    const c=p.__cdp||(p.__cdp=await p.context().newCDPSession(p));
+    await p.clock.pauseAt(await p.evaluate(()=>Date.now())+50); // sahte saat durur: hız yalnızca adımlarla ölçülür (yük altında kararlı)
+    await c.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:x0,y:y0}]});
+    for(let i=1;i<=steps;i++){ await c.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x0+(x1-x0)*i/steps,y:y0+(y1-y0)*i/steps}]}); await p.clock.runFor(16); }
+    await c.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]}); await p.clock.resume(); await settle(p);
+  }
+  const rect=(p,s)=>p.$eval(s,e=>{ const r=e.getBoundingClientRect(); return {x:r.x,y:r.y,w:r.width,h:r.height}; });
+  const openSet=async p=>{ await p.click('#menuBtn',{force:true}); await settle(p); await p.$eval('#sheetBody [data-a="set"]',e=>e.click()); await settle(p); };
+
+  console.log('7) Panel: tutamak, X, sürükleyerek kapatma');
+  p=await open(b);
+  await openSet(p);
+  ok(await p.isVisible('#sheet .shbar .grab')&&await p.isVisible('#sheetX'),'panel başında tutamak ve X var');
+  const xr=await rect(p,'#sheetX'); ok(xr.w>=44&&xr.h>=44&&await p.getAttribute('#sheetX','aria-label'),'X ≥44 px ('+xr.w+'×'+xr.h+') ve etiketli');
+  await p.$eval('#sheet',e=>e.scrollTop=400); await p.waitForTimeout(50);
+  const br=await rect(p,'#sheetBar'), sr=await rect(p,'#sheet');
+  ok(Math.abs(br.y-sr.y)<1,'kaydırınca başlık (tutamak+X) üstte kalıyor');
+  await swipe(p,sr.x+sr.w/2,sr.y+260,sr.x+sr.w/2,sr.y+460);
+  ok(await isOn(p)&&await p.$eval('#sheet',e=>e.scrollTop)<400,'içerik kaydırılmışken aşağı sürükleme içeriği kaydırır, paneli kapatmaz');
+  await swipe(p,sr.x+sr.w/2,sr.y+20,sr.x+sr.w/2,sr.y+70,12);
+  ok(await isOn(p)&&!(await p.$eval('#sheet',e=>e.style.transform)),'tutamaktan kısa/yavaş sürükleme: panel yerine yaylandı');
+  await swipe(p,sr.x+sr.w/2,sr.y+20,sr.x+sr.w/2,sr.y+20+sr.h*.4);
+  ok(!(await isOn(p))&&!(await atOv(p)),'tutamaktan eşiği aşan sürükleme kapattı, geçmiş kaydı geri alındı');
+  await openSet(p); await p.$eval('#sheet',e=>e.scrollTop=0);
+  await swipe(p,sr.x+sr.w/2,sr.y+240,sr.x+sr.w/2,sr.y+240+sr.h*.4);
+  ok(!(await isOn(p)),'içerik en üstteyken aşağı sürükleme kapattı');
+  await openSet(p); await swipe(p,sr.x+sr.w/2,sr.y+20,sr.x+sr.w/2,sr.y+90,3);
+  ok(!(await isOn(p)),'hızlı fırlatma (kısa mesafe) kapattı');
+  await p.click('#menuBtn',{force:true}); await settle(p); await p.$eval('#sheetBody [data-a="store"]',e=>e.click()); await settle(p);
+  await p.click('#sheetX'); await settle(p);
+  ok(!(await isOn(p))&&!(await atOv(p)),'X iç içe paneli kapattı, geçmiş kaydı geri alındı');
+  ok(!p.errs.length,'konsol temiz'+(p.errs.length?' ['+p.errs.slice(0,2).join('|')+']':''));
+  await p.context().close();
+  p=await open(b,{vp:{width:844,height:390}});
+  await openSet(p); const wr=await rect(p,'#sheet');
+  await swipe(p,wr.x+wr.w/2,wr.y+200,wr.x+wr.w/2,wr.y+330);
+  ok(await isOn(p),'yatay: aşağı sürükleme kapatmıyor');
+  await swipe(p,wr.x+60,wr.y+200,wr.x+60+wr.w*.45,wr.y+205);
+  ok(!(await isOn(p)),'yatay: sağa sürükleme kapattı');
+  await p.context().close();
+
+  console.log('8) Tema seçimi ve titreşim ayarı');
+  p=await open(b,{init:"window.__vib=0; navigator.vibrate=()=>{ window.__vib++; return true; };"});
+  await openSet(p);
+  const radios=await p.evaluate(()=>[...document.querySelectorAll('#sheetBody .seg [data-a="theme"]')].map(e=>e.dataset.v+':'+e.getAttribute('role')+':'+e.getAttribute('aria-checked')));
+  ok(radios.join()==='auto:radio:true,light:radio:false,dark:radio:false','tema: otomatik/açık/koyu (radio, otomatik seçili)');
+  const bgOf=()=>p.evaluate(()=>getComputedStyle(document.body).backgroundColor);
+  const light=await bgOf();
+  await p.$eval('#sheetBody [data-a="theme"][data-v="dark"]',e=>e.click()); await settle(p);
+  const dk=await p.evaluate(()=>({t:document.documentElement.dataset.theme,bg:getComputedStyle(document.body).backgroundColor,meta:document.querySelector('meta[name=theme-color]').content,pref:JSON.parse(localStorage.getItem('tapu-prefs')).theme,chk:document.querySelector('#sheetBody [data-v="dark"]').getAttribute('aria-checked')}));
+  ok(dk.t==='dark'&&dk.bg!==light&&dk.chk==='true','koyu seçilince data-theme=dark, zemin değişti ('+dk.bg+')');
+  ok(dk.meta===dk.bg,'theme-color meta zeminle aynı ('+dk.meta+')');
+  ok(dk.pref==='dark','tercih tapu-prefs\'e yazıldı');
+  await p.reload();
+  for(let k=0;k<60&&!(await p.evaluate(()=>!!window.__tapuState&&document.documentElement.dataset.theme==='dark').catch(()=>false));k++){ await p.clock.runFor(300).catch(()=>{}); await p.waitForTimeout(250); }
+  await p.clock.runFor(1500); for(let k=0;k<5&&await has(p,'#modal .card');k++){ await p.click('#modal .card [data-a]',{force:true}); await p.clock.runFor(400); } // açılış kartları (çevrimdışı kazanç vb.)
+  ok(await p.evaluate(()=>document.documentElement.dataset.theme)==='dark','yeniden açılışta koyu tema uygulandı');
+  await p.emulateMedia({colorScheme:'dark'}); await openSet(p);
+  await p.$eval('#sheetBody [data-a="theme"][data-v="light"]',e=>e.click()); await settle(p);
+  ok(await p.evaluate(()=>document.documentElement.dataset.theme)==='light'&&await bgOf()===light,'sistem koyuyken "açık" seçimi açık zemin verir');
+  await p.$eval('#sheetBody [data-a="theme"][data-v="auto"]',e=>e.click()); await settle(p);
+  ok(await p.evaluate(()=>!('theme' in document.documentElement.dataset))&&await bgOf()!==light,'otomatik: öznitelik kaldırıldı, sistem (koyu) izleniyor');
+  const vs=await p.evaluate(()=>{ const e=document.querySelector('#sheetBody .sw[data-a="vib"]'); return e&&e.getAttribute('role')+':'+e.getAttribute('aria-checked')+':'+e.getAttribute('aria-label'); });
+  ok(vs==='switch:true:Titreşim','titreşim anahtarı (role=switch, açık, etiketli)');
+  const v0=await p.evaluate(()=>window.__vib);
+  await p.$eval('#sheetBody .sw[data-a="vib"]',e=>e.click()); await settle(p);
+  ok((await S(p)).vib===false&&await p.evaluate(()=>window.__vib)===v0,'titreşim kapatıldı, titreşmedi');
+  await p.$eval('#sheetBody .sw[data-a="vib"]',e=>e.click()); await settle(p);
+  ok((await S(p)).vib===true&&await p.evaluate(()=>window.__vib)===v0+1,'titreşim açılınca bir kez titreşti (geri bildirim)');
+  ok(!p.errs.length,'konsol temiz'+(p.errs.length?' ['+p.errs.slice(0,2).join('|')+']':''));
+  await p.context().close();
+
+  console.log('9) Lig: hata durumu ayrı ve "Tekrar dene"');
+  p=await open(b,{init:`window.__lbFail=true; (()=>{ const doc=()=>({get:async()=>({exists:false}),set:async()=>{},delete:async()=>{}});
+    const coll=()=>({where:()=>({get:async()=>{ if(window.__lbFail) throw new Error('ağ'); return {docs:[{id:'u1',data:()=>({earned:5,district:'ist-0'})}]}; }})});
+    window.claude={use:async k=>k==='db'?{doc,collection:coll}:{id:async()=>'u1',profiles:async()=>({})}}; })();`});
+  await p.click('#menuBtn',{force:true}); await settle(p); await p.$eval('#sheetBody [data-a="lb"]',e=>e.click()); await settle(p); await settle(p);
+  ok(await p.isVisible('#sheetBody .sterr [data-a="lbretry"]')&&!(await p.textContent('#sheetBody')).includes('henüz yerleşmedin'),'hata durumu boş grup gibi görünmüyor, "Tekrar dene" var');
+  await p.evaluate(()=>{ window.__lbFail=false; }); await p.$eval('#sheetBody [data-a="lbretry"]',e=>e.click()); await settle(p); await settle(p);
+  ok(await p.isVisible('#sheetBody .lglist')&&!(await p.isVisible('#sheetBody .sterr')),'tekrar dene: tablo yüklendi');
+  await p.context().close();
+
+  console.log('10) Açılış hatası ekranı');
+  { const ctx=await b.newContext({viewport:{width:390,height:844}}); await ctx.addInitScript(PREF);
+    await ctx.addInitScript("Object.defineProperty(window,'ResizeObserver',{configurable:true,get(){ throw new Error('iy-test açılış hatası'); }});"); // arayüz kurulurken düşer
+    p=await ctx.newPage(); await p.goto(URL); await p.waitForTimeout(1200); }
+  const bf=await p.evaluate(()=>{ const d=document.querySelector('.bootfail'); return d&&{r:d.getAttribute('role'),t:d.innerText,f:document.activeElement===d.querySelector('button')}; });
+  ok(bf&&bf.r==='alertdialog'&&bf.t.includes('BİR SORUN OLUŞTU')&&bf.t.includes('YENİDEN BAŞLAT')&&bf.f,'yakalanmayan açılış hatasında "Bir sorun oluştu · Yeniden başlat" ekranı (odak düğmede)');
   await p.context().close();
 
   await b.close();

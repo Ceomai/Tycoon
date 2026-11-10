@@ -43,9 +43,10 @@ export function bump() {
   const c = $('#cash'); c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump');
   clearTimeout((bump as any).t); (bump as any).t = setTimeout(() => c.classList.remove('bump'), 140);
 }
-export function toast(msg: string) {
+/** Kısa bildirim şeridi. ms: görünme süresi (hata bildirimleri okunabilsin diye daha uzun verilir). */
+export function toast(msg: string, ms = 2200) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('on');
-  clearTimeout(ui.toastT); ui.toastT = setTimeout(() => t.classList.remove('on'), 2200);
+  clearTimeout(ui.toastT); ui.toastT = setTimeout(() => t.classList.remove('on'), ms);
 }
 export function flyCoin(fromEl: Element) {
   if (reduceMotion || !(fromEl as any).animate) { bump(); return; }

@@ -16,6 +16,8 @@ import { S } from '../state';
 import { I, small } from '../icons';
 import { $, ui } from '../ui/ctx';
 import { toast, flushQueue } from '../ui/modal';
+/** Reklam hatası bildirimi: okunabilsin diye normal bildirimden uzun (≥3.5 sn). */
+export const AD_FAIL_MS = 4000;
 import { openSheet } from '../ui/sheets';
 import { render } from '../ui/board';
 import { grantReward } from '../game/actions';
@@ -84,7 +86,7 @@ export const Ads = {
     Analytics.log('ad_reward_request', { kind });
     if (instantRewards()) { grantReward(onReward); toast(S.club ? t('Kulüp: ödül anında') : t('Holding: ödül anında')); return; }
     if (!this.native()) { showSimulated(true, label, onReward, kind); return; }
-    if (!ready || !canRequest) { toast(t('Reklam şu an yüklenemedi')); onFail?.(); return; }
+    if (!ready || !canRequest) { toast(t('Reklam şu an yüklenemedi'), AD_FAIL_MS); onFail?.(); return; }
     busy = true;
     let got = false, h: { remove: () => Promise<void> | void } | null = null;
     try {
@@ -92,7 +94,7 @@ export const Ads = {
       rewardedLoaded = false; ui.ad = true;
       h = await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => { got = true; });
       await AdMob.showRewardVideoAd();
-    } catch (e) { if (!got) toast(t('Reklam şu an yüklenemedi')); Analytics.error(e, 'ad_rewarded'); }
+    } catch (e) { if (!got) toast(t('Reklam şu an yüklenemedi'), AD_FAIL_MS); Analytics.error(e, 'ad_rewarded'); }
     finally { try { if (h) void Promise.resolve(h.remove()).catch(() => { /* yok */ }); } catch { /* yok */ } ui.ad = false; busy = false; }
     if (got) { credit(); grantReward(onReward); Analytics.log('ad_reward', { kind }); S.ads++; }
     else onFail?.();

@@ -6,10 +6,11 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import type { RegionId } from './config';
 import type { Lang } from './i18n';
+import { isTheme, type Theme } from './theme';
 
 const KEY = 'tapu-prefs';
-export interface Prefs { lang: Lang | ''; region: RegionId | ''; ent: { premium: boolean; noAds: boolean; club: boolean }; news: boolean }
-export const P: Prefs = { lang: '', region: '', ent: { premium: false, noAds: false, club: false }, news: false };
+export interface Prefs { lang: Lang | ''; region: RegionId | ''; ent: { premium: boolean; noAds: boolean; club: boolean }; news: boolean; /** görünüm: otomatik (sistem) / açık / koyu */ theme: Theme }
+export const P: Prefs = { lang: '', region: '', ent: { premium: false, noAds: false, club: false }, news: false, theme: 'auto' };
 const native = () => Capacitor.isNativePlatform();
 
 export async function loadPrefs(): Promise<Prefs> {
@@ -20,6 +21,7 @@ export async function loadPrefs(): Promise<Prefs> {
       if (typeof o.lang === 'string') P.lang = o.lang;
       if (typeof o.region === 'string') P.region = o.region;
       if (o.news === true) P.news = true;
+      if (isTheme(o.theme)) P.theme = o.theme;
       if (o.ent && typeof o.ent === 'object') P.ent = { premium: o.ent.premium === true, noAds: o.ent.noAds === true, club: o.ent.club === true };
     }
   } catch { /* varsayılanlar */ }

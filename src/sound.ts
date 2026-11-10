@@ -41,8 +41,9 @@ export const Snd={
   unlock(){ if(!this.ok()) return; [783.99,987.77,1174.66,1567.98].forEach((f,k)=>this.note(f,k*.09,.8,.15)); },
   no(){ if(!this.ok()) return; this.note(220,0,.25,.15); this.note(196,.1,.3,.12); },
 };
-/** Titreşim: telefonda Capacitor Haptics, web'de navigator.vibrate. */
+/** Titreşim: telefonda Capacitor Haptics, web'de navigator.vibrate. Ayarlardan kapatılabilir (S.vib === false). */
 export function buzz(ms: number) {
+  if (S && S.vib === false) return;
   try {
     if (Capacitor.isNativePlatform()) { void Haptics.impact({ style: ms >= 25 ? ImpactStyle.Medium : ImpactStyle.Light }); return; }
     navigator.vibrate && navigator.vibrate(ms);

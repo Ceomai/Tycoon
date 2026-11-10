@@ -45,6 +45,7 @@ export interface State {
   civic: Record<DistrictKey, string[]>; // belediye kararları
   nextCivic: number;               // sonraki belediye kartı (oyun süresi, ms)
   night: boolean;                  // gece görünümü açık mı
+  vib?: boolean;                   // titreşim (false: kapalı; eski kayıtta yok = açık)
   tokens: number;                  // 2x jetonu (reklamsız mülke 2x)
   skinsU: number[];                // açılmış cephe renkleri
   season: { id: string; xp: number; got: number[]; ggot: number[]; gold: boolean };
@@ -75,7 +76,7 @@ export function newState(now: number, weekKey: string, city: CityId | null = nul
     daily: { last: '', streak: 0 }, tasks: null, shares: 0, coll: [],
     ref: { code: makeCode(), used: false, rewarded: 0 }, week: { key: weekKey, earned: 0 },
     offer: null, premium: false, clockFlag: 0, league: { tier: 0, seals: 0, last: '' }, guideHint: false, collectMode: 'tap', stars: {}, inv: [], ozel: { week: '', bought: false }, fest: '', rifki: true, lien: {}, lienT: {}, dEarn: {}, cards: [],
-    market: '', ach: [], cnt: { ob: 0, civic: 0, skin: 0, kapora: 0 }, civic: {}, nextCivic: 12 * 60e3, night: true, tokens: 0, skinsU: [], season: { id: '', xp: 0, got: [], ggot: [], gold: false },
+    market: '', ach: [], cnt: { ob: 0, civic: 0, skin: 0, kapora: 0 }, civic: {}, nextCivic: 12 * 60e3, night: true, vib: true, tokens: 0, skinsU: [], season: { id: '', xp: 0, got: [], ggot: [], gold: false },
     noAds: false, club: false, starter: { at: 0, bought: false }, seasonFirst: false, adCredit: 0, clubDay: '',
   };
 }

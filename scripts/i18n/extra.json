@@ -16,7 +16,19 @@
   "Gizlilik politikası": "Privacy policy",
   "Kullanım koşulları": "Terms of use",
   "Oyuncu kodun": "Player code",
-  "Kayıt yapılamadı: cihaz depolaması dolu": "Couldn't save: device storage is full"
+  "Kayıt yapılamadı: cihaz depolaması dolu": "Couldn't save: device storage is full",
+  "Tema": "Theme",
+  "Açık renk": "Light",
+  "Koyu renk": "Dark",
+  "Titreşim": "Vibration",
+  "Fiyatlar yükleniyor…": "Loading prices…",
+  "Fiyatlar yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.": "Prices couldn't be loaded. Check your internet connection and try again.",
+  "Tekrar dene": "Try again",
+  "Lig tablosu yüklenemedi": "League table couldn't be loaded",
+  "Bağlantı sorunu olabilir. Bu haftaki kazancın cihazında duruyor.": "There may be a connection problem. This week's earnings are kept on your device.",
+  "Bir sorun oluştu": "Something went wrong",
+  "Oyun açılırken beklenmedik bir hata oldu. Yeniden başlatmayı dene.": "An unexpected error occurred while starting the game. Try restarting.",
+  "Yeniden başlat": "Restart"
  },
  "de": {
   "Dil ve bölge": "Sprache & Region",
@@ -35,7 +47,19 @@
   "Gizlilik politikası": "Datenschutzerklärung",
   "Kullanım koşulları": "Nutzungsbedingungen",
   "Oyuncu kodun": "Spielercode",
-  "Kayıt yapılamadı: cihaz depolaması dolu": "Speichern fehlgeschlagen: Gerätespeicher ist voll"
+  "Kayıt yapılamadı: cihaz depolaması dolu": "Speichern fehlgeschlagen: Gerätespeicher ist voll",
+  "Tema": "Design",
+  "Açık renk": "Hell",
+  "Koyu renk": "Dunkel",
+  "Titreşim": "Vibration",
+  "Fiyatlar yükleniyor…": "Preise werden geladen…",
+  "Fiyatlar yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.": "Preise konnten nicht geladen werden. Prüfe deine Internetverbindung und versuche es erneut.",
+  "Tekrar dene": "Erneut versuchen",
+  "Lig tablosu yüklenemedi": "Ligatabelle konnte nicht geladen werden",
+  "Bağlantı sorunu olabilir. Bu haftaki kazancın cihazında duruyor.": "Möglicherweise ein Verbindungsproblem. Deine Einnahmen dieser Woche bleiben auf deinem Gerät gespeichert.",
+  "Bir sorun oluştu": "Etwas ist schiefgelaufen",
+  "Oyun açılırken beklenmedik bir hata oldu. Yeniden başlatmayı dene.": "Beim Starten des Spiels ist ein unerwarteter Fehler aufgetreten. Versuche einen Neustart.",
+  "Yeniden başlat": "Neu starten"
  },
  "ja": {
   "Dil ve bölge": "言語と地域",
@@ -54,6 +78,18 @@
   "Gizlilik politikası": "プライバシーポリシー",
   "Kullanım koşulları": "利用規約",
   "Oyuncu kodun": "プレイヤーコード",
-  "Kayıt yapılamadı: cihaz depolaması dolu": "保存できませんでした：端末のストレージがいっぱいです"
+  "Kayıt yapılamadı: cihaz depolaması dolu": "保存できませんでした：端末のストレージがいっぱいです",
+  "Tema": "テーマ",
+  "Açık renk": "ライト",
+  "Koyu renk": "ダーク",
+  "Titreşim": "バイブレーション",
+  "Fiyatlar yükleniyor…": "価格を読み込み中…",
+  "Fiyatlar yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.": "価格を読み込めませんでした。インターネット接続を確認して、もう一度お試しください。",
+  "Tekrar dene": "再試行",
+  "Lig tablosu yüklenemedi": "リーグ表を読み込めませんでした",
+  "Bağlantı sorunu olabilir. Bu haftaki kazancın cihazında duruyor.": "接続に問題がある可能性があります。今週の収益は端末に保存されています。",
+  "Bir sorun oluştu": "問題が発生しました",
+  "Oyun açılırken beklenmedik bir hata oldu. Yeniden başlatmayı dene.": "ゲームの起動中に予期しないエラーが発生しました。再起動してください。",
+  "Yeniden başlat": "再起動"
  }
 }

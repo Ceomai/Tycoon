@@ -33,6 +33,7 @@ import { Snd } from './sound';
 import { $, ui, hist, syncHistory, histSettled } from './ui/ctx';
 import { onModalClick, justOpened, modalBack } from './ui/modal';
 import { openSheet, closeSheet, sheetBack, onSheetAction } from './ui/sheets';
+import { bindSheetDrag } from './ui/sheetdrag';
 import { render, fit, setupGrid, drawGuilloche, Street } from './ui/board';
 import { ensureTasks } from './game/tasks';
 import { catchUp } from './game/events';
@@ -41,6 +42,7 @@ import { toast } from './ui/modal';
 import { persist, persistSync } from './game/persist';
 import { tick, pickCity, firstRun, applyRegion, showRegionNews } from './game/loop';
 import { P, loadPrefs, savePrefs } from './prefs';
+import { applyTheme } from './theme';
 import { anySave, loadRegionInfo } from './storage';
 import { setLang, deviceLang, t } from './i18n';
 import { REGIONS, RegionId } from './config';
@@ -100,6 +102,9 @@ function bindUi() {
   $('#distBar').addEventListener('click', () => openSheet({ k: 'map' }));
   $('#guideBtn').addEventListener('click', () => { $('#guideHint').hidden = true; $('#guideBtn').classList.remove('wig'); openSheet({ k: 'guide' }); });
   $('#scrim').addEventListener('click', () => { if (ui.sheet && !justOpened()) closeSheet(); });
+  // panel başlığı: X ve aşağı (yatayda sağa) sürükleyerek kapatma; ikisi de closeSheet (geçmiş/odak aynı yoldan)
+  $('#sheetX').addEventListener('click', () => { if (ui.sheet && !justOpened()) closeSheet(); });
+  bindSheetDrag($('#sheet'), $('#sheetBar'), $('#scrim'), closeSheet);
   $('#sheetBody').addEventListener('click', (e: Event) => { const b = (e.target as HTMLElement).closest('[data-a]') as HTMLButtonElement | null; if (b && !b.disabled && !justOpened()) void onSheetAction(b.dataset.a!, b); });
   $('#modal').addEventListener('click', onModalClick);
   if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => fit()).observe($('#board')); else window.addEventListener('resize', fit);
@@ -146,12 +151,22 @@ function localizeStatic() {
   document.title = t('Tapu');
   const aria: [string, string][] = [
     ['#distBar', t('Semt ilerlemesi')], ['#guideBtn', t('Kılavuz: oyunun kuralları')], ['#menuBtn', t('Menü')],
-    ['#taskBtn', t('Görevler')], ['#collectBtn', t('Tüm kiraları topla')], ['#mapBtn', t('Semtler')], ['#collBtn', t('Koleksiyon')],
+    ['#taskBtn', t('Görevler')], ['#collectBtn', t('Tüm kiraları topla')], ['#mapBtn', t('Semtler')], ['#collBtn', t('Koleksiyon')], ['#sheetX', t('Kapat')],
   ];
   for (const [sel, txt] of aria) document.querySelector(sel)?.setAttribute('aria-label', txt);
   document.querySelector('.stamp')?.setAttribute('aria-label', t('Tapu'));
   const txt: [string, string][] = [['#guideBtn .l', t('KILAVUZ')], ['#guideHint', t('Kurallar burada')], ['#cmain', t('TOPLA')], ['.stamp text:nth-of-type(2)', t('ADA · PARSEL')]];
   for (const [sel, v] of txt) { const el = document.querySelector(sel); if (el) el.textContent = v; }
+}
+
+let uiReady = false;
+/** Açılış arayüz kurulmadan düşerse beyaz ekran yerine basit bir hata ekranı ve "Yeniden başlat". */
+function showBootFail() {
+  try { if (!P.lang) setLang(deviceLang()); } catch { /* Türkçe kalır */ }
+  const d = document.createElement('div'); d.className = 'bootfail'; d.setAttribute('role', 'alertdialog'); d.setAttribute('aria-modal', 'true'); d.setAttribute('aria-labelledby', 'bootFailT');
+  d.innerHTML = `<div class="card"><h3 id="bootFailT">${t('Bir sorun oluştu')}</h3><p>${t('Oyun açılırken beklenmedik bir hata oldu. Yeniden başlatmayı dene.')}</p><div class="btns"><button class="btn" type="button">${t('Yeniden başlat')}</button></div></div>`;
+  document.body.appendChild(d);
+  const b = d.querySelector('button')!; b.addEventListener('click', () => location.reload()); b.focus();
 }
 
 async function boot() {
@@ -160,6 +175,7 @@ async function boot() {
   await applyRemoteConfig();
   // dil ve bölge: mevcut oyuncu (kaydı var, tercihi yok) Türkçe/Türkiye ile devam eder
   await loadPrefs();
+  applyTheme(P.theme);
   let migrated = false;
   if (!P.region && await anySave()) { P.region = 'tr'; P.lang = P.lang || 'tr'; savePrefs(); migrated = true; }
   const first = !P.region;
@@ -177,6 +193,7 @@ async function boot() {
   ui.lastInput = performance.now();
   render();
   setInterval(tick, CFG.TICK_MS);
+  uiReady = true; // bundan sonraki hatalar (bulut, mağaza, reklam) oyunu durdurmaz; yalnızca kaydedilir
   setInterval(() => { if (!document.hidden) persist(); }, 10e3);
 
   // ağ işleri arayüzü bekletmez
@@ -197,4 +214,4 @@ if (!__PREVIEW__ && !Capacitor.isNativePlatform() && 'serviceWorker' in navigato
   window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => { /* yok */ }); });
 }
 
-void boot().catch(e => { Analytics.error(e, 'boot'); console.error(e); });
+void boot().catch(e => { Analytics.error(e, 'boot'); console.error(e); if (!uiReady) showBootFail(); });
