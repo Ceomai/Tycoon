@@ -18,7 +18,9 @@ export const TIP_MOOD: Readonly<Record<string, Mood>> = {
   boost: 'think',
   pair: 'think',
   empty: 'think',
-  task: 'party',      // ödül yakın: bir görev kaldı
+  task: 'party',
+  deed: 'party',      // tapu alındı
+  done: 'party',      // semt bitti (bütün arsalar dolu)      // ödül yakın: bir görev kaldı
   ozel: 'wow',        // haftanın özel tapusu
   ob: 'wow',          // hurdanın içinden ne çıkar
 };

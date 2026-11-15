@@ -2,7 +2,7 @@
    RIFKI ABİ — klasik, nazik bir emlakçı; ara sıra hafif esprili tek satırlık ipuçları.
    En fazla 3 dakikada bir konuşur, × ile kapanır, Ayarlar'dan tamamen kapatılabilir.
    ========================================================= */
-import { CFG, ORDER, DMAP, N } from '../config';
+import { CFG, ORDER, DMAP, N, DistrictKey } from '../config';
 import { S, lotsOf } from '../state';
 import { now, pending, producing, neighbors, PAIRS, buildCost, withDisc, rate, isFull, unlockInfo } from '../economy';
 import { weekKey, loc } from '../format';
@@ -96,8 +96,19 @@ export function showTip(tip: Tip) {
   el.hidden = false; faceIn(el.querySelector('.rk-face svg'), reduceMotion); clearTimeout(hideT); hideT = setTimeout(hideTip, 10e3);
 }
 /** Oyun döngüsünden çağrılır. */
+let pendingEv: Tip | null = null;
+/** Anlık olaylar (tapu alındı, semt bitti): normal ipucu aralığını beklemez; açık kart/panel kapanınca hemen söylenir. */
+export function sayEvent(kind: 'deed' | 'done', k: DistrictKey) {
+  if (!S.rifki) return;
+  const d = nm(DMAP[k].n);
+  pendingEv = kind === 'deed'
+    ? { id: 'deed', text: t('{d} tapusu sizin, hayırlı olsun efendim! İlk arsaya bir ev kondurun, kira hemen başlar.', { d }) }
+    : { id: 'done', text: t('{d} tamam! {n} arsanın hepsi sizin. Bir sonraki tapuya bakalım mı efendim?', { d, n: N }), go: { k: 'map' } };
+}
 export function maybeTip(pt: number) {
-  if (!S.rifki || !S.city || ui.sheet || ui.modal || ui.ad || current) return;
+  if (!S.rifki || !S.city || ui.sheet || ui.modal || ui.ad) return;
+  if (pendingEv) { const tip = pendingEv; pendingEv = null; lastAt = pt; lastId = tip.id; showTip(tip); return; } // olay: açık ipucunun yerine geçer; sonraki ipucu normal aralıkla
+  if (current) return;
   if (pt - lastAt < CFG.TIP_EVERY) return;
   const list = tips(); if (!list.length) { lastAt = pt - CFG.TIP_EVERY + 15e3; return; } // söylenecek yok: 15 sn sonra yeniden bak
   const tip = list.find(x => x.id !== lastId) || list[0];

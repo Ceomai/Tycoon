@@ -14,6 +14,7 @@ import { Analytics } from '../services/analytics';
 import { weekKey, fmt } from '../format';
 import { weekSpecial, specialOf } from '../specials';
 import { addXp } from './fun';
+import { sayEvent } from './rifki';
 import { kaporaOf, lienBlocks, placeObstacles, showDistrictCard, showSummary } from './district';
 import { lmLeft } from './collection';
 import type { Landmark } from '../landmarks';
@@ -147,7 +148,7 @@ export function buyDistrict(k: DistrictKey, kapora = false) {
   placeObstacles(k);
   switchDistrict(k); persist(); view.closeSheet();
   Snd.unlock(); buzz.success();
-  showDistrictCard(k);
+  showDistrictCard(k); sayEvent('deed', k); // kart kapanınca Rıfkı tebrik eder
   Analytics.log(newCity ? 'city_unlock' : 'district_unlock', { district: k, kapora });
 }
 export function switchDistrict(k: DistrictKey) {

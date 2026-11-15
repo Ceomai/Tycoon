@@ -466,6 +466,27 @@ async function hold(p,sel){
     ok(!p.errs.length,'konsol temiz'+(p.errs.length?' ['+p.errs.slice(0,2).join('|')+']':''));
     await p.context().close();
   }
+  console.log('15) Rıfkı Abi tapu alınınca ve semt bitince kutlar');
+  { const rk=p=>p.evaluate(()=>{ const r=document.querySelector('#rifki'); return r.hidden?null:{mood:r.querySelector('.rk-face')?.dataset.mood,txt:r.querySelector('.rk-bub span')?.textContent||''}; });
+    p=await open(b);
+    await p.evaluate(()=>{ const S=window.__tapuState(); S.rifki=true; S.cash=1e15; S.lien={}; S.lienT={}; S.collectMode='tap'; });
+    await p.click('#mapBtn',{force:true}); await p.clock.runFor(400); await p.waitForTimeout(450); // panel kayarak açılır (gerçek zaman)
+    const BUY='#sheet [data-a="buy"]:not([disabled])';
+    for(let r=0;r<3;r++){ const btn=await p.$(BUY); if(!btn) break; try{ await btn.evaluate(e=>e.scrollIntoView({block:'center'})); await btn.click({force:true}); break; }catch(e){ if(!/not attached|detached/i.test(String(e))) throw e; } }
+    await p.clock.runFor(800);
+    const during=await rk(p), cardOpen=await has(p,'#modal .card');
+    ok(cardOpen&&!during,'tapu alınınca: semt kartı açıkken Rıfkı konuşmuyor');
+    for(let k=0;k<5&&await has(p,'#modal .card');k++){ await p.click('#modal .card [data-a]',{force:true}); await p.clock.runFor(400); }
+    await p.clock.runFor(1200); const r1=await rk(p);
+    ok(r1&&r1.mood==='party'&&/tapusu sizin/.test(r1.txt),'kart kapanınca Rıfkı tebrik ediyor (kutlama yüzü): '+JSON.stringify(r1));
+    await p.evaluate(()=>document.querySelector('#rifki .rk-x').click());
+    await p.evaluate(()=>{ const S=window.__tapuState(); const T=['ev','kafe','dukkan','ofis'];
+      S.d[S.cur]=Array.from({length:20},(_,i)=>i===19?{t:'ev',lvl:0,buf:0,until:Date.now()+600,dur:600,up:false}:{t:T[i%4],lvl:1,buf:0,until:0,dur:1,up:false}); });
+    await p.clock.runFor(2500); const r2=await rk(p);
+    ok(r2&&r2.mood==='party'&&/tamam!/.test(r2.txt)&&/20 arsa/.test(r2.txt),'son arsa dolunca Rıfkı semti kutluyor: '+JSON.stringify(r2));
+    ok(!p.errs.length,'konsol temiz'+(p.errs.length?' ['+p.errs.slice(0,2).join('|')+']':''));
+    await p.context().close();
+  }
   await b.close();
   const pass=results.filter(r=>r.pass).length;
   console.log(`\nSONUÇ: ${pass}/${results.length} geçti`);
