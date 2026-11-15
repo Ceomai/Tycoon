@@ -95,7 +95,9 @@
   "Ahşap ustaları": "Master carpenters",
   "Hanamikoji sokağı": "Hanamikoji Street",
   "Oyuna bir ilde başlarsın: {list} ya da {last}. Ekrandaki kareler senin <b>arsaların</b>.": "You start in one city: {list} or {last}. The squares on screen are your <b>plots</b>.",
-  "Her semtin kendine özel bir <b>kuralı</b> var (örneğin {d1} {r1}, {d2} {r2}). Yeni semtlerde 3–4 arsa gecekondu, hurda araba ya da molozla dolu gelir: küçük bir bedelle temizle, eski eşyalardan para çıkar, nadiren tarihi bir kalıntı.": "Each district has its own <b>rule</b> (e.g. {r1} {d1}, {r2} {d2}). New districts come with 3–4 plots full of shacks, junk cars or rubble: clear them for a small fee, find cash in old stuff, and rarely a historic relic."
+  "Her semtin kendine özel bir <b>kuralı</b> var (örneğin {d1} {r1}, {d2} {r2}). Yeni semtlerde 3–4 arsa gecekondu, hurda araba ya da molozla dolu gelir: küçük bir bedelle temizle, eski eşyalardan para çıkar, nadiren tarihi bir kalıntı.": "Each district has its own <b>rule</b> (e.g. {r1} {d1}, {r2} {d2}). New districts come with 3–4 plots full of shacks, junk cars or rubble: clear them for a small fee, find cash in old stuff, and rarely a historic relic.",
+  "{d} tapusu sizin, hayırlı olsun efendim! İlk arsaya bir ev kondurun, kira hemen başlar.": "The deed to {d} is yours. Congratulations, sir! Put a house on the first plot and the rent starts right away.",
+  "{d} tamam! {n} arsanın hepsi sizin. Bir sonraki tapuya bakalım mı efendim?": "{d} is done! All {n} plots are yours. Shall we look at the next deed, sir?"
  },
  "de": {
   "Dil ve bölge": "Sprache & Region",
@@ -193,7 +195,9 @@
   "Ahşap ustaları": "Holzhandwerker",
   "Hanamikoji sokağı": "Hanamikoji-Gasse",
   "Oyuna bir ilde başlarsın: {list} ya da {last}. Ekrandaki kareler senin <b>arsaların</b>.": "Du startest in einer Stadt: {list} oder {last}. Die Felder auf dem Bildschirm sind deine <b>Grundstücke</b>.",
-  "Her semtin kendine özel bir <b>kuralı</b> var (örneğin {d1} {r1}, {d2} {r2}). Yeni semtlerde 3–4 arsa gecekondu, hurda araba ya da molozla dolu gelir: küçük bir bedelle temizle, eski eşyalardan para çıkar, nadiren tarihi bir kalıntı.": "Jedes Viertel hat eine eigene <b>Regel</b> (z. B. {r1} {d1}, {r2} {d2}). In neuen Vierteln sind 3–4 Grundstücke mit Baracken, Schrottautos oder Schutt belegt: Räum sie für wenig Geld, verkauf Altwaren, selten findest du ein historisches Relikt."
+  "Her semtin kendine özel bir <b>kuralı</b> var (örneğin {d1} {r1}, {d2} {r2}). Yeni semtlerde 3–4 arsa gecekondu, hurda araba ya da molozla dolu gelir: küçük bir bedelle temizle, eski eşyalardan para çıkar, nadiren tarihi bir kalıntı.": "Jedes Viertel hat eine eigene <b>Regel</b> (z. B. {r1} {d1}, {r2} {d2}). In neuen Vierteln sind 3–4 Grundstücke mit Baracken, Schrottautos oder Schutt belegt: Räum sie für wenig Geld, verkauf Altwaren, selten findest du ein historisches Relikt.",
+  "{d} tapusu sizin, hayırlı olsun efendim! İlk arsaya bir ev kondurun, kira hemen başlar.": "Die Urkunde für {d} gehört Ihnen. Herzlichen Glückwunsch! Bauen Sie ein Haus aufs erste Grundstück, dann fließt sofort Miete.",
+  "{d} tamam! {n} arsanın hepsi sizin. Bir sonraki tapuya bakalım mı efendim?": "{d} ist komplett! Alle {n} Grundstücke gehören Ihnen. Sollen wir uns die nächste Urkunde ansehen?"
  },
  "ja": {
   "Dil ve bölge": "言語と地域",
@@ -291,6 +295,8 @@
   "Ahşap ustaları": "木工の職人",
   "Hanamikoji sokağı": "花見小路",
   "Oyuna bir ilde başlarsın: {list} ya da {last}. Ekrandaki kareler senin <b>arsaların</b>.": "ゲームは{list}、{last}のいずれかの都市から始まります。画面のマス目があなたの<b>区画</b>です。",
-  "Her semtin kendine özel bir <b>kuralı</b> var (örneğin {d1} {r1}, {d2} {r2}). Yeni semtlerde 3–4 arsa gecekondu, hurda araba ya da molozla dolu gelir: küçük bir bedelle temizle, eski eşyalardan para çıkar, nadiren tarihi bir kalıntı.": "各地区には独自の<b>ルール</b>があります（例：{d1}は{r1}、{d2}は{r2}）。新しい地区では3〜4区画がバラック、廃車、がれきでふさがっています。少しの費用で片付けると古物からお金が出て、まれに歴史的な遺物も見つかります。"
+  "Her semtin kendine özel bir <b>kuralı</b> var (örneğin {d1} {r1}, {d2} {r2}). Yeni semtlerde 3–4 arsa gecekondu, hurda araba ya da molozla dolu gelir: küçük bir bedelle temizle, eski eşyalardan para çıkar, nadiren tarihi bir kalıntı.": "各地区には独自の<b>ルール</b>があります（例：{d1}は{r1}、{d2}は{r2}）。新しい地区では3〜4区画がバラック、廃車、がれきでふさがっています。少しの費用で片付けると古物からお金が出て、まれに歴史的な遺物も見つかります。",
+  "{d} tapusu sizin, hayırlı olsun efendim! İlk arsaya bir ev kondurun, kira hemen başlar.": "{d}の権利書はあなたのものです。おめでとうございます！最初の区画に家を建てれば、すぐに家賃が入りますよ。",
+  "{d} tamam! {n} arsanın hepsi sizin. Bir sonraki tapuya bakalım mı efendim?": "{d}、完成です！{n}区画すべてがあなたのものです。次の権利書を見てみましょうか？"
  }
 }

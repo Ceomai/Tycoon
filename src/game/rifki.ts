@@ -2,12 +2,13 @@
    RIFKI ABİ — klasik, nazik bir emlakçı; ara sıra hafif esprili tek satırlık ipuçları.
    En fazla 3 dakikada bir konuşur, × ile kapanır, Ayarlar'dan tamamen kapatılabilir.
    ========================================================= */
-import { CFG, ORDER, DMAP, N } from '../config';
+import { CFG, ORDER, DMAP, N, DistrictKey } from '../config';
 import { S, lotsOf } from '../state';
 import { now, pending, producing, neighbors, PAIRS, buildCost, withDisc, rate, isFull, unlockInfo } from '../economy';
 import { weekKey, loc } from '../format';
 import { t, nm, lowTxt } from '../i18n';
-import { $, ui, SheetState, view } from '../ui/ctx';
+import { $, ui, SheetState, view, reduceMotion } from '../ui/ctx';
+import { rifkiFace, moodOf, faceIn } from '../ui/rifkiFace';
 import { nearestGoal } from './goals';
 import { nextDistrict, kaporaOf, clearCost } from './district';
 import { weekSpecial } from '../specials';
@@ -17,10 +18,6 @@ import { saveTarget, boostSaving } from './monetize';
 let last2x = -1e9; // 2x hatırlatması (CFG.HINT2X_EVERY) en fazla bu sıklıkla
 
 interface Tip { id: string; text: string; go?: SheetState; }
-const FACE = `<svg viewBox="0 0 74 86" aria-hidden="true"><rect x="1" y="1" width="72" height="84" rx="8" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
-  <path d="M14 85c2-16 10-22 23-22s21 6 23 22" fill="#55685f" stroke="var(--ink)" stroke-width="1.2"/><path d="M30 63l7 9 7-9" fill="#fbfbf7" stroke="var(--ink)"/><path d="M37 66v14" stroke="#c23b2e" stroke-width="3"/>
-  <circle cx="37" cy="40" r="17" fill="#efd8b3" stroke="var(--ink)" stroke-width="1.2"/><path d="M20 33c2-12 32-12 34 0" fill="#1e3a32"/><rect x="18" y="30" width="38" height="5" rx="2" fill="#1e3a32"/>
-  <circle cx="31" cy="40" r="1.6" fill="#1e3a32"/><circle cx="43" cy="40" r="1.6" fill="#1e3a32"/><path d="M28 47c3-2 6-2 9 0 3-2 6-2 9 0-3 3-15 3-18 0z" fill="#1e3a32"/></svg>`;
 
 /* Türkçede bina adı cümlede çekimlendiği için (Evin / Evinize / ev) her bina için ayrı tam cümle anahtarı. */
 function pairText(bt: string): string {
@@ -94,12 +91,24 @@ export function hideTip() { const el = $('#rifki'); if (el) el.hidden = true; cu
 export function showTip(tip: Tip) {
   const el = $('#rifki'); if (!el) return;
   current = tip; lastId = tip.id;
-  el.innerHTML = `<div class="rk-face">${FACE}</div><button class="rk-bub" data-rk="go"><b>${t('RIFKI ABİ')}</b><span>${tip.text}</span></button><button class="rk-x" data-rk="x" aria-label="${t('Kapat')}">×</button>`;
-  el.hidden = false; clearTimeout(hideT); hideT = setTimeout(hideTip, 10e3);
+  const mood = moodOf(tip.id); // ifade: ipucu kimliğinden (ui/rifkiFace.ts TIP_MOOD)
+  el.innerHTML = `<div class="rk-face" data-mood="${mood}">${rifkiFace(mood)}</div><button class="rk-bub" data-rk="go"><b>${t('RIFKI ABİ')}</b><span>${tip.text}</span></button><button class="rk-x" data-rk="x" aria-label="${t('Kapat')}">×</button>`;
+  el.hidden = false; faceIn(el.querySelector('.rk-face svg'), reduceMotion); clearTimeout(hideT); hideT = setTimeout(hideTip, 10e3);
 }
 /** Oyun döngüsünden çağrılır. */
+let pendingEv: Tip | null = null;
+/** Anlık olaylar (tapu alındı, semt bitti): normal ipucu aralığını beklemez; açık kart/panel kapanınca hemen söylenir. */
+export function sayEvent(kind: 'deed' | 'done', k: DistrictKey) {
+  if (!S.rifki) return;
+  const d = nm(DMAP[k].n);
+  pendingEv = kind === 'deed'
+    ? { id: 'deed', text: t('{d} tapusu sizin, hayırlı olsun efendim! İlk arsaya bir ev kondurun, kira hemen başlar.', { d }) }
+    : { id: 'done', text: t('{d} tamam! {n} arsanın hepsi sizin. Bir sonraki tapuya bakalım mı efendim?', { d, n: N }), go: { k: 'map' } };
+}
 export function maybeTip(pt: number) {
-  if (!S.rifki || !S.city || ui.sheet || ui.modal || ui.ad || current) return;
+  if (!S.rifki || !S.city || ui.sheet || ui.modal || ui.ad) return;
+  if (pendingEv) { const tip = pendingEv; pendingEv = null; lastAt = pt; lastId = tip.id; showTip(tip); return; } // olay: açık ipucunun yerine geçer; sonraki ipucu normal aralıkla
+  if (current) return;
   if (pt - lastAt < CFG.TIP_EVERY) return;
   const list = tips(); if (!list.length) { lastAt = pt - CFG.TIP_EVERY + 15e3; return; } // söylenecek yok: 15 sn sonra yeniden bak
   const tip = list.find(x => x.id !== lastId) || list[0];

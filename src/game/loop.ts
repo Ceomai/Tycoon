@@ -4,7 +4,7 @@ import { t, nm, LANGS, setLang, LANG } from '../i18n';
 import { P, savePrefs } from '../prefs';
 import { S, setS, newState, lotsOf } from '../state';
 import { rand, dayKey, weekKey } from '../format';
-import { now, producing, rate, pending, curWeek, tickMemo, freezeRates } from '../economy';
+import { now, producing, rate, pending, curWeek, tickMemo, freezeRates, isFull } from '../economy';
 import { Snd, buzz } from '../sound';
 import { $, ui, view } from '../ui/ctx';
 import { toast, openModal, closeModal } from '../ui/modal';
@@ -22,7 +22,7 @@ import { Analytics } from '../services/analytics';
 import { checkGoals } from './goals';
 import { checkAch, showMarket, maybeCivic } from './fun';
 import { payLien, showDistrictCard } from './district';
-import { maybeTip } from './rifki';
+import { maybeTip, sayEvent } from './rifki';
 import { maybeStarter, clubTick } from './monetize';
 
 let lastT = performance.now(), lastGoals = 0, teslimOf = '';
@@ -42,11 +42,11 @@ function step(pt: number, dt: number) {
   if (teslimOf !== S.cur) { teslimOf = S.cur; ui.teslim = {}; } // teslim mühürleri arsa sırasına bağlı: semt değişince silinir
   let doneAny = false, doneHere = false; // uzun aradan dönüşte üst üste ses/titreşim olmasın
   for (const k of S.own) {
-    const lots = lotsOf(S, k);
+    const lots = lotsOf(S, k); let built = false;
     for (let i = 0; i < N; i++) {
       const p = lots[i]; if (!p) continue;
       if (p.until && tn >= p.until) {
-        p.until = 0; if (p.up) { p.lvl++; p.up = false; } else p.lvl = 1;
+        p.until = 0; if (p.up) { p.lvl++; p.up = false; } else { p.lvl = 1; built = true; }
         if (k === S.cur) ui.teslim[i] = { at: pt + 1600, txt: t('{type} · kat {lvl}', { type: t(TYPES[p.t].n), lvl: p.lvl }) }; // tapu teslim mührü
         if (k === S.cur && ui.tiles[i]) { ui.tileSig[i] = ''; ui.pop.add(i); } // teslim: render karoyu yeniden çizince pop oynar
         doneAny = true; if (k === S.cur) doneHere = true;
@@ -58,6 +58,7 @@ function step(pt: number, dt: number) {
         if (p.buf < cap) p.buf = Math.min(cap, p.buf + g);
       }
     }
+    if (built && isFull(k)) sayEvent('done', k); // son arsa da doldu: Rıfkı kutlar
   }
   if (doneAny) { Snd.done(); if (doneHere) buzz.success(); ui.sheetSig = ''; }
   if (S.fx.length) S.fx = S.fx.filter(f => f.until > tn);
