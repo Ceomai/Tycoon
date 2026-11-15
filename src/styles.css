@@ -17,7 +17,7 @@
 
 :root{
   /* --- palet (açık | koyu) --- */
-  --bg:var(--L,#e8ecdf) var(--D,#111815); --surface:var(--L,#f6f7f1) var(--D,#18221e); --ink:var(--L,#1e3a32) var(--D,#e3eadf); --muted:var(--L,#55685f) var(--D,#97a69e); --line:var(--L,#c9d1c2) var(--D,#2a3833); --stamp:var(--L,#c23b2e) var(--D,#ec7a70); --up:var(--L,#2c6e49) var(--D,#6cc093); --me:var(--L,#fbe9d0) var(--D,#3a2f1f); --guil:var(--L,#8a7bb5) var(--D,#7a6eaa);
+  --bg:var(--L,#e8ecdf) var(--D,#111815); --surface:var(--L,#f6f7f1) var(--D,#18221e); --ink:var(--L,#1e3a32) var(--D,#e3eadf); --muted:var(--L,#55685f) var(--D,#97a69e); --line:var(--L,#c9d1c2) var(--D,#2a3833); --stamp:var(--L,#c23b2e) var(--D,#ec7a70); --up:var(--L,#2c6e49) var(--D,#6cc093); --me:var(--L,#fbe9d0) var(--D,#3a2f1f); --guil:var(--L,#8a7bb5) var(--D,#7a6eaa); --rk-card:var(--L,#fdf3df) var(--D,#1f190f); /* Rıfkı Abi'nin yüz kartı (krem | sıcak koyu; mavi ceketle ≥3:1) */
   --asph:var(--L,#fbfbf7) var(--D,var(--nt-asph)); --asph-d:var(--L,#1e3a32) var(--D,#e3eadf); --lane:var(--L,#c9d1c2) var(--D,var(--nt-lane)); --curb:var(--L,#1e3a32) var(--D,var(--nt-curb)); --site:var(--L,#ebe4d2) var(--D,var(--nt-site));
   --dirt:var(--L,#e1e6d6) var(--D,var(--nt-dirt)); --dirt-d:var(--L,#c9d1c2) var(--D,var(--nt-dirt-d)); --gv:var(--L,#c3ccbb) var(--D,var(--nt-gv)); --sv:var(--L,#1e3a32) var(--D,var(--nt-sv)); --stk:var(--L,#c23b2e) var(--D,#e0554a); --sgn:var(--L,#c23b2e) var(--D,#e0554a);
   --haz:#ffc21a; --haz-d:var(--L,#d79c00) var(--D,#c98f00); --haz-ink:#1f1a00; --hk:var(--L,#1f2227) var(--D,#111215);
@@ -631,6 +631,8 @@ body.idle *,body.idle *::before,body.idle *::after{animation-play-state:paused!i
 /* 7 · Rıfkı Abi */
 .rifki{z-index:7;display:flex;align-items:flex-end;gap:var(--sp-3);animation:rkin var(--dur-slow) ease-out}
 .rifki .rk-face svg{width:44px;height:51px;display:block}
+.rifki .rk-br{transform-box:fill-box;transform-origin:50% 100%;animation:rkbreath 3s ease-in-out infinite} /* nefes: çok küçük ölçek */
+.rifki .rk-eyes{transform-box:fill-box;transform-origin:center;animation:rkblink 4s linear infinite} /* ~4 sn'de bir göz kırpma */
 .rifki .rk-bub{flex:1;min-width:0;min-height:51px;position:relative;text-align:left;background:var(--surface);color:var(--ink);border:1.5px solid var(--ink);border-radius:var(--r-hud);padding:var(--sp-3) 44px var(--sp-3) var(--sp-5);box-shadow:var(--sh-hud);cursor:pointer;font:inherit}
 .rifki .rk-bub b{display:block;font:600 var(--fs-xs) var(--mono);letter-spacing:.16em;color:var(--stamp)}
 .rifki .rk-bub span{display:block;font:400 var(--fs-3)/1.35 var(--ui);margin-top:var(--sp-1)}
@@ -638,8 +640,12 @@ body.idle *,body.idle *::before,body.idle *::after{animation-play-state:paused!i
 .rifki .rk-x:active{background:var(--bg)}
 
 @keyframes rkin{from{transform:translateY(16px);opacity:0}}
+@keyframes rkbreath{50%{transform:scale(1.02)}}
+@keyframes rkblink{0%,94%,100%{transform:none}96.5%{transform:scaleY(.1)}}
 /* boşta animasyonlar durur; ama şeffaf başlayan bu ikisi donarsa görünmez kalır */
 body.idle .rifki,body.idle .rifki *,body.idle .lot .teslim{animation-play-state:running!important}
+/* ...yüzün sonsuz döngüleri (göz kırpma, nefes) ise boşta ve Rıfkı semt özetinin altında gizliyken durur */
+body.idle .rifki .rk-face *,body:has(#sumBar:not([hidden])) #rifki .rk-face *{animation-play-state:paused!important}
 
 /* ---------- semt geçişleri (tasarım G1–G4) ---------- */
 .distbar{display:flex;flex-direction:column;gap:var(--sp-2);min-height:44px;margin-top:var(--sp-3);padding:7px var(--sp-5);border:1.5px solid var(--ink);border-radius:var(--r-lg);background:var(--surface);color:var(--ink);text-align:left;cursor:pointer;box-shadow:var(--sh-1);width:100%;margin-bottom:var(--sp-2)}
@@ -933,6 +939,7 @@ body.idle .sumbar{animation-play-state:running!important}
   .car.taxi::after{animation:none;opacity:.8}
   .snow::before,.snow::after{animation:none}
   .card,.rifki,.sumbar,.lot .teslim{animation:rmFade 140ms linear}
+  .rifki .rk-br,.rifki .rk-eyes{animation:none}
   .guidetab.wig,.sgrid .sc.rd{animation:none}
   .sheet{opacity:0;transition:opacity 140ms linear,transform 0s 140ms}
   .sheet.on{opacity:1;transition:opacity 140ms linear,transform 0s}

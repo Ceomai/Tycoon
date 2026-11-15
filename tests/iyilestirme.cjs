@@ -4,6 +4,7 @@
 // Adım 2b: panel tutamağı/X/sürükleyerek kapatma, tema seçimi, titreşim ayarı, lig hata durumu, açılış hata ekranı.
 // Adım 3: HUD yerleşimi — bindirmeler (Rıfkı, toast, semt özeti, büyük mühür, ipucu) arsalara binmez; küçük ekran/yatay/tablet ölçüleri.
 // Adım 4: animasyonlar (pop, para uçuşu→sayaç, kart kapanışı, panel/semt geçişi, basma, boşta duraklama) ve titreşim; hareketi azalt.
+// Adım 9: Rıfkı Abi'nin yüzü (ifade ipucuna göre; göz kırpma/nefes boşta ve hareketi azalt açıkken durur).
 // Çalıştır: npm run test:iy  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 const {chromium}=require('playwright');
 const { serve, PREF_IF: PREF, state, vis, recorder } = require('./helpers.cjs');
@@ -439,6 +440,31 @@ async function hold(p,sel){
   ok(await p.evaluate(()=>{ const a=document.querySelector('#collectBtn').getAnimations()[0]; return !!a&&a.effect.getKeyframes().every(k=>!k.transform); }),'boş TOPLA: sallama yok, yalnız opaklık yanıp sönmesi');
   ok(!p.errs.length,'konsol temiz'+(p.errs.length?' ['+p.errs.slice(0,2).join('|')+']':''));
   await p.context().close();
+  }
+
+  console.log('14) Rıfkı Abi yüzü: ifade, göz kırpma/nefes, boşta durma, hareketi azalt');
+  { const face=p=>p.evaluate(()=>{ const f=document.querySelector('#rifki .rk-face'); if(!f||document.querySelector('#rifki').hidden) return null;
+      const an=f.getAnimations({subtree:true}); return {svg:!!f.querySelector('svg[viewBox="0 0 120 140"]'),mood:f.dataset.mood,svgMood:f.querySelector('svg')?.dataset.mood,
+        n:an.length,inf:an.filter(a=>a.effect.getTiming().iterations===Infinity).map(a=>a.playState),props:[...new Set(an.flatMap(a=>a.effect.getKeyframes().flatMap(k=>Object.keys(k).filter(x=>!['offset','easing','composite','computedOffset'].includes(x)))))]}; });
+    const show=(p,id)=>p.evaluate(id=>{ document.querySelector('#toast').classList.remove('on'); window.__tapuTest.showTip({id,text:'Deneme ipucu efendim.'}); },id);
+    p=await open(b);
+    const want={full:'warn',goal:'think',save2x:'think',task:'party',ozel:'wow',ob:'wow',iy:'happy'}, got={};
+    for(const id in want){ await show(p,id); const f=await face(p); got[id]=f&&f.svg&&f.mood===f.svgMood?f.mood:'yok'; }
+    ok(Object.keys(want).every(k=>got[k]===want[k]),'ipucuna göre ifade: '+JSON.stringify(got));
+    await show(p,'goal'); await p.waitForTimeout(60); const f1=await face(p);
+    ok(f1&&f1.inf.length===2&&f1.inf.every(s=>s==='running')&&f1.n>=3&&f1.props.every(x=>x==='transform'||x==='opacity'),'açılışta zıplama + sonsuz göz kırpma/nefes (yalnız transform/opacity): '+JSON.stringify(f1&&{n:f1.n,inf:f1.inf,props:f1.props}));
+    await show(p,'task'); ok((await face(p)).inf.length===1,'Kutlama (kapalı, gülen gözler): göz kırpma yok, yalnız nefes');
+    await p.evaluate(()=>window.__tapuTest.showTip({id:'goal',text:'x'})); await p.clock.runFor(31000); // dokunulmadan: boşta
+    await p.evaluate(()=>window.__tapuTest.showTip({id:'goal',text:'x'})); await p.waitForTimeout(600);
+    const f2=await face(p), idle=await p.evaluate(()=>document.body.classList.contains('idle'));
+    ok(idle&&f2&&f2.inf.length===2&&f2.inf.every(s=>s==='paused')&&await p.evaluate(()=>getComputedStyle(document.querySelector('#rifki')).opacity==='1'),'boştayken göz kırpma/nefes duruyor, balon yine görünür: '+JSON.stringify(f2&&f2.inf));
+    await p.evaluate(()=>document.querySelector('#rifki .rk-x').click());
+    ok(await p.evaluate(()=>!document.querySelector('#rifki .rk-face')||document.querySelector('#rifki').hidden),'kapanınca yüz görünmüyor (animasyon çalışmıyor)');
+    await p.emulateMedia({reducedMotion:'reduce'}); await p.clock.runFor(300); await p.waitForTimeout(250); // matchMedia değişim olayı bir karede gelir
+    await show(p,'full'); await p.waitForTimeout(60); const f3=await face(p);
+    ok(f3&&f3.mood==='warn'&&f3.n===0,'hareketi azalt: yüzde hiç animasyon yok (getAnimations boş), ifade yine değişiyor ('+(f3&&f3.n)+')');
+    ok(!p.errs.length,'konsol temiz'+(p.errs.length?' ['+p.errs.slice(0,2).join('|')+']':''));
+    await p.context().close();
   }
   await b.close();
   const pass=results.filter(r=>r.pass).length;
