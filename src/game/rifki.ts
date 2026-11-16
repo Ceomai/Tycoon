@@ -17,6 +17,7 @@ import { saveTarget, boostSaving } from './monetize';
 import { tenantSay, Tenant, TenantEv } from './tenants';
 import { tenantBadge } from '../ui/tenantFace';
 import type { Arch } from './tenants';
+import { ihaleTip, IH } from './auction';
 import { blocks, nearest, pjDistrictOk, pjUnlocked, pjName, kindOf, typesAt } from './projcore';
 
 let last2x = -1e9; // 2x hatırlatması (CFG.HINT2X_EVERY) en fazla bu sıklıkla
@@ -87,6 +88,7 @@ function tips(): Tip[] {
     out.unshift({ id: 'save2x', text: save2xText(q.sp ? 'sp' : q.t, { d: nm(DMAP[tg.k].n), n: Math.round(bs.now), m: Math.max(1, Math.round(bs.now - bs.saved)) }), go: { k: 'plot', key: bs.lot.k, i: bs.lot.i } });
   }
   projectTips(out);
+  const ih = ihaleTip(); if (ih) out.splice(out[0] && out[0].id === 'pjintro' ? 1 : 0, 0, ih); // ihale günü: ihale başına bir kez (proje tanıtımından sonra)
   let best = -1, br = 0;
   lots.forEach((p, i) => { if (producing(p) && !((p!.bu || 0) > tn)) { const r = rate(k, i, tn); if (r > br) { br = r; best = i; } } });
   if (best >= 0 && S.collects > 10) out.push({ id: 'boost', text: boostText(lots[best]!.sp ? 'sp' : lots[best]!.t), go: { k: 'plot', key: k, i: best } });
@@ -117,6 +119,7 @@ export function showTip(tip: Tip) {
   const el = $('#rifki'); if (!el) return;
   current = tip; lastId = tip.id;
   if (tip.id === 'pjintro') S.pjIntro = true; // tanıtım bir kez
+  if (tip.id === 'ihale' && IH().cur) IH().cur!.tip = true; // ihale ipucu ihale başına bir kez
   const mood = moodOf(tip.id); // ifade: ipucu kimliğinden (ui/rifkiFace.ts TIP_MOOD)
   el.innerHTML = `<div class="rk-face" data-mood="${mood}">${rifkiFace(mood)}</div><button class="rk-bub${tip.tn ? ' has-tn' : ''}" data-rk="go"><b>${t('RIFKI ABİ')}</b><span>${tip.text}</span>${tip.tn ? `<i class="rk-tn">${tenantBadge(tip.tn, tip.id === 'tenok' || tip.id === 'tenready' ? 'happy' : 'wait')}</i>` : ''}</button><button class="rk-x" data-rk="x" aria-label="${t('Kapat')}">×</button>`;
   el.hidden = false; faceIn(el.querySelector('.rk-face svg'), reduceMotion); clearTimeout(hideT); hideT = setTimeout(hideTip, 10e3);

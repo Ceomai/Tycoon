@@ -3,6 +3,7 @@
    CFG içindeki değerler Remote Config ile uygulamayı güncellemeden değiştirilebilir.
    ========================================================= */
 import { tk } from './i18n';
+import { setLmRegion } from './landmarks';
 
 export const COLS = 4, ROWS = 5, N = COLS * ROWS;
 
@@ -75,7 +76,10 @@ export let REGION: RegionId = 'tr';
 export function setRegion(r: RegionId) {
   REGION = REGIONS[r] ? r : 'tr';
   CITY_ORDER.splice(0, CITY_ORDER.length, ...REGIONS[REGION].cities);
+  setLmRegion(REGION); // tarihi yapı koleksiyonu bölgeye göre
 }
+/** Şehrin ülkesi (Global'de rakip emlakçı ve ihale yapıları şehrin ülkesine göre). */
+export const cityRegion = (c: CityId): Exclude<RegionId, 'gl'> => (['tr', 'us', 'uk', 'de', 'jp'] as const).find(r => REGIONS[r].cities.includes(c)) || 'tr';
 export const currency = () => REGIONS[REGION].cur;
 // Denge (scripts/sim.ts ile ölçüldü): semtler 15–45 dk'da dolar, tapu beklemesi ≤ ~17 dk
 export const TIER_M = [1, 10, 100, 1000, 10000];       // kademe çarpanı (maliyet)
@@ -165,6 +169,24 @@ export const CFG = {
   PJ_TIME_PCT: 100,            // 1. etap süresi = dört binanın Sv4→5 kat çıkma süresi ortalamasının yüzdesi
   PJ_TIME2: 1.5,               // 2. etap süresi = 1. etap × bu
   PJ_UNLOCK_OWN: 2,            // en az bu kadar semt sahibi olunca açılır (2. tapu)
+  // rakip emlakçı ve ihale (game/auction.ts): isteğe bağlı katman; denge scripts/sim.ts (SIM_IH) ile ölçüldü.
+  // Gün: Date.getDay() (0 Pazar … 6 Cumartesi); saatler yerel. Fiyatlar "dakikalık kira" birimiyle (ihale açılırken sabitlenir).
+  IH_LM_DAY: 1,                // Pazartesi: ülkeye özgü tarihi yapı
+  IH_ARSA_DAY: 4,              // Perşembe: nadir arsa (köşe başı)
+  IH_OPEN_H: 8, IH_CLOSE_H: 23, // ihale penceresi (yerel saat)
+  IH_LATE_MS: 2 * 3600e3,      // son düzlük: rakip tavanının tamamına kadar çıkar
+  IH_EARLY: 0.7,               // son düzlükten önce rakip tavanının bu kadarına kadar çıkar (arketip ±)
+  IH_LM_OPEN: 15,              // açılış: tarihi yapı kaç dakikalık kira
+  IH_ARSA_OPEN: 8,             // açılış: nadir arsa kaç dakikalık kira
+  IH_LM_K: 2.4, IH_ARSA_K: 2.2, // rakip tavanı = açılış × K × arketip × ruh hali × gürültü
+  IH_STEP: 0.1,                // adım = açılışın bu kadarı
+  IH_NOISE: 0.08,              // tavan gürültüsü (±, ihale kimliğinden tohumlu); Rıfkı aralığı bu genişlikte
+  IH_MOOD: 0.1,                // ruh hali: rakip son ihaleyi kaybettiyse ×(1+), kazandıysa ×(1−)
+  IH_LM_X: 0.03,               // ihale yapısı başına tüm kiralara kalıcı bonus (lig kazancına sayılmaz)
+  IH_LM_N: 4,                  // en fazla ihale yapısı (bölge başına)
+  IH_KOSE_X: 0.4,              // köşe başı arsanın kirasına bonus (semt başına 1; lig kazancına sayılmaz)
+  IH_UNLOCK_OWN: 2,            // en az bu kadar semt sahibi olunca (ya da Holding kurulmuşsa) açılır
+  IH_SHOW_MS: 12 * 3600e3,     // sonuç kartı en geç bu kadar sonra gösterilmez (yok sayan oyuncuya kart yok)
 };
 export type Cfg = typeof CFG;
 

@@ -26,7 +26,7 @@ try {
 
 /** Alt panel türleri (sheets/ altında her birinin modülü var; kayıt tablosu sheets.ts). */
 export type SheetKind = 'plot' | 'skin' | 'map' | 'set' | 'menu' | 'tasks' | 'coll' | 'lb' | 'leagues' | 'ref' | 'arsiv' | 'sezon' | 'ozel'
-  | 'guide' | 'guideItem' | 'store' | 'holding' | 'kiraci' | 'defter' | 'proj';
+  | 'guide' | 'guideItem' | 'store' | 'holding' | 'kiraci' | 'defter' | 'proj' | 'ihale' | 'kose';
 /** Açık panelin durumu. key/i: arsa (plot, skin) ya da kılavuz maddesi (guideItem: i). del/conf/reset: "Emin misin?" onayı
  *  (3 sn sonra kendiliğinden düşer). req/v/err: lig tablosu isteği ve sonucu (lb). sel: arşivde seçili mühür. */
 export interface SheetState {
@@ -34,6 +34,7 @@ export interface SheetState {
   del?: boolean; conf?: boolean; reset?: boolean;
   req?: boolean; v?: unknown; err?: boolean;
   sel?: string;
+  draft?: number;                  // ihale: vekâlet adımlayıcısındaki tutar
 }
 /** Oyun katmanının arayüze geri çağrıları. Oyun modülleri panel ve tahta modüllerini (ui/sheets, ui/board) doğrudan içe
  *  aktarmaz (döngüsel bağımlılık olmasın); o modüller yüklenince kendi işlevlerini buraya kaydeder (sheets/core.ts, board.ts).

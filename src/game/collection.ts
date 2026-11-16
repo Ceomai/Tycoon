@@ -5,17 +5,18 @@ import { LM, lmSvg, Landmark } from '../landmarks';
 import { svg } from '../draw';
 import { I } from '../icons';
 import { fmtX, weekKey } from '../format';
-import { t } from '../i18n';
+import { t, pn } from '../i18n';
 import { now } from '../economy';
 import { Snd, buzz } from '../sound';
 import { ui, view } from '../ui/ctx';
 import { openModal, closeModal } from '../ui/modal';
 import { persist } from './persist';
 import { Analytics } from '../services/analytics';
+import { ihaleHolding } from './auccore';
 
 export const lmLeft = (): Landmark[] => LM.filter(l => !S.coll.includes(l.id));
 export function landmarkCard(l: Landmark, extra = '') {
-  return `<div class="card"><div class="lmhero bpbg">${svg(lmSvg(l.id))}</div><h3>${t(l.n)}</h3><p>${t('Koleksiyonuna eklendi. Tüm kiralar kalıcı olarak %5 arttı.')}${extra}</p>
+  return `<div class="card"><div class="lmhero bpbg">${svg(lmSvg(l.id))}</div><h3>${pn(t(l.n))}</h3><p>${t('Koleksiyonuna eklendi. Tüm kiralar kalıcı olarak %5 arttı.')}${extra}</p>
     <div class="btns"><button class="btn" data-a="ok" data-back>${t('Harika')}</button></div></div>`;
 }
 
@@ -28,7 +29,7 @@ export function doHolding() {
   const fresh = newState(now(), weekKey(new Date(now())), S.city);
   S.shares = (S.shares || 0) + n;
   for (const k of S.own) for (const q of lotsOf(S, k)) if (q && q.sp) S.inv.push(q.sp); // özel yapılar korunur
-  S.lien = {}; S.lienT = {}; S.dEarn = {};
+  S.lien = {}; S.lienT = {}; S.dEarn = {}; ihaleHolding(); // köşe başı semtle gider; ihale yapıları kalır
   Object.assign(S, { cash: 150, earned: 0, own: fresh.own, cur: fresh.cur, d: fresh.d, fx: [], disc: 0, offer: null, ten: [], nextTen: 0 }); // kiracılar binalarla gider; kiracı defteri (tdef) kalır
   lotsOf(S, S.cur);
   ui.tileSig = []; ui.linkSig = ''; view.closeSheet(); persist(); view.render(); Snd.unlock(); buzz.success();

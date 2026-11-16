@@ -1,4 +1,5 @@
-import { BuildingType, CityId, DistrictKey, N, COLS, ROWS, SCHEMA, dkey, CFG, DMAP, TYPES, MAXLV, CITY_ORDER, OBSTACLE_IDS } from './config';
+import { BuildingType, CityId, DistrictKey, N, COLS, ROWS, SCHEMA, dkey, CFG, DMAP, TYPES, MAXLV, CITY_ORDER, OBSTACLE_IDS, REGION, CITIES } from './config';
+import { IHALE_IDS, migrateColl } from './landmarks';
 import type { Tenant } from './game/tenants';
 
 export interface Skin { c?: number; r?: number; s?: boolean; }
@@ -9,6 +10,19 @@ export type Lot = Plot | null;
 export interface Pj { a: number; kd: PjKind; st: number; until: number; dur: number; }
 export type PjKind = 'site' | 'carsi' | 'plaza' | 'karma';
 export const PJ_KINDS: readonly PjKind[] = ['site', 'carsi', 'plaza', 'karma'];
+/** İhale (game/auccore.ts). kind: lm tarihi yapı · arsa köşe başı. Tutarlar oyun parası; rv: rakip (şehrin emlakçısı).
+ *  my: oyuncunun vekâleti (0 = katılmadı) · held: kasadan ayrılan emanet (önde olunan fiyat) · log: son teklifler (görünüm). */
+export type AucKind = 'lm' | 'arsa';
+export interface Bid { who: 'me' | 'rv'; v: number; at: number }
+export interface Auction {
+  id: string; kind: AucKind; prize: string; city: CityId; rv: string; open: number; close: number;
+  start: number; step: number; cap: number; capLo: number; capHi: number; early: number;
+  my: number; held: number; log: Bid[]; done?: 'won' | 'lost'; paid?: number;
+  seen?: boolean; tip?: boolean; lateSaid?: boolean; cutSaid?: boolean;
+}
+/** rm: rakip → son sonucun ruh hali (+1 hırslı, −1 kasası boşalmış) · got: İhale salonu yapıları · kose: "semt:arsa" köşe başı
+ *  damgaları · kp: vurulmayı bekleyen damga · intro: Rıfkı rakibi tanıttı mı · skip: ödülsüz geçen pencere. */
+export interface IhaleState { cur: Auction | null; rm: Record<string, number>; got: string[]; kose: string[]; kp: number; intro: boolean; wins: number; losses: number; skip?: string }
 export interface Fx { k: 'row' | 'type'; d?: DistrictKey; r?: number; t?: BuildingType; x: number; until: number; }
 export interface Task { k: string; goal: number; prog: number; claimed: boolean; }
 export interface Offer { k: string; goal: number; prog: number; until: number; title: string; rw: number; done: boolean; }
@@ -64,6 +78,7 @@ export interface State {
   nextTen: number;                 // sonraki kiracı adayı (oyun süresi, ms; 0 = henüz açılmadı)
   pj: Record<DistrictKey, Pj[]>;   // büyük projeler (arsa birleştirme), semt başına en fazla CFG.PJ_MAX
   pjIntro: boolean;                // Rıfkı projeleri bir kez tanıttı mı
+  ihale: IhaleState;               // rakip emlakçı ve ihale (game/auccore.ts)
   clubDay: string;                 // Kulüp günlük jetonunun verildiği gün // tapu sezonu // lig (kaynak sunucu; bu önbellek), last = gösterilen son hafta sonucu
 }
 
@@ -89,6 +104,7 @@ export function newState(now: number, weekKey: string, city: CityId | null = nul
     market: '', ach: [], cnt: { ob: 0, civic: 0, skin: 0, kapora: 0 }, civic: {}, nextCivic: 12 * 60e3, night: true, vib: true, tokens: 0, skinsU: [], season: { id: '', xp: 0, got: [], ggot: [], gold: false },
     noAds: false, club: false, starter: { at: 0, bought: false }, seasonFirst: false, adCredit: 0, clubDay: '',
     ten: [], tdef: {}, nextTen: 0, pj: {}, pjIntro: false,
+    ihale: { cur: null, rm: {}, got: [], kose: [], kp: 0, intro: false, wins: 0, losses: 0 },
   };
 }
 
@@ -186,6 +202,34 @@ function cleanPj(x: unknown, own: DistrictKey[], d: Record<string, Lot[]>, now: 
     return out.length ? out : undefined;
   });
 }
+/** İhale: bilinmeyen yapı / bozuk damga düşer; süren ihale alan alan doğrulanır (bozuksa düşer, emaneti kasaya döner). */
+const IH_LEN_MAX = 26 * 3600e3, MAX_RM = 64;
+function cleanAuction(q: unknown): Auction | null {
+  const f = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
+  if (!isObj(q) || typeof q.id !== 'string' || (q.kind !== 'lm' && q.kind !== 'arsa') || typeof q.prize !== 'string' || typeof q.rv !== 'string' || typeof q.city !== 'string' || !CITIES[q.city]) return null;
+  if (q.kind === 'lm' && !IHALE_IDS.includes(q.prize)) return null;
+  if (![q.open, q.close, q.start, q.step, q.cap, q.capLo, q.capHi, q.early, q.my, q.held].every(f)) return null;
+  if (!(q.close > q.open) || q.close - q.open > IH_LEN_MAX || !(q.step > 0) || !(q.start > 0) || q.cap < q.start || q.my < 0 || q.held < 0 || q.held > MAX_CASH) return null;
+  const a: Auction = { id: q.id, kind: q.kind, prize: q.prize, city: q.city, rv: q.rv, open: q.open, close: q.close, start: q.start, step: q.step, cap: q.cap,
+    capLo: q.capLo, capHi: q.capHi, early: Math.min(0.95, Math.max(0.3, q.early)), my: q.my, held: q.held,
+    log: Array.isArray(q.log) ? q.log.filter((b: any) => isObj(b) && (b.who === 'me' || b.who === 'rv') && f(b.v) && f(b.at)).slice(-12).map((b: any) => ({ who: b.who, v: b.v, at: b.at })) : [] };
+  if (q.done === 'won' || q.done === 'lost') { a.done = q.done; a.held = 0; if (f(q.paid)) a.paid = q.paid; }
+  for (const k of ['seen', 'tip', 'lateSaid', 'cutSaid'] as const) if (q[k] === true) a[k] = true;
+  return a;
+}
+function cleanIhale(x: unknown, own: DistrictKey[], out: any): IhaleState {
+  const q = isObj(x) ? x : {};
+  const cur = cleanAuction(q.cur);
+  if (!cur && isObj(q.cur) && typeof q.cur.held === 'number' && Number.isFinite(q.cur.held) && q.cur.held > 0 && !q.cur.done) out.cash = Math.min(MAX_CASH, out.cash + Math.min(q.cur.held, MAX_CASH)); // bozuk ihale: emanet kaybolmasın
+  const rm: Record<string, number> = {};
+  if (isObj(q.rm)) for (const k of Object.keys(q.rm).slice(0, MAX_RM)) { const v = q.rm[k]; if (v === 1 || v === -1) rm[k] = v; }
+  const got = [...new Set(strs(q.got).filter(id => IHALE_IDS.includes(id)))];
+  const kose: string[] = [], used = new Set<string>();
+  for (const v of strs(q.kose)) { const [k, i] = v.split(':'); if (!own.includes(k) || used.has(k) || !/^\d+$/.test(i || '') || +i >= N) continue; used.add(k); kose.push(k + ':' + +i); }
+  const r: IhaleState = { cur, rm, got, kose, kp: Math.floor(num(q.kp, 0, 0, 64)), intro: q.intro === true, wins: Math.floor(num(q.wins, 0, 0, 1e6)), losses: Math.floor(num(q.losses, 0, 0, 1e6)) };
+  if (typeof q.skip === 'string') r.skip = q.skip;
+  return r;
+}
 function sanitize(s: any, now: number, weekKey: string): State {
   const own = [...new Set(strs(s.own).filter(isD))].filter(k => CITY_ORDER.includes(DMAP[k].city)); // yalnızca etkin bölgenin semtleri
   // city: null = şehir henüz seçilmemiş (ilk açılış yarım kaldı): semtlerden türetilmez, oyuncu şehir seçer.
@@ -213,7 +257,7 @@ function sanitize(s: any, now: number, weekKey: string): State {
   out.cash = num(s.cash, 0, 0, MAX_CASH); out.earned = num(s.earned, 0, 0, MAX_CASH);
   out.disc = num(s.disc, 0, 0, 0.9); out.shares = Math.floor(num(s.shares, 0, 0, 1e6)); out.tokens = Math.floor(num(s.tokens, 0, 0, 1e6));
   out.fx = Array.isArray(s.fx) ? s.fx.filter((f: any) => isObj(f) && (f.k === 'row' || f.k === 'type') && Number.isFinite(f.x) && Number.isFinite(f.until)) : [];
-  out.inv = strs(s.inv); out.coll = strs(s.coll); out.cards = strs(s.cards); out.ach = strs(s.ach); out.skinsU = nums(s.skinsU);
+  out.inv = strs(s.inv); out.coll = migrateColl(strs(s.coll), REGION); out.cards = strs(s.cards); out.ach = strs(s.ach); out.skinsU = nums(s.skinsU);
   out.stars = rec(s.stars, v => (Array.isArray(v) ? nums(v) : undefined));
   out.lien = rec(s.lien, v => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined));
   out.lienT = rec(s.lienT, v => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined));
@@ -227,6 +271,7 @@ function sanitize(s: any, now: number, weekKey: string): State {
     ? { k: o.k, goal: o.goal, prog: Math.max(0, o.prog), until: o.until, title: o.title, rw: o.rw, done: o.done === true } : null;
   out.pj = cleanPj(s.pj, out.own, out.d, now); out.pjIntro = s.pjIntro === true;
   out.ten = cleanTenants(s.ten, out.own, out.playMs); out.tdef = cleanTdef(s.tdef); out.nextTen = num(s.nextTen, 0, 0);
+  out.ihale = cleanIhale(s.ihale, out.own, out);
   if (!out.ref.code || typeof out.ref.code !== 'string') out.ref = base.ref;
   if (out.collectMode !== 'auto') out.collectMode = 'tap';
   return out as State;

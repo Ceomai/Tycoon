@@ -22,6 +22,7 @@ import { openSheet, renderSheet } from './sheets';
 import { tasksClaimable } from '../game/tasks';
 import { canHolding } from '../game/collection';
 import { tenantAt, wishTargets, wishType, handKey, tName, Tenant } from '../game/tenants';
+import { IH, ihaleUnlocked, standing, prizeName, rvOf, rvName, koseOf } from '../game/auction';
 import { tenantBadge } from './tenantFace';
 
 export function render() {
@@ -55,6 +56,15 @@ export function render() {
     const ttl = t(o.title); if (op.dataset.v !== ttl) { op.dataset.v = ttl; op.innerHTML = `<span class="otl">${esc(ttl)}</span><i><b></b></i><span class="opg"></span><span class="ot"></span>`; }
     setFill(op.querySelector('i b'), o.prog / o.goal); setText(op.querySelector('.opg'), `${o.prog}/${o.goal}`); setText(op.querySelector('.ot'), clock(o.until - tn)); op.hidden = false;
   } else op.hidden = true;
+  { // ihale hapı: nokta yeşil = sen öndesin, kırmızı = rakip; kapanışa geri sayım
+    const ip = $('#ihalePill'), a = IH().cur;
+    if (a && !a.done && tn < a.close && ihaleUnlocked()) {
+      const st = standing(a, tn), v = a.id + st.lead;
+      if (ip.dataset.v !== v) { ip.dataset.v = v; ip.innerHTML = `<span class="ihd ${st.lead}"></span><span class="otl">${t('İhale')} · ${prizeName(a)}</span><span class="ot"></span>`;
+        ip.setAttribute('aria-label', (st.lead === 'me' ? t('İhale: {p} · öndesin', { p: prizeName(a, false) }) : t('İhale: {p} · {r} önde', { p: prizeName(a, false), r: rvName(rvOf(a), false) }))); }
+      setText(ip.querySelector('.ot'), clock(Math.max(0, a.close - tn))); ip.hidden = false;
+    } else ip.hidden = true;
+  }
   $('#taskDot').hidden = !tasksClaimable();
   $('#menuDot').hidden = !(canHolding() || seasonClaimable());
   // orta mühür: TOPLA (bekleyen kira + kumbara doluluğu) ya da OTO (saniyelik kira)
@@ -94,16 +104,17 @@ export function render() {
       const ts = ui.teslim[i] && ui.teslim[i].at > performance.now() ? 1 : 0;
       sig = [JSON.stringify(p.sk || ''), p.t, p.sp || '', p.lvl, p.until ? 1 : 0, prog, cd, ts, coin, lb, hot ? 1 : 0, mergeSides(i), d.v].join('|');
     }
-    sig += '|' + tsig;
+    const ks = koseOf(k) === i; // köşe başı damgası (ihale)
+    sig += '|' + tsig + (ks ? '|K' : '');
     if (sig === ui.tileSig[i]) continue;
     ui.tileSig[i] = sig;
     if (!p) {
       el.className = 'lot' + (i === hintI ? ' hint' : '') + (lockE ? ' lk' : ''); el.style.cssText = '';
       const tsl = ui.teslim[i] && ui.teslim[i].at > performance.now() ? `<span class="teslim"><b>${t('TEMİZ')}</b><small>${ui.teslim[i].txt}</small></span>` : '';
-      el.innerHTML = svg(emptyLot(i), 'art') + (lockE ? `<span class="lkb">${I.lock}</span>` : '') + tsl + tenantHtml(tq)
+      el.innerHTML = svg(emptyLot(i), 'art') + (ks ? KOSE_TAG : '') + (lockE ? `<span class="lkb">${I.lock}</span>` : '') + tsl + tenantHtml(tq)
         + (tg ? `<span class="tgt"><b>${upper(t(TYPES[wishType(tg)!].n))}?</b></span>` : '');
       if (tg) el.classList.add('tq');
-      el.setAttribute('aria-label', (lockE ? t('Kilitli arsa (kapora borcu)') : t('Boş arsa')) + tenantAria(tq) + (tg ? t(', kiracı burada {b} istiyor', { b: lowTxt(t(TYPES[wishType(tg)!].n)) }) : '')); continue;
+      el.setAttribute('aria-label', (lockE ? t('Kilitli arsa (kapora borcu)') : t('Boş arsa')) + (ks ? t(', köşe başı') : '') + tenantAria(tq) + (tg ? t(', kiracı burada {b} istiyor', { b: lowTxt(t(TYPES[wishType(tg)!].n)) }) : '')); continue;
     }
     if (p.ob) { el.className = 'lot ob'; el.style.cssText = ''; el.innerHTML = svg(obstacleSvg(p.ob), 'art') + `<span class="obn">${t(OBSTACLES[p.ob].n)}</span>`; el.setAttribute('aria-label', t('{name}: temizlenmesi gerekiyor', { name: t(OBSTACLES[p.ob].n) })); continue; }
     const prog = p.until ? Math.min(1, 1 - (p.until - tn) / p.dur) : 1;
@@ -121,14 +132,17 @@ export function render() {
     if (producing(p) && S.collectMode !== 'auto') { const f = coinFill(k, i); h += `<span class="fill${f >= .999 ? ' full' : ''}"><i style="transform:${fillTf(f)}"></i></span>`; }
     if ((p.bu || 0) > tn) h += '<span class="lb2">2x</span>';
     h += tenantHtml(tq);
+    if (ks) h += KOSE_TAG;
     if (p.sk && p.sk.s && !p.until) h += `<span class="tab">${p.sp ? t('ÖZEL') : upper(t(TYPES[p.t].n))}</span>`;
     el.innerHTML = h; el.style.cssText = skinStyle(p);
-    el.setAttribute('aria-label', t('{name}, seviye {lvl}', { name: p.sp ? t(specialOf(p.sp).n) : t(TYPES[p.t].n), lvl: p.lvl }) + (p.until ? t(', inşaatta') : '') + ((p.bu || 0) > tn ? t(', 2x kazanıyor') : '') + tenantAria(tq));
+    el.setAttribute('aria-label', t('{name}, seviye {lvl}', { name: p.sp ? t(specialOf(p.sp).n) : t(TYPES[p.t].n), lvl: p.lvl }) + (p.until ? t(', inşaatta') : '') + ((p.bu || 0) > tn ? t(', 2x kazanıyor') : '') + (ks ? t(', köşe başı') : '') + tenantAria(tq));
   }
   if (ui.pop.size) { for (const i of ui.pop) pop(ui.tiles[i] && ui.tiles[i].querySelector('svg.art')); ui.pop.clear(); } // inşaat başlangıcı / teslim
   renderLinks(); renderBubble(); renderPjSelect();
   if (ui.sheet) renderSheet();
 }
+/** Köşe başı damgası: karonun köşesinde küçük kırmızı bayrak. */
+const KOSE_TAG = '<span class="kose" aria-hidden="true"><i></i></span>';
 let ringV = -1;
 /** Kiracı rozeti: yuvarlak yüz + kalan süre halkası (bekliyor: kırmızı, azalır), köşede "…" (bekliyor), altın anahtar
  *  (teslime hazır: tek dokunuşla yerleşir), kalp (yerleşti). Dokunma hedefi karonun tamamı. */

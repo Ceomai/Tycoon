@@ -6,11 +6,13 @@ import { SERVER_FEATURES, CFG, TYPES, ORDER, LV_INC, UP_COST, UP_TIME, MAXLV, TI
 import { S } from '../state';
 import { fmt, fmtTime } from '../format';
 import { LM, lmSvg } from '../landmarks';
+import { rivalFace } from '../ui/rivalFace';
+import { rivalHere, calText } from './auction';
 import { bld, svg } from '../draw';
 import { I } from '../icons';
 import { SPECIALS, specialSvg, weekSpecial } from '../specials';
 import { ACH, SEASON_LV, XP_PER } from './fun';
-import { t, nm, pctTxt, loc, lowTxt, LANG } from '../i18n';
+import { t, nm, pctTxt, loc, lowTxt, LANG, pn } from '../i18n';
 
 export interface Chapter { t: string; s: string; isNew?: boolean; art: () => string; body: string[]; facts: [string, string][]; tip?: string; }
 
@@ -175,10 +177,20 @@ export function chapters(): Chapter[] {
       t: t('Tarihi yapılar'), s: t('Her biri +%5 · hepsi ek +%10'),
       art: () => svg(lmSvg(LM[0].id), 'art'),
       body: [
-        t('{n} tarihi yapı var: {list}.', { n: LM.length, list: LM.map(l => t(l.n)).join(', ') }),
+        t('{n} tarihi yapı var: {list}.', { n: LM.length, list: LM.map(l => pn(t(l.n))).join(', ') }),
         t('Etkinliklerden ve altın taksiden çıkarlar. Her yapı tüm kiralarını kalıcı olarak artırır; koleksiyon Holding kursan da silinmez.'),
       ],
       facts: [[t('Yapı başına'), t('+%5 kalıcı')], [t('Hepsini toplayana'), t('ek +%10')], [t('Şu an'), `${S.coll.length}/${LM.length}`]],
+    },
+    {
+      t: t('Rakip ve ihale'), s: t('Pazartesi tarihi yapı · Perşembe nadir arsa'), isNew: true,
+      art: () => rivalFace(rivalHere().id, 'smug'),
+      body: [
+        t('İkinci semtin tapusunu alınca her şehrin rakip emlakçısıyla ihaleye girersin: {cal}. Vekâlet (en fazla ne vereceğin) verirsin; oyun senin yerine adım adım artırır.', { cal: calText() }),
+        t('Rakip kurallara uyar: tavanını ihale açılırken belirler ve değiştirmez, son saniyede kapmaz. Son {h} saatte tavanına kadar çıkar. Kazanırsan rakibin sınırının bir adım üstünü ödersin.', { h: Math.round(CFG.IH_LATE_MS / 3600e3) }),
+        t('Kasadan yalnızca önde olduğun fiyat ayrılır; geçilir ya da kaybedersen para kasana döner. Katılmamak hiçbir şey kaybettirmez. İhale ödülleri lig puanına sayılmaz.'),
+      ],
+      facts: [[t('Tarihi yapı'), t('İhale salonu · tüm kiralar +{p}', { p: pct(CFG.IH_LM_X) })], [t('Nadir arsa'), t('köşe başı · o arsa +{p}', { p: pct(CFG.IH_KOSE_X) })], [t('Kaybedersen'), t('ceza yok')]],
     },
     {
       t: t('Haftanın özel tapusu'), s: t('Her hafta bir nadir yapı'), isNew: true,

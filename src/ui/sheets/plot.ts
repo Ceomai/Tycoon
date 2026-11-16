@@ -14,6 +14,7 @@ import { t, tk, nm, pctTxt } from '../../i18n';
 import { Panel, STAY, openSheet, lv, lvBar, discBox, later } from './core';
 import { tenantAt, wishTargets, wishType, tName, wishShort, nbAsk, handKey, inProgress, bonusPct, Tenant } from '../../game/tenants';
 import { tenantBadge } from '../tenantFace';
+import { IH, koseOf } from '../../game/auccore';
 import { blocks, nearest, pjUnlocked, pjDistrictOk, pjName, styleOf, kindOf, typesAt, pjCost, pjMinLv, pjMax, pjLienWarn } from '../../game/project';
 import { projSvg, psvg } from '../../projdraw';
 
@@ -41,7 +42,7 @@ export const plot: Panel<PlotC> = {
     const canUp = c.canUp = p.lvl < MAXLV && !p.sp, uc = c.uc = canUp ? withDisc(upCost(k, p)) : 0, afford = c.afford = canUp && S.cash >= uc, a = c.a = adj(k, i);
     c.pa = pairAdj(k, i); c.sa = spAdj(k, i);
     const lbLeft = c.lbLeft = Math.max(0, (p.bu || 0) - tn);
-    return 'b' + tenSig(k, i) + pjOfferSig(k, i) + '|' + S.tokens + p.t + p.lvl + (afford ? 1 : 0) + a + (S.boostUntil > tn ? Math.ceil((S.boostUntil - tn) / 60e3) : 0) + '|' + Math.ceil(lbLeft / 60e3) + fxMult(k, i, p, tn) + S.disc + (s.del ? 1 : 0);
+    return 'b' + tenSig(k, i) + pjOfferSig(k, i) + '|' + S.tokens + p.t + p.lvl + (afford ? 1 : 0) + a + (S.boostUntil > tn ? Math.ceil((S.boostUntil - tn) / 60e3) : 0) + '|' + Math.ceil(lbLeft / 60e3) + fxMult(k, i, p, tn) + S.disc + (s.del ? 1 : 0) + '|' + IH().kp + koseOf(k);
   },
   render(s, tn, c) {
     const { k, i, p } = c;
@@ -89,6 +90,7 @@ export const plot: Panel<PlotC> = {
             ${sa ? `<div><span>${t('Özel yapı komşusu')}</span><i></i><b>+${pctTxt(Math.round(sa * CFG.SP_ADJ * 100))}</b></div>` : ''}`}
             ${!sp && DRULES[k] && (ruleMult(k, i, p.t) > 1 || DRULES[k].kind === 'pair' && pa || DRULES[k].kind === 'speed' || DRULES[k].kind === 'upDisc') ? `<div class="rule"><span>${t('Semt kuralı')} · ${t(DRULES[k].n)}</span><i></i><b>${t(DRULES[k].t).replace(/ \(.*\)/, '')}</b></div>` : ''}
             ${tenantAt(k, i)?.st === 'live' ? `<div><span>${t('Kiracı · {n}', { n: tName(tenantAt(k, i)!.a, k)[0] })}</span><i></i><b class="up">+${bonusPct()}</b></div>` : ''}
+            ${koseOf(k) === i ? `<div><span>${t('Köşe başı arsa')}</span><i></i><b class="up">+${pctTxt(Math.round(CFG.IH_KOSE_X * 100))}</b></div>` : ''}
             ${districtMult(k) > 1 ? `<div><span>${t('3 yıldızlı semt')}</span><i></i><b>+${pctTxt(Math.round(CFG.STAR_BONUS * 100))}</b></div>` : ''}
             ${lbLeft > 0 ? `<div><span>${t('Bu mülke 2x')}</span><i></i><b class="red">${t('{s} kaldı', { s: fmtTime(lbLeft) })}</b></div>` : ''}
             ${S.boostUntil > tn ? `<div><span>${t('Tüm mülklere 2x')}</span><i></i><b class="red">${t('{s} kaldı', { s: fmtTime(S.boostUntil - tn) })}</b></div>` : ''}
@@ -97,6 +99,7 @@ export const plot: Panel<PlotC> = {
           <div class="btns">${canUp ? `<button class="btn" data-a="up" ${afford ? '' : 'disabled'}>${t('Kat çık')} · ${fmt(uc)} <small>${fmtTime(upTime(k, p))}</small></button>` : sp ? '' : `<button class="btn" disabled>${t('Son seviye')}</button>`}
           <button class="btn gold lotb" data-a="lotboost" ${lbLeft > CFG.LOT_BOOST_MAX - CFG.LOT_BOOST / 2 ? 'disabled' : ''}><span class="lbl">${I.play} ${t('İzle · bu mülke 2x')}</span><small>${t('+1 saat')}${lbLeft ? ' · ' + t('en fazla 4 saat') : ''}</small></button>
           ${S.tokens > 0 ? `<button class="btn soft" data-a="token" ${lbLeft > CFG.LOT_BOOST_MAX - CFG.LOT_BOOST / 2 ? 'disabled' : ''}>${t('2x jetonu kullan · {n} jeton', { n: S.tokens })}</button>` : ''}
+          ${IH().kp > 0 && koseOf(k) < 0 ? `<button class="btn soft" data-a="kose">${t('Köşe başı damgası vur · kira +{p}', { p: pctTxt(Math.round(CFG.IH_KOSE_X * 100)) })}</button>` : ''}
           <button class="txt" data-a="skin">${t('Görünümü değiştir')}</button></div>`;
   },
   /** İnşaat: şantiye çizimi (%5 adım), ilerleme çubuğu, yüzde ve geri sayım her çizimde yerinde güncellenir. */
@@ -117,6 +120,7 @@ export const plot: Panel<PlotC> = {
     if (a === 'tcard') { openSheet({ k: 'kiraci', key: btn.dataset.k!, i: +btn.dataset.i! }); return STAY; }
     if (a === 'tkey') { const x = tenantAt(btn.dataset.k!, +btn.dataset.i!); if (x) handKey(x); ui.sheetSig = ''; return STAY; }
     if (a === 'payoff') { closeLien(k); ui.sheetSig = ''; return STAY; }
+    if (a === 'kose') { openSheet({ k: 'kose', key: k, i }); return STAY; }
     if (a === 'build') { build(k, i, btn.dataset.t as BuildingType); return STAY; }
     if (a === 'up') upgrade(k, i);
     if (a === 'skip') skip(k, i);

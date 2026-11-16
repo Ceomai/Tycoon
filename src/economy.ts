@@ -129,10 +129,29 @@ export function pjOf(k: DistrictKey, i: number): Pj | null {
 /** Tamamlanan etabın bonusu (0: ilk inşaat sürüyor). */
 export const pjX = (st: number) => (st >= 2 ? CFG.PJ_X2 : st >= 1 ? CFG.PJ_X1 : 0);
 export const pjMult = (k: DistrictKey, i: number) => { const q = pjOf(k, i); return q ? 1 + pjX(q.st) : 1; };
+/* ---------- ihale ödülleri (game/auccore.ts): ihale yapıları tüm kiralara kalıcı +CFG.IH_LM_X (her biri), köşe başı arsa
+   o arsaya +CFG.IH_KOSE_X. Haftalık lig kazancına SAYILMAZ: addCash lig sayacına bu çarpana bölünmüş payı yazar
+   (toplanan kumbara için arsa arsa ihaleLotMult, diğer kazançlar için leagueShare). Kiracı ve proje bonusu sayılır. */
+let ihOff = false;
+export const ihaleB = () => { const ih = S.ihale; return ih && ih.got.length ? Math.min(ih.got.length, Math.max(0, Math.floor(CFG.IH_LM_N))) * CFG.IH_LM_X : 0; };
+export function koseM(k: DistrictKey, i: number): number {
+  const L = S.ihale && S.ihale.kose; if (!L || !L.length) return 1;
+  return L.includes(k + ':' + i) ? 1 + CFG.IH_KOSE_X : 1;
+}
+/** Arsanın kirasındaki ihale çarpanı (1 = yok). */
+export const ihaleLotMult = (k: DistrictKey, i: number) => (ihOff ? 1 : (1 + ihaleB()) * koseM(k, i));
+/** f'yi ihale ödülleri olmadan hesaplar. */
+export function withoutIhale<T>(f: () => T): T { const o = ihOff; ihOff = true; try { return f(); } finally { ihOff = o; } }
+/** Lig payı: toplam kiranın ihale ödülleri dışındaki oranı (ödül yoksa tam 1). */
+export function leagueShare(): number {
+  const ih = S.ihale; if (!ih || (!ih.got.length && !ih.kose.length)) return 1;
+  const all = totalRate(false); if (!(all > 0)) return 1 / (1 + ihaleB());
+  return Math.min(1, withoutIhale(() => totalRateRaw(false)) / all);
+}
 export function baseRate(k: DistrictKey, i: number): number {
   const p = lotsOf(S, k)[i]; if (!producing(p)) return 0;
-  if (p!.sp) return specialBase(k, i) * permMult() * districtMult(k);
-  return TYPES[p!.t].inc * LV_INC[p!.lvl] * incM(k) * (1 + neighborBonus(k, i)) * ruleMult(k, i, p!.t) * marketMult(p!.t, curWeek()) * civicMult(k, p!.t) * permMult() * districtMult(k) * (tenantMult(k, i) + pjMult(k, i) - 1);
+  if (p!.sp) return specialBase(k, i) * permMult() * districtMult(k) * ihaleLotMult(k, i);
+  return TYPES[p!.t].inc * LV_INC[p!.lvl] * incM(k) * (1 + neighborBonus(k, i)) * ruleMult(k, i, p!.t) * marketMult(p!.t, curWeek()) * civicMult(k, p!.t) * permMult() * districtMult(k) * (tenantMult(k, i) + pjMult(k, i) - 1) * ihaleLotMult(k, i);
 }
 export function rate(k: DistrictKey, i: number, t = now()): number {
   const b = baseRate(k, i); if (!b) return 0;

@@ -1073,3 +1073,108 @@ body.idle .sumbar{animation-play-state:running!important}
 .pj-head .sh-t h3{text-transform:none;overflow-wrap:anywhere}
 @media (max-height:440px){ .card.pjcard .pjart{height:96px} }
 @media (prefers-reduced-motion: reduce){ .pjframe{animation:none;box-shadow:0 0 0 4px color-mix(in srgb,var(--haz) 35%,transparent)} .lot.pj .pjprog u{transition:none} }
+
+/* =====================================================================================================
+   İHALE — rakip emlakçı (rivalFace.ts), ihale paneli ve köşe başı seçimi (sheets/ihale.ts), sonuç kartı (game/auction.ts)
+   ===================================================================================================== */
+:root{--rv-card:var(--L,#efe6f3) var(--D,#1d1724); /* rakip kartı: Rıfkı'nın krem kartından ayrışan soluk mor */
+  --vg:var(--L,#8cbfae) var(--D,#5b8f80); --vg2:var(--L,#6aa392) var(--D,#46766a); --me-ok:var(--L,#2c6e49) var(--D,#6cc093)}
+svg .vg{fill:var(--vg)} svg .vg2{fill:var(--vg2)}
+/* tahtadaki ihale hapı (fırsat hapının yanında; önde olan: yeşil nokta, rakip: kırmızı) */
+.ihpill{background:var(--surface);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.ihpill .ot{color:var(--stamp)}
+.ihd{width:9px;height:9px;flex:none;border-radius:var(--r-round);background:var(--stamp);box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px currentColor}
+.ihd.me{background:var(--me-ok)}
+/* portreler */
+.ih-face{flex:none;width:64px}
+.ih-face svg{display:block;width:100%;height:auto}
+.ih-face.sm{width:44px}
+.ih-duo{display:flex;align-items:center;justify-content:center;gap:var(--sp-5);margin:var(--sp-2) 0 var(--sp-7)}
+.ih-duo .ih-face{width:96px}
+.ih-duo .ih-face.rv{transform:rotate(3deg)} .ih-duo .ih-face:first-child{transform:rotate(-3deg)}
+.ih-vs{font:700 var(--fs-10)/1 var(--cond);color:var(--stamp);letter-spacing:.04em}
+/* konuşma balonu (Rıfkı / rakip) */
+.ih-say{flex:1;min-width:0;text-align:left;background:var(--surface);color:var(--ink);border:1.5px solid var(--ink);border-radius:var(--r-hud);padding:var(--sp-3) var(--sp-5);position:relative}
+.ih-say>b{display:block;text-transform:uppercase;font:600 var(--fs-xs) var(--mono);letter-spacing:.16em;color:var(--stamp)}
+.ih-say.rv>b{color:var(--guil)}
+.ih-say>span{display:block;font:400 var(--fs-3)/1.4 var(--ui);margin-top:var(--sp-1)}
+.ih-card .ih-say{margin:var(--sp-4) 0 0}
+.ih-rules{margin:var(--sp-6) 0 0;padding:0;list-style:none;text-align:left;font:500 var(--fs-3)/1.4 var(--ui);color:var(--ink)}
+.ih-rules li{padding:var(--sp-3) 0 var(--sp-3) 22px;border-bottom:1px solid var(--line);position:relative}
+.ih-rules li::before{content:"";position:absolute;left:4px;top:11px;width:9px;height:9px;border:1.5px solid var(--stamp);border-radius:var(--r-round)}
+/* panel */
+.lghead .spst{white-space:nowrap}
+.ih-late{display:flex;align-items:center;gap:var(--sp-5);margin:0 0 var(--sp-6);padding:var(--sp-4) var(--sp-6);background:var(--stamp-fill);color:var(--on-accent);border-radius:var(--r-md);font:500 var(--fs-3) var(--ui)}
+.ih-late>b{font:600 var(--fs-2) var(--mono);letter-spacing:.14em}
+.ih-clock{font:600 var(--fs-3) var(--mono);color:var(--stamp);font-variant-numeric:tabular-nums}
+.ih-prow{display:flex;align-items:center;gap:var(--sp-7);margin:0 0 var(--sp-7)}
+.ih-prize{flex:none;width:104px;height:104px;box-shadow:0 0 0 1.5px var(--ink);border-radius:var(--r-lg);display:grid;place-items:center;overflow:hidden}
+.ih-prize svg{height:100%;width:auto;max-width:100%}
+.ih-prize.sp svg{width:100%;height:100%}
+.ih-eff{margin:0;font:600 var(--fs-5)/1.35 var(--ui);color:var(--ink);text-align:left}
+.ih-eff small{display:block;margin-top:var(--sp-3);font:500 var(--fs-2)/1.4 var(--ui);color:var(--muted)}
+.ih-table{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;gap:var(--sp-4);border-top:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);padding:var(--sp-6) 0}
+.ih-side{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:var(--sp-1);padding:var(--sp-3) var(--sp-2);border-radius:var(--r-md);min-width:0}
+.ih-side.lead{background:var(--me)}
+.ih-side>b{font:700 var(--fs-6)/1.05 var(--cond);letter-spacing:.04em;text-transform:uppercase;margin-top:var(--sp-3)}
+.ih-side>small{font:500 var(--fs-1)/1.3 var(--mono);color:var(--muted)}
+.ih-you{width:64px;height:75px;display:grid;place-items:center;border:1.5px dashed var(--ink);border-radius:12px;background:var(--bp)}
+.ih-you span{display:grid;place-items:center;width:46px;height:46px;border:3px double var(--up);border-radius:var(--r-round);color:var(--up);font:700 var(--fs-3) var(--mono);transform:rotate(-8deg)}
+.ih-stamp{position:absolute;top:2px;right:2px;font:600 var(--fs-1) var(--mono);letter-spacing:.08em;color:var(--stamp);border:1.5px solid var(--stamp);border-radius:var(--r-sm);padding:var(--sp-1) var(--sp-3);transform:rotate(8deg);background:var(--surface)}
+.ih-stamp.me{color:var(--up);border-color:var(--up)}
+.ih-mid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-2);text-align:center}
+.ih-mid small{font:600 var(--fs-1) var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.ih-price{font:600 var(--fs-10)/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+.ih-log{list-style:none;margin:var(--sp-5) 0 0;padding:0}
+.ih-log li{display:grid;grid-template-columns:1fr auto 44px;gap:var(--sp-5);align-items:center;padding:var(--sp-3) 0;border-bottom:1px dashed var(--line);font:500 var(--fs-3) var(--ui);color:var(--muted)}
+.ih-log li:first-child{color:var(--ink)}
+.ih-log li b{font:600 var(--fs-3) var(--mono);font-variant-numeric:tabular-nums}
+.ih-log li i{font:500 var(--fs-1) var(--mono);font-style:normal;text-align:right}
+.ih-log li.me>span::before{content:"● ";color:var(--up)} .ih-log li.rv>span::before{content:"● ";color:var(--stamp)}
+.ih-rk{display:flex;align-items:flex-start;gap:var(--sp-4);margin:var(--sp-6) 0 var(--sp-5)}
+.ih-proxy{display:grid;grid-template-columns:1fr auto;align-items:center;gap:var(--sp-4) var(--sp-5)}
+.ih-pl{font:600 var(--fs-1) var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.ih-step{display:flex;align-items:center;border:1.5px solid var(--ink);border-radius:var(--r-md);overflow:hidden}
+.ih-step b{min-width:96px;text-align:center;font:600 var(--fs-6) var(--mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+.ih-sb{width:44px;height:44px;border:none;background:var(--bp);color:var(--ink);font:600 var(--fs-9)/1 var(--mono);cursor:pointer}
+.ih-sb:disabled{opacity:.3;cursor:default}
+.ih-chip{grid-column:1/-1;min-height:44px;border:1.5px dashed var(--stamp);background:transparent;color:var(--stamp);border-radius:var(--r-md);font:600 var(--fs-3) var(--mono);cursor:pointer}
+.ih-chip.on{border-style:solid;background:color-mix(in srgb,var(--stamp) 10%,transparent)}
+/* sonuç kartı */
+.ih-hero{position:relative;width:150px;height:150px;margin:0 auto var(--sp-6);box-shadow:0 0 0 1.5px var(--ink);border-radius:var(--r-lg);overflow:hidden}
+.ih-hero svg{width:100%;height:100%}
+.ih-hero.lost svg{opacity:.45;filter:grayscale(.6)}
+.ih-sold{text-transform:uppercase;position:absolute;left:50%;top:58%;transform:translate(-50%,-50%) rotate(-14deg);white-space:nowrap;font:700 var(--fs-9)/1 var(--cond);letter-spacing:.08em;color:var(--up);border:3px double var(--up);border-radius:var(--r-sm);padding:var(--sp-2) var(--sp-5);background:color-mix(in srgb,var(--surface) 85%,transparent)}
+.ih-sold.rv{color:var(--stamp);border-color:var(--stamp);font-size:var(--fs-7)}
+.ih-res.won .ih-sold{animation:ihStamp .42s var(--ease-out) .15s both}
+@keyframes ihStamp{from{transform:translate(-50%,-50%) rotate(-14deg) scale(2.2);opacity:0}to{transform:translate(-50%,-50%) rotate(-14deg) scale(1);opacity:1}}
+.ih-quote{display:flex;align-items:flex-start;gap:var(--sp-4);margin-top:var(--sp-6)}
+.ih-quote .ih-say{margin:0}
+@media (prefers-reduced-motion: reduce){.ih-res.won .ih-sold{animation:none}}
+@media (max-width:340px){.ih-face{width:52px}.ih-you{width:52px;height:61px}.ih-step b{min-width:80px}.ih-price{font-size:var(--fs-8)}.ih-duo .ih-face{width:80px}}
+.ih-side b{max-width:100%;overflow-wrap:anywhere}
+.ih-salh{margin-top:var(--sp-9)}
+.ihpill .otl{text-transform:uppercase}
+/* köşe başı damgası: karonun sol üst köşesinde kırmızı bayrak */
+.lot .kose{position:absolute;left:3px;top:3px;width:14px;height:14px;pointer-events:none;z-index:2}
+.lot .kose::before{content:"";position:absolute;left:1px;top:0;width:2px;height:14px;background:var(--ink)}
+.lot .kose i{position:absolute;left:3px;top:0;width:10px;height:7px;background:var(--stamp);clip-path:polygon(0 0,100% 0,72% 50%,100% 100%,0 100%)}
+/* köşe başı seçimi */
+.ks-ds{display:flex;flex-wrap:wrap;gap:var(--sp-3);margin:0 0 var(--sp-5)}
+.ks-ds .chip{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink);font-size:var(--fs-3);min-height:44px}
+.ks-ds .chip.on{background:var(--ink);color:var(--surface);box-shadow:none}
+.ks-grid{display:grid;grid-template-columns:repeat(var(--cols,4),1fr);gap:var(--sp-2);margin:0 0 var(--sp-6)}
+.ks-cell{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:var(--sp-2);border:1.5px solid var(--line);border-radius:var(--r-md);background:var(--surface);color:var(--ink);cursor:pointer;text-align:center}
+.ks-cell b{font:600 var(--fs-1)/1.15 var(--ui)}
+.ks-cell small{font:500 var(--fs-1) var(--mono);color:var(--up)}
+.ks-cell.em small{color:var(--muted)}
+.ks-cell.on{border-color:var(--stamp);box-shadow:inset 0 0 0 2px var(--stamp);background:color-mix(in srgb,var(--stamp) 8%,var(--surface))}
+@media (prefers-reduced-motion: reduce){.ks-cell{transition:none}}
+@media (orientation:landscape) and (max-height:500px){.ih-prow{margin-bottom:var(--sp-4)}.ih-prize{width:80px;height:80px}.ih-hero{width:110px;height:110px}}
+/* boşta (body.idle) animasyonlar durur; ama boştayken açılan kart (ör. ihale sonucu) giriş animasyonunda takılı kalmasın */
+body.idle #modal .card,body.idle #modal .card *{animation-play-state:running!important}
+.ihpill::before{inset:-9px -4px} /* hap ~27 px: dokunma alanı ≥44 px */
+.gdart svg.rv-svg{width:68px;height:80px}
+/* fırsat ve ihale hapları aynı satırda (ikisi birden çıkınca başlık uzayıp tahtayı itmesin; adlar kısalır) */
+.pills{display:flex;gap:var(--sp-4);min-width:0;max-width:100%;align-items:flex-start}
+.pills .offer{flex:0 1 auto;min-width:0}

@@ -1,14 +1,71 @@
 // Tarihi yapı çizimleri (SVG metni)
-/* KOLEKSİYON — etkinliklerden ve altın taksiden düşen tarihi yapılar. Her biri tüm kiralara +%5, tamamı ek +%10. */
+/* KOLEKSİYON — etkinliklerden, altın taksiden ve molozdan düşen tarihi yapılar (bölgeye göre 10'ar). Her biri tüm kiralara +%5,
+   tamamı ek +%10. Türkiye'nin 10 yapısı ilk sürümden beri aynı; diğer bölgelerin yapıları lmworld.ts'te çizili.
+   İHALE SALONU — rakip emlakçıyla ihaleyle alınan yapılar (ülke başına 4; game/auction.ts). Adlarda [köşeli parantez]:
+   yabancı özel ad (Türkçe arayüzde büyük harfe Türkçe kuralla çevrilmesin diye lang="en" ile gösterilir; bkz. i18n pn/pt). */
 import { tk } from './i18n';
-export interface Landmark { id: string; n: string; city: 'ist' | 'izm' | 'ank'; }
-export const LM: Landmark[] = [
-  { id: 'galata', n: tk('Galata Kulesi'), city: 'ist' }, { id: 'kiz', n: tk('Kız Kulesi'), city: 'ist' }, { id: 'saat', n: tk('Dolmabahçe Saat Kulesi'), city: 'ist' },
-  { id: 'rumeli', n: tk('Rumeli Hisarı'), city: 'ist' }, { id: 'tramvay', n: tk('Nostaljik Tramvay'), city: 'ist' }, { id: 'haydarpasa', n: tk('Haydarpaşa Garı'), city: 'ist' },
-  { id: 'konak', n: tk('Konak Saat Kulesi'), city: 'izm' }, { id: 'asansor', n: tk('Tarihi Asansör'), city: 'izm' },
-  { id: 'atakule', n: tk('Atakule'), city: 'ank' }, { id: 'kale', n: tk('Ankara Kalesi'), city: 'ank' },
+import { worldSvg } from './lmworld';
+export type LmRegion = 'tr' | 'us' | 'uk' | 'de' | 'jp';
+export interface Landmark { id: string; n: string; city: string; }
+export interface IhaleLm extends Landmark { reg: LmRegion; }
+const L = (id: string, n: string, city: string): Landmark => ({ id, n, city });
+export const LM_TR: Landmark[] = [
+  L('galata', tk('Galata Kulesi'), 'ist'), L('kiz', tk('Kız Kulesi'), 'ist'), L('saat', tk('Dolmabahçe Saat Kulesi'), 'ist'),
+  L('rumeli', tk('Rumeli Hisarı'), 'ist'), L('tramvay', tk('Nostaljik Tramvay'), 'ist'), L('haydarpasa', tk('Haydarpaşa Garı'), 'ist'),
+  L('konak', tk('Konak Saat Kulesi'), 'izm'), L('asansor', tk('Tarihi Asansör'), 'izm'),
+  L('atakule', tk('Atakule'), 'ank'), L('kale', tk('Ankara Kalesi'), 'ank'),
 ];
+export const LM_US: Landmark[] = [
+  L('brooklyn', tk('[Brooklyn] Köprüsü'), 'nyc'), L('chrysler', tk('[Chrysler Building]'), 'nyc'), L('flatiron', tk('[Flatiron]'), 'nyc'), L('grandcentral', tk('[Grand Central]'), 'nyc'),
+  L('hollywood', tk('[Hollywood] Tabelası'), 'la'), L('smpier', tk('[Santa Monica] İskelesi'), 'la'), L('capitolrec', tk('[Capitol Records]'), 'la'),
+  L('willis', tk('[Willis] Kulesi'), 'chi'), L('bean', tk('[Cloud Gate]'), 'chi'), L('wrigley', tk('[Wrigley Field]'), 'chi'),
+];
+export const LM_UK: Landmark[] = [
+  L('londoneye', tk('[London Eye]'), 'lon'), L('stpauls', tk('[St Paul’s] Katedrali'), 'lon'), L('gherkin', tk('[Gherkin]'), 'lon'), L('shard', tk('[The Shard]'), 'lon'),
+  L('routemaster', tk('Kırmızı çift katlı otobüs'), 'lon'), L('phonebox', tk('Kırmızı telefon kulübesi'), 'lon'),
+  L('beetham', tk('[Beetham] Kulesi'), 'man'), L('centrallib', tk('[Manchester] Merkez Kütüphanesi'), 'man'),
+  L('scottmon', tk('[Scott] Anıtı'), 'edi'), L('forthbridge', tk('[Forth] Köprüsü'), 'edi'),
+];
+export const LM_DE: Landmark[] = [
+  L('fernsehturm', tk('[Berlin] Televizyon Kulesi'), 'ber'), L('reichstag', tk('[Reichstag]'), 'ber'), L('siegessaule', tk('Zafer Sütunu'), 'ber'), L('oberbaum', tk('[Oberbaum] Köprüsü'), 'ber'),
+  L('frauenkirche', tk('[Frauenkirche]'), 'muc'), L('siegestor', tk('[Siegestor]'), 'muc'), L('olympiaturm', tk('Olimpiyat Kulesi'), 'muc'),
+  L('michel', tk('[St. Michaelis] Kilisesi'), 'ham'), L('hhrathaus', tk('[Hamburg] Belediye Sarayı'), 'ham'), L('landungs', tk('[Landungsbrücken]'), 'ham'),
+];
+export const LM_JP: Landmark[] = [
+  L('skytree', tk('[Tokyo Skytree]'), 'tyo'), L('rainbow', tk('[Rainbow] Köprüsü'), 'tyo'), L('meiji', tk('[Meiji] Tapınağı'), 'tyo'), L('shinkansen', tk('[Shinkansen]'), 'tyo'),
+  L('tsutenkaku', tk('[Tsutenkaku]'), 'osa'), L('umedasky', tk('[Umeda Sky] Binası'), 'osa'),
+  L('kinkaku', tk('[Kinkaku-ji]'), 'kyo'), L('yasaka', tk('[Yasaka] Pagodası'), 'kyo'), L('fushimi', tk('[Fushimi Inari]'), 'kyo'), L('kiyomizu', tk('[Kiyomizu-dera]'), 'kyo'),
+];
+const byId = (id: string) => [...LM_TR, ...LM_US, ...LM_UK, ...LM_DE, ...LM_JP].find(l => l.id === id)!;
+/** Global: her ülkenin en pahalı şehrinden ikişer (İstanbul'un ikisi Türkiye listesinin ilk ikisi: eski kayıtlar aynı kalır). */
+export const LM_GL: Landmark[] = ['galata', 'kiz', 'brooklyn', 'chrysler', 'londoneye', 'stpauls', 'frauenkirche', 'siegestor', 'skytree', 'rainbow'].map(byId);
+export const LM_SETS: Record<string, Landmark[]> = { tr: LM_TR, us: LM_US, uk: LM_UK, de: LM_DE, jp: LM_JP, gl: LM_GL };
+/** Etkin bölgenin koleksiyonu (setLmRegion yerinde günceller; içe aktaranlar aynı diziyi görür). */
+export const LM: Landmark[] = [...LM_TR];
+export function setLmRegion(r: string) { LM.splice(0, LM.length, ...(LM_SETS[r] || LM_TR)); }
+/** Eski kayıttaki koleksiyonu etkin bölgeye taşır: bölgenin yapıları aynen kalır; bölgeler ayrılmadan önce kazanılan Türkiye
+ *  yapıları (her bölgede Türk yapısı çıkıyordu) aynı sıradaki bölge yapısına çevrilir. Sayı ve bonus değişmez; bilinmeyen düşer. */
+export function migrateColl(ids: string[], r: string): string[] {
+  const set = LM_SETS[r] || LM_TR, out: string[] = [];
+  for (const id of ids) {
+    let v = set.some(l => l.id === id) ? id : '';
+    if (!v) { const j = LM_TR.findIndex(l => l.id === id); if (j >= 0) v = set[j].id; }
+    if (v && !out.includes(v)) out.push(v);
+  }
+  return out;
+}
+const I = (id: string, n: string, city: string, reg: LmRegion): IhaleLm => ({ id, n, city, reg });
+/** İhale yapıları: ülke başına 4. */
+export const IHALE_LM: IhaleLm[] = [
+  I('beylerbeyi', tk('Beylerbeyi Sarayı'), 'ist', 'tr'), I('sirkeci', tk('Sirkeci Garı'), 'ist', 'tr'), I('kizlaragasi', tk('Kızlarağası Hanı'), 'izm', 'tr'), I('ankaragar', tk('Ankara Garı'), 'ank', 'tr'),
+  I('bigben', tk('[Big Ben]'), 'lon', 'uk'), I('tbridge', tk('[Tower Bridge]'), 'lon', 'uk'), I('edicastle', tk('[Edinburgh] Kalesi'), 'edi', 'uk'), I('mantownhall', tk('[Manchester] Belediye Binası'), 'man', 'uk'),
+  I('liberty', tk('Özgürlük Heykeli'), 'nyc', 'us'), I('empire', tk('[Empire State]'), 'nyc', 'us'), I('griffith', tk('[Griffith] Gözlemevi'), 'la', 'us'), I('watertower', tk('[Chicago] Su Kulesi'), 'chi', 'us'),
+  I('brandenburg', tk('[Brandenburg] Kapısı'), 'ber', 'de'), I('rathausmuc', tk('Münih Yeni Belediye Binası'), 'muc', 'de'), I('elphi', tk('[Elbphilharmonie]'), 'ham', 'de'), I('speicher', tk('[Speicherstadt]'), 'ham', 'de'),
+  I('tokyotower', tk('Tokyo Kulesi'), 'tyo', 'jp'), I('osakajo', tk('Osaka Kalesi'), 'osa', 'jp'), I('kaminarimon', tk('[Kaminarimon]'), 'tyo', 'jp'), I('machiya', tk('[Gion] Ahşap Evleri'), 'kyo', 'jp'),
+];
+export const IHALE_IDS = IHALE_LM.map(l => l.id);
 export function lmSvg(id){
+  const w=worldSvg(id); if(w) return w;
   const sh='<ellipse class="sh" cx="54" cy="92" rx="30" ry="4"/>';
   if(id==='galata') return sh+`<rect class="pl" x="38" y="34" width="24" height="57"/><rect class="pl2" x="55" y="34" width="7" height="57"/>
     ${[44,58,72].map(y=>`<rect class="gl" x="42" y="${y}" width="4" height="7" rx="2"/><rect class="gl" x="49" y="${y}" width="4" height="7" rx="2"/>`).join('')}

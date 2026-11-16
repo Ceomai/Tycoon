@@ -26,6 +26,7 @@ import { maybeTip, sayEvent } from './rifki';
 import { maybeStarter, clubTick } from './monetize';
 import { tenantTick } from './tenants';
 import { tickProjects } from './project';
+import { ihaleTick } from './auction';
 
 let lastT = performance.now(), lastGoals = 0, teslimOf = '';
 const anyProducing = () => S.own.some(k => lotsOf(S, k).some(producing));
@@ -84,6 +85,7 @@ function step(pt: number, dt: number) {
   else if (free && !S.offer && S.playMs >= S.nextOffer) { S.nextOffer = S.playMs + rand(CFG.OFFER_MIN, CFG.OFFER_MAX); if (anyProducing()) showOffer(); }
   else Ads.tickInterstitial(pt, !!free); // geçiş reklamı: zamanı gelince doğal durakta
   if (pt - lastGoals > 2000) { lastGoals = pt; checkGoals(); checkAch(); clubTick(); }
+  if (S.city) ihaleTick(tn); // rakip emlakçı ve ihale: emanet, kapanış, yeni ihale (sonuç kartı oyun serbestken)
   maybeTip(pt);
   if (S.collectMode === 'auto') autoCollect(pt);
   // kumbaralar dolunca TOPLA mührü hafifçe sallanır (dakikada en fazla bir kez)

@@ -8,6 +8,7 @@
 // Kiracılar (16): Rıfkı tanıtır, kart, hedef arsa, inşaatta süre durur, anahtar teslimi, gidiş/bitiş bildirimi, defter, koyu tema, 320 px, EN.
 // Büyük projeler (17): Rıfkı tanıtır, arsa panelinde teklif, seçim çerçevesi (çakışan iki blok), onay kartı (kiracı notu), şantiye,
 // teslim, 2. etap, ayırma; reklamla hızlandırma yok; UK/DE üslubu; koyu tema + hareketi azalt, 320 px, yatay 844×390.
+// Rakip ve ihale (18): hap, tanıtım, panel, vekâlet/emanet, geçilme, kazanma/kaybetme, köşe başı seçimi, şehir rakipleri, koyu tema, 320 px, UK, EN.
 // Çalıştır: npm run test:iy  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 const {chromium}=require('playwright');
 const { serve, PREF_IF: PREF, state, vis, recorder, out } = require('./helpers.cjs');
@@ -345,8 +346,179 @@ async function projeBolum(b) {
   await p.context().close();
 }
 
+// ---------- 18) Rakip emlakçı ve ihale: hap, tanıtım, panel, vekâlet/emanet, geçilme, kazanma/kaybetme, köşe başı, şehir rakipleri,
+// koyu tema + hareketi azalt, 320 px, UK (Türkçe büyük harf), yok sayan oyuncu ----------
+async function ihaleBolum(b) {
+  const MON = new Date(2026, 10, 16, 10, 0).getTime(), THU = new Date(2026, 10, 19, 10, 0).getTime();
+  /** İhale vakası: iki semt (ihale açık), kasada bol para, Pazartesi 10:00 (ya da o.t). */
+  async function openIh(o = {}) {
+    const ctx = await b.newContext({ viewport: o.vp || { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: o.rm ? 'reduce' : 'no-preference' });
+    await ctx.addInitScript(`localStorage.setItem('tapu-prefs',JSON.stringify({lang:'${o.lang || 'tr'}',region:'${o.region || 'tr'}',ent:{},news:true${o.dark ? ",theme:'dark'" : ''}}));` + (o.dark ? "localStorage.setItem('tapu-theme','dark');" : ''));
+    const p = await ctx.newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(e.message));
+    await p.clock.install({ time: o.t || MON }); await p.goto(URL); await p.clock.runFor(700);
+    await p.click(`#modal .cityopt[data-a="${o.city || 'ist'}"]`, { force: true }); await p.clock.runFor(400);
+    for (let k = 0; k < 5 && await has(p, '#modal .card'); k++) { await p.click('#modal .card [data-a]', { force: true }); await p.clock.runFor(400); }
+    await p.evaluate(rifki => { const S = window.__tapuState(), k = S.cur, k2 = k.replace(/-0$/, '-1'); const T = ['ev', 'kafe', 'dukkan', 'ofis'];
+      S.d[k] = Array.from({ length: 20 }, (_, i) => ({ t: T[i % 4], lvl: 3, buf: 0, until: 0, dur: 1, up: false })); S.d[k2] = Array(20).fill(null); S.own = [k, k2];
+      S.lien = {}; S.lienT = {}; S.collectMode = 'tap'; S.cash = 1e9; S.earned = 1e9; S.seen = { ev: true, kafe: true, dukkan: true, ofis: true };
+      S.nextEvent = 9e12; S.nextOffer = 9e12; S.nextCivic = 9e12; S.nextAd = 9e12; S.nextTaxi = 9e12; S.collects = 0; S.market = 'x'; S.rifki = rifki; S.guideHint = true;
+      S.starter = { at: 1, bought: true }; S.offer = null; S.ten = []; S.nextTen = 9e15; S.pjIntro = true; S.cards = Object.keys(S.d);
+      const d = new Date(); S.daily = { last: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'), streak: 1 };
+      S.tasks = { day: S.daily.last, bonus: false, list: [{ k: 'taxi', goal: 1e9, prog: 0, claimed: false }] }; }, !!o.rifki);
+    await p.clock.runFor(1500);
+    for (let k = 0; k < 5 && await has(p, '#modal .card'); k++) { await p.click('#modal .card [data-a]', { force: true }); await p.clock.runFor(400); }
+    return p;
+  }
+  const cur = p => p.evaluate(() => JSON.parse(JSON.stringify(window.__tapuState().ihale.cur)));
+  const cash = p => p.evaluate(() => window.__tapuState().cash);
+  const rk = p => p.evaluate(() => { const r = document.querySelector('#rifki'); return r.hidden ? null : { mood: r.querySelector('.rk-face')?.dataset.mood, txt: r.querySelector('.rk-bub span')?.textContent || '' }; });
+  const pill = p => p.evaluate(() => { const e = document.querySelector('#ihalePill'); return e.hidden ? null : { txt: e.innerText, me: !!e.querySelector('.ihd.me'), rv: !!e.querySelector('.ihd.rv') }; });
+  const openPanel = async p => { await p.click('#ihalePill', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(300); if (await has(p, '#modal [data-a="go"]')) { await p.click('#modal [data-a="go"]', { force: true }); await p.clock.runFor(400); } await p.waitForTimeout(450); };
+  const proxy = (p, f) => p.evaluate(f => { const T = window.__tapuTest.ihale, a = T.IH().cur; return T.setProxy(a, (0, eval)('(' + f + ')')(a, T)); }, f.toString());
+  const ff = async (p, ms) => { await p.clock.fastForward(ms); await p.clock.runFor(1500); await p.waitForTimeout(500); };
+  const noOverflow = p => p.evaluate(() => { const els = [...document.querySelectorAll('#sheetBody *, #modal *')].filter(e => { const r = e.getBoundingClientRect(); return r.width && (r.right > innerWidth + 0.5 || r.left < -0.5); }); return { doc: document.documentElement.scrollWidth, vw: innerWidth, bad: els.map(e => e.tagName + '.' + (e.getAttribute('class') || '')).slice(0, 4) }; });
+  const sizes = p => p.evaluate(() => [...document.querySelectorAll('#sheetBody .ih-sb, #sheetBody .ih-chip, #sheetBody [data-a="give"]')].map(e => { const r = e.getBoundingClientRect(); return Math.round(Math.min(r.width, r.height)); }));
+
+  // hap, Rıfkı ipucu, tanıtım
+  let p = await openIh({ rifki: true });
+  const a0 = await cur(p), h0 = await pill(p);
+  ok(a0 && a0.kind === 'lm' && a0.prize === 'beylerbeyi' && a0.rv === 'cemil' && a0.close === new Date(2026, 10, 16, 23).getTime(), 'Pazartesi 10:00: tarihi yapı ihalesi (Beylerbeyi, Kurnaz Cemil, kapanış 23:00): ' + JSON.stringify(a0 && { k: a0.kind, p: a0.prize, rv: a0.rv }));
+  ok(h0 && /İHALE · BEYLERBEYİ SARAYI/.test(h0.txt) && /12:59:\d\d/.test(h0.txt) && h0.rv, 'tahtada ihale hapı (kırmızı nokta: rakip önde, geri sayım): ' + JSON.stringify(h0));
+  const hb = await p.evaluate(() => { const e = document.querySelector('#ihalePill'), r = e.getBoundingClientRect(), g = document.querySelector('#grid').getBoundingClientRect(), bf = getComputedStyle(e, '::before'); return { h: r.height - parseFloat(bf.top) - parseFloat(bf.bottom), below: r.bottom <= g.top + 1 }; });
+  ok(hb.h >= 44 && hb.below, 'hap dokunma alanı ≥44 px ve arsalara binmiyor: ' + JSON.stringify(hb));
+  await p.clock.runFor(46e3); const r0 = await rk(p);
+  ok(r0 && r0.mood === 'think' && /Bugün ihale var efendim: Beylerbeyi Sarayı/.test(r0.txt) && /Kurnaz Cemil/.test(r0.txt), 'Rıfkı ihaleyi bir kez söyler (düşünceli): ' + JSON.stringify(r0));
+  await p.evaluate(() => document.querySelector('#rifki .rk-x')?.click());
+  await p.screenshot({ path: out + 'ihale-1-hap.png' });
+  await p.click('#ihalePill', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(400);
+  const intro = await p.evaluate(() => { const c = document.querySelector('#modal .card'); return c ? { t: c.innerText, faces: c.querySelectorAll('.ih-duo svg').length, rv: c.querySelector('.rv-svg')?.dataset.rival, rules: c.querySelectorAll('.ih-rules li').length } : null; });
+  ok(intro && intro.faces === 2 && intro.rv === 'cemil' && /RAKİP EMLAKÇI: KURNAZ CEMİL/.test(intro.t) && /Beyoğlu’nun eski tilkisi/.test(intro.t) && intro.rules === 3 && /Pazartesi tarihi yapı, Perşembe nadir arsa · 08:00–23:00/.test(intro.t), 'tanıtım: Rıfkı vs Kurnaz Cemil, şehre özgü tanıtım, 3 kural (takvim 08:00–23:00): ' + JSON.stringify(intro && intro.t.slice(0, 80)));
+  await p.screenshot({ path: out + 'ihale-2-tanitim.png' });
+  await p.click('#modal [data-a="go"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(450);
+  // panel
+  const pn0 = await p.evaluate(() => { const b = document.querySelector('#sheetBody'); return { t: b.innerText, lead: b.querySelector('.ih-side.rv.lead') ? 'rv' : 'me', face: b.querySelector('.ih-side .rv-svg')?.dataset.mood, chip: !!b.querySelector('.ih-chip.on') }; });
+  ok((await S(p)).ihale.intro && /BEYLERBEYİ SARAYI/.test(pn0.t) && pn0.lead === 'rv' && pn0.face === 'smug' && /Kurnaz Cemil böyle bir tapuya/.test(pn0.t) && pn0.chip && /VEKÂLET VER/.test(pn0.t) && /Koleksiyoncu/.test(pn0.t), 'panel: ödül, masa (Cemil önde, kendinden emin), Rıfkı aralığı, öneri seçili: ' + JSON.stringify(pn0.t.slice(0, 60)));
+  const sz = await sizes(p); ok(sz.length === 4 && sz.every(v => v >= 44), 'adımlayıcı, öneri ve ana düğme ≥44 px: ' + sz);
+  await p.screenshot({ path: out + 'ihale-3-panel.png' });
+  // vekâlet ve emanet
+  const c0 = await cash(p);
+  await p.click('#sheetBody [data-a="give"]', { force: true }); await p.clock.runFor(800); await p.waitForTimeout(300);
+  const a1 = await cur(p), c1 = await cash(p), h1 = await pill(p);
+  const early = Math.max(a1.start, Math.floor(a1.cap * a1.early / a1.step) * a1.step) + a1.step;
+  ok(a1.my === a1.capHi + a1.step && a1.held === early && Math.abs(c0 - c1 - early) < 1e6, 'vekâlet (Rıfkı’nın önerisi): yalnız önde olunan fiyat emanete (' + a1.held + '), kasa o kadar azaldı');
+  const pn1 = await p.evaluate(() => { const b = document.querySelector('#sheetBody'); return { me: !!b.querySelector('.ih-side.me.lead .ih-stamp.me'), mood: b.querySelector('.ih-side .rv-svg')?.dataset.mood, t: b.innerText }; });
+  ok(h1 && h1.me && pn1.me && pn1.mood === 'bid' && /Emanette/.test(pn1.t), 'öne geçince hap yeşil, masada ÖNDE mührü bende, rakip hamle ifadesinde: ' + JSON.stringify({ h: h1, mood: pn1.mood }));
+  await p.screenshot({ path: out + 'ihale-4-vekalet.png' });
+  await p.keyboard.press('Escape'); await p.clock.runFor(400);
+  await p.click('#menuBtn', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(300);
+  const mrow = await p.evaluate(() => document.querySelector('#sheetBody .drow[data-a="ihale"]')?.innerText || '');
+  ok(/İHALE · BEYLERBEYİ SARAYI/i.test(mrow) && /Kurnaz Cemil ile yarış/.test(mrow), 'menüde ihale satırı: ' + mrow.replace(/\n/g, ' '));
+  await p.keyboard.press('Escape'); await p.clock.runFor(400);
+  // kazanma: kapanışta tavan + 1 adım ödenir, SATILDI, İhale salonu
+  await ff(p, 13 * 3600e3 + 60e3);
+  const res = await p.evaluate(() => { const c = document.querySelector('#modal .card.ih-res'); return c ? { t: c.innerText, won: c.classList.contains('won'), mood: c.querySelector('.rv-svg')?.dataset.mood, op: getComputedStyle(c).opacity } : null; });
+  const a2 = await cur(p);
+  ok(res && res.won && /SATILDI/.test(res.t) && /BEYLERBEYİ SARAYI SENİN!/.test(res.t) && res.mood === 'mad' && res.op === '1' && a2.paid === a2.cap + a2.step, 'kazanma: SATILDI, rakip kızgın, ödenen = tavan + 1 adım (' + (a2 && a2.paid) + ')');
+  ok(Math.abs((c0 - (await cash(p))) - a2.paid) < 1e6 && (await S(p)).ihale.got.includes('beylerbeyi'), 'kasadan yalnız fiyat çıktı; yapı İhale salonunda');
+  await p.screenshot({ path: out + 'ihale-5-kazandin.png' });
+  await p.click('#modal [data-a="ok"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(450);
+  const coll = await p.evaluate(() => document.querySelector('#sheetBody')?.innerText || '');
+  ok(/İHALE SALONU · 1\/4/.test(coll) && /BEYLERBEYİ SARAYI/.test(coll) && /İHALEDE/.test(coll), 'koleksiyonda "İhale salonu · 1/4" sırası: ' + (coll.match(/İHALE SALONU[^\n]*/) || [''])[0]);
+  await p.screenshot({ path: out + 'ihale-6-salon.png' });
+  ok(!p.errs.length, 'konsol temiz (kazanma)' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+
+  // geçilme ve kaybetme (İzmir: şehrin kendi rakibi)
+  p = await openIh({ city: 'izm', rifki: true });
+  const ai = await cur(p); ok(ai.prize === 'kizlaragasi' && ai.rv === 'nevzat', 'İzmir: ihale yapısı Kızlarağası Hanı, rakip Kordonlu Nevzat: ' + ai.rv);
+  const cz = await cash(p); await proxy(p, a => a.cap - a.step); await p.clock.runFor(400);
+  ok((await cur(p)).held > 0, 'tavanın altındaki vekâlet erken saatlerde önde (emanette)');
+  await ff(p, 11 * 3600e3 + 120e3); await p.clock.runFor(2000);
+  const ag = await cur(p), rg = await rk(p);
+  ok(ag.held === 0 && Math.abs((await cash(p)) - cz) < 1e6, 'son düzlükte geçilince emanet kasaya döndü');
+  ok(rg && rg.mood === 'warn' && /Son düzlük! Kordonlu Nevzat sizi geçti/.test(rg.txt), 'Rıfkı uyarır (uyarı ifadesi): ' + JSON.stringify(rg));
+  await openPanel(p);
+  const late = await p.evaluate(() => ({ band: document.querySelector('#sheetBody .ih-late')?.innerText || '', mood: document.querySelector('#sheetBody .ih-side .rv-svg')?.dataset.mood }));
+  ok(/SON DÜZLÜK/.test(late.band) && late.mood === 'bid', 'panelde SON DÜZLÜK şeridi, rakip hamle: ' + JSON.stringify(late));
+  await p.screenshot({ path: out + 'ihale-7-gecildi-izmir.png' });
+  await p.keyboard.press('Escape'); await p.clock.runFor(400);
+  await ff(p, 2 * 3600e3 + 60e3);
+  const lost = await p.evaluate(() => { const c = document.querySelector('#modal .card.ih-res'); return c ? { t: c.innerText, lost: c.classList.contains('lost'), mood: c.querySelector('.rv-svg')?.dataset.mood, rifki: !!c.querySelector('.rk-svg') } : null; });
+  ok(lost && lost.lost && /KORDONLU NEVZAT ALDI/.test(lost.t) && lost.mood === 'smug' && lost.rifki && /hiçbir şey kaybetmedin/.test(lost.t) && Math.abs((await cash(p)) - cz) < 1e6, 'kaybetme: rakip mührü, rakip kendinden emin, Rıfkı teselli, para kasada');
+  await p.screenshot({ path: out + 'ihale-8-kaybettin.png' });
+  ok(!p.errs.length, 'konsol temiz (kaybetme)' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+
+  // köşe başı (Perşembe nadir arsa): kazan, seçim ekranı, damga
+  p = await openIh({ t: THU, city: 'ank' });
+  const ak = await cur(p); ok(ak.kind === 'arsa' && ak.rv === 'sabri', 'Perşembe: nadir arsa ihalesi (Ankara: Bürokrat Sabri): ' + ak.rv);
+  await proxy(p, (a, T) => T.advice(a)); await ff(p, 13 * 3600e3 + 60e3);
+  ok(/ARSAYI SEÇ/.test(await p.evaluate(() => document.querySelector('#modal .card')?.innerText || '')), 'kazanınca "Arsayı seç"');
+  await p.click('#modal [data-a="ok"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(450);
+  const ks = await p.evaluate(() => { const b = document.querySelector('#sheetBody'); return { t: b.innerText, cells: b.querySelectorAll('.ks-grid .ks-cell').length, chips: b.querySelectorAll('.ks-ds .chip').length, h: Math.min(...[...b.querySelectorAll('.ks-cell')].map(e => e.getBoundingClientRect().height)) }; });
+  ok(/ARSANI SEÇ/.test(ks.t) && ks.cells === 20 && ks.chips === 2 && ks.h >= 44, 'köşe başı seçme ekranı: 2 semt, 20 arsa (≥44 px): ' + JSON.stringify({ c: ks.cells, ch: ks.chips, h: ks.h }));
+  const lr0 = await p.evaluate(() => window.__tapuTest.totalRate());
+  await p.click('#sheetBody .ks-cell[data-i="3"]', { force: true }); await p.clock.runFor(300); await p.waitForTimeout(200);
+  await p.screenshot({ path: out + 'ihale-9-kosebasi-secim.png' });
+  await p.click('#sheetBody [data-a="stamp"]', { force: true }); await p.clock.runFor(900); await p.waitForTimeout(400);
+  const kz = await S(p), lr1 = await p.evaluate(() => window.__tapuTest.totalRate());
+  const flag = await p.evaluate(() => !!document.querySelector('#grid .lot[data-i="3"] .kose') && document.querySelectorAll('#grid .lot .kose').length === 1);
+  ok(kz.ihale.kose[0] === kz.cur + ':3' && kz.ihale.kp === 0 && flag && lr1 > lr0, 'damga vuruldu: arsada bayrak, kira arttı (' + Math.round(lr0) + '→' + Math.round(lr1) + ')');
+  await p.click('#grid .lot[data-i="3"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(400);
+  ok(/Köşe başı arsa\s*\+%40/.test(await p.evaluate(() => document.querySelector('#sheetBody .ledger')?.innerText || '')), 'arsa panelinde "Köşe başı arsa +%40" satırı');
+  await p.screenshot({ path: out + 'ihale-10-kosebasi.png' });
+  ok(!p.errs.length, 'konsol temiz (köşe başı)' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+
+  // UK · koyu tema + hareketi azalt: Big Ben, Sir Reginald; Türkçe büyük harf (SIR REGINALD / BIG BEN, İ yok)
+  p = await openIh({ region: 'uk', city: 'lon', dark: true, rm: true });
+  const hu = await pill(p); ok(hu && /BIG BEN/.test(hu.txt) && !/İ/.test(hu.txt.replace('İHALE', '')), 'UK hap: "BIG BEN" (Türkçe İ yok): ' + JSON.stringify(hu));
+  await openPanel(p); await proxy(p, a => a.cap - a.step); await p.clock.runFor(400);
+  await p.clock.fastForward(11 * 3600e3 + 120e3); await p.clock.runFor(1500); await p.waitForTimeout(400);
+  const uk = await p.evaluate(() => { const b = document.querySelector('#sheetBody'); return { name: b.querySelector('.ih-side.rv > b')?.innerText, h: b.querySelector('.lgt')?.innerText, th: document.documentElement.dataset.theme, bg: getComputedStyle(b.querySelector('.ih-side .rv-svg rect')).fill, band: !!b.querySelector('.ih-late') }; });
+  ok(uk.name === 'SIR REGINALD' && uk.h === 'BIG BEN' && uk.band, 'UK panel: "SIR REGINALD", "BIG BEN" (lang="en"), son düzlük: ' + JSON.stringify(uk));
+  ok(uk.th === 'dark', 'koyu tema: rakip kartı koyu (--rv-card): ' + uk.bg);
+  const ov = await noOverflow(p); ok(ov.doc <= ov.vw && !ov.bad.length, 'koyu tema panel taşmıyor: ' + JSON.stringify(ov));
+  await p.screenshot({ path: out + 'ihale-11-uk-koyu-sonduzluk.png' });
+  await p.keyboard.press('Escape'); await p.clock.runFor(400);
+  await proxy(p, (a, T) => T.advice(a)); await ff(p, 2 * 3600e3 + 60e3);
+  const anim = await p.evaluate(() => { const s = document.querySelector('#modal .ih-sold'); return s ? { a: getComputedStyle(s).animationName, t: s.innerText } : null; });
+  ok(anim && anim.a === 'none' && anim.t === 'SATILDI', 'hareketi azalt: SATILDI mührü animasyonsuz: ' + JSON.stringify(anim));
+  await p.screenshot({ path: out + 'ihale-12-uk-kazandin.png' });
+  ok(!p.errs.length, 'konsol temiz (UK)' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+
+  // 320 px (Global · Tokyo: Tanaka-san) ve EN
+  p = await openIh({ region: 'gl', city: 'tyo', vp: { width: 320, height: 568 } });
+  const ag2 = await cur(p); ok(ag2.rv === 'tanaka' && ['tokyotower', 'kaminarimon'].includes(ag2.prize), 'Global · Tokyo: Japonya ihale yapısı, rakip Tanaka-san: ' + ag2.prize);
+  await openPanel(p);
+  const o320 = await noOverflow(p), s320 = await sizes(p);
+  ok(o320.doc <= o320.vw && !o320.bad.length && s320.every(v => v >= 44), '320 px: panel taşmıyor, dokunma alanları ≥44 px: ' + JSON.stringify({ o: o320, s: s320 }));
+  await p.screenshot({ path: out + 'ihale-13-320-tokyo.png' });
+  await p.context().close();
+  p = await openIh({ region: 'us', city: 'nyc', lang: 'en' });
+  await openPanel(p);
+  const en = await p.evaluate(() => document.querySelector('#sheetBody').innerText);
+  ok(/STATUE OF LIBERTY|EMPIRE STATE/.test(en) && /HUSTLIN’ HANK/.test(en) && /PLACE PROXY BID/.test(en) && !/Vekâlet|İhale/.test(en), 'EN · New York: çeviriler ve rakip Hustlin’ Hank');
+  await p.screenshot({ path: out + 'ihale-14-en-nyc.png' });
+  await p.context().close();
+
+  // yok sayan oyuncu: kart yok, kasa ve kira aynı
+  p = await openIh();
+  const cy = await cash(p), ry = await p.evaluate(() => window.__tapuTest.totalRate());
+  await ff(p, 13 * 3600e3 + 60e3);
+  const ign = await p.evaluate(() => ({ card: !!document.querySelector('#modal .card.ih-res'), pill: !document.querySelector('#ihalePill').hidden, s: window.__tapuState().ihale }));
+  ok(!ign.card && !ign.pill && ign.s.cur.done === 'lost' && ign.s.cur.seen && !ign.s.got.length && (await cash(p)) >= cy && Math.abs((await p.evaluate(() => window.__tapuTest.totalRate())) - ry) < 1e-6 * ry, 'yok sayan: sonuç kartı yok, hap kayboldu, kasa/kira değişmedi');
+  ok(!p.errs.length, 'konsol temiz (yok sayan)' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+}
+
 (async()=>{
   const b=await chromium.launch(); URL=await serve();
+  if(process.env.IY_ONLY==='18'){ // yalnızca ihale bölümü: IY_ONLY=18 node tests/iyilestirme.cjs
+    console.log('18) Rakip emlakçı ve ihale'); await ihaleBolum(b); await b.close();
+    const pass=results.filter(r=>r.pass).length; console.log(`\nSONUÇ: ${pass}/${results.length} geçti`); process.exit(pass===results.length?0:1);
+  }
   if(process.env.IY_ONLY==='17'){ // yalnızca büyük projeler bölümü: IY_ONLY=17 node tests/iyilestirme.cjs
     console.log('17) Büyük projeler'); await projeBolum(b); await b.close();
     const pass=results.filter(r=>r.pass).length; console.log(`\nSONUÇ: ${pass}/${results.length} geçti`); process.exit(pass===results.length?0:1);
@@ -798,6 +970,8 @@ async function projeBolum(b) {
   await kiraciBolum(b);
   console.log('17) Büyük projeler');
   await projeBolum(b);
+  console.log('18) Rakip emlakçı ve ihale');
+  await ihaleBolum(b);
   await b.close();
   const pass=results.filter(r=>r.pass).length;
   console.log(`\nSONUÇ: ${pass}/${results.length} geçti`);

@@ -16,7 +16,8 @@ import { store } from './sheets/store';
 import { holding } from './sheets/holding';
 import { kiraci, defter } from './sheets/tenant';
 import { proj } from './sheets/proj';
+import { ihale, kose } from './sheets/ihale';
 
-Object.assign(PANELS, { plot, skin, map, set: settings, menu, tasks, coll, arsiv, lb, leagues, sezon, ozel, guide, guideItem, ref, store, holding, kiraci, defter, proj });
+Object.assign(PANELS, { plot, skin, map, set: settings, menu, tasks, coll, arsiv, lb, leagues, sezon, ozel, guide, guideItem, ref, store, holding, kiraci, defter, proj, ihale, kose });
 
 export { openSheet, closeSheet, sheetBack, renderSheet, onSheetAction } from './sheets/core';

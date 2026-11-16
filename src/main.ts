@@ -56,6 +56,8 @@ import { Notify } from './services/notify';
 import { showLeagueResult } from './game/league';
 import { onTipClick, showTip } from './game/rifki';
 import { spawnTenant, handKey, tenantTick, tenants } from './game/tenants';
+import * as Ihale from './game/auction';
+const { openIhale } = Ihale;
 import { showSummary } from './game/district';
 
 let hiddenAt = 0;
@@ -115,6 +117,7 @@ function bindUi() {
   $('#taskBtn').addEventListener('click', () => openSheet({ k: 'tasks' }));
   $('#collBtn').addEventListener('click', () => openSheet({ k: 'coll' }));
   $('#offerPill').addEventListener('click', () => openSheet({ k: 'tasks' }));
+  $('#ihalePill').addEventListener('click', () => openIhale());
   $('#mapBtn').addEventListener('click', () => openSheet({ k: 'map' }));
   $('#rifki').addEventListener('click', onTipClick);
   $('#distBar').addEventListener('click', () => openSheet({ k: 'map' }));
@@ -208,7 +211,7 @@ async function boot() {
   // satın alınan paketler tüm bölgelerde geçerli
   S.premium = S.premium || P.ent.premium; S.noAds = S.noAds || P.ent.noAds; S.club = S.club || P.ent.club;
 
-  if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult, totalRate: () => totalRate(true), showTip, toast, showSummary, bigStamp, switchDistrict, spawnTenant, handKey, tenantTick, tenants }; } // uçtan uca testler için (yalnızca önizleme paketi)
+  if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult, totalRate: () => totalRate(true), showTip, toast, showSummary, bigStamp, switchDistrict, spawnTenant, handKey, tenantTick, tenants, ihale: Ihale, openSheet }; } // uçtan uca testler için (yalnızca önizleme paketi)
   setupGrid(); Street.init(); ensureTasks(); drawGuilloche(); bindUi(); fit();
   ui.lastInput = performance.now();
   render();

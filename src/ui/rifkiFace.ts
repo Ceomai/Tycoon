@@ -31,6 +31,9 @@ export const TIP_MOOD: Readonly<Record<string, Mood>> = {
   pjnear: 'think',    // 2×2 blok projeye 1–2 kat uzak
   project: 'party',   // proje (ya da 2. etap) teslim
   pjlien: 'warn',     // kaporalı semtte ruhsat aranırsa
+  ihale: 'think',     // ihale günü: rakip ve ödül (ihale başına bir kez)
+  ihlate: 'warn',     // son düzlükte rakip öne geçti
+  ihcut: 'warn',      // kasa vekâleti karşılamadı, vekâlet indi
 };
 export const moodOf = (id: string): Mood => TIP_MOOD[id] || 'happy';
 

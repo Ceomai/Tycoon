@@ -7,9 +7,10 @@ import { now, totalRate, isFull } from '../economy';
 import { nextDistrict, kaporaOf } from '../game/district';
 import { loc } from '../format';
 import { t, nm } from '../i18n';
+import { ihalePlan, ihaleNoteText, IH } from '../game/auction';
 
 const native = () => Capacitor.isNativePlatform() && !__PREVIEW__;
-const IDS = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+const IDS = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }, { id: 6 }]; // 5–6: ihale (geçildin, sonuç)
 export const Notify = {
   /** Oyuna dönünce planlı yerel bildirimler iptal edilir (çıkarken yeniden planlanır). */
   async cancel() { if (native()) try { await LocalNotifications.cancel({ notifications: IDS }); } catch { /* yok */ } },
@@ -28,6 +29,12 @@ export const Notify = {
       if (nk && isFull(S.cur) && !S.lien[S.cur] && rr > 0) {
         const kap = kaporaOf(nk), need = kap - S.cash;
         if (need > 0 && need / rr * 1000 < CFG.OFFLINE_MAX) list.push({ id: 4, title: t('{name} kaporası hazır', { name: nm(DMAP[nk].n) }), body: t('Kasada yeterli para birikti. Kapora ver, {yer} hemen başla.', { yer: loc(nm(DMAP[nk].n)) }), at: t0 + need / rr * 1000 });
+      }
+      // ihale: en çok 2 (vekâlet verip öndeyken son düzlükte geçilecekse + katıldıysa sonuç); kasa yokken değişmez
+      const ip = ihalePlan(t0), a = IH().cur;
+      if (ip && a) {
+        if (ip.passed) list.push({ id: 5, ...ihaleNoteText(a, 'passed'), at: ip.passed });
+        list.push({ id: 6, ...ihaleNoteText(a, ip.won ? 'won' : 'lost'), at: ip.result + 30e3 });
       }
       const tm = new Date(t0); tm.setDate(tm.getDate() + 1); tm.setHours(12, 0, 0, 0);
       list.push({ id: 3, title: t('Kira günü'), body: t('{n}. gün ödülün hazır. Seriyi bozma!', { n: (S.daily.streak || 0) + 1 }), at: +tm });

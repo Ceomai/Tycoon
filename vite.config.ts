@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       target: 'es2020',
       assetsInlineLimit: preview ? 100_000_000 : 4096,
-      chunkSizeWarningLimit: 700,
+      chunkSizeWarningLimit: 800, // ana paket ~710 kB (ihale: 74 yapı çizimi, 15 rakip portresi, 4 dil)
     },
     test: { include: ['tests/unit/**/*.test.ts'], environment: 'node' },
   };

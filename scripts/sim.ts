@@ -12,6 +12,11 @@
    Büyük projeler (src/game/projcore.ts): SIM_PJ=1 aktif oyuncu projeleri (ve 2. etabı) da aynı geri dönüş ölçütüyle yatırım
    seçeneği sayar · SIM_EXTRA=saat: son semt dolduktan sonra da oyna (kira ölçümü) · ayar: SIM_PJ_X1, SIM_PJ_X2, SIM_PJ_COST
    (yüzde), SIM_PJ_COST2, SIM_PJ_MINLV, SIM_PJ_MAX · SIM_PJ=table: yok sayan / projeler / kiracılar / ikisi birlikte tablosu.
+   Rakip ve ihale (src/game/auccore.ts, gerçek kurallar): SIM_IH=table · ihaleler oyunun kendi makeAuction / setProxyCore /
+   settle / resolve işlevleriyle; takvim (Pazartesi tarihi yapı, Perşembe nadir arsa) aktif oyun süresine sıkıştırılır:
+   ihale tablodaki saatte açılır, SIM_IH_LEN dk (50) sonra kapanır (son düzlük son SIM_IH_LATE dk, 15). Oyuncu kasası yettiği an
+   Rıfkı'nın önerisini (kazan) ya da tavanın altını (kaybet) vekâlet verir; vekâlet verince son düzlüğe yetecek parayı tutar
+   (save: açılıştan biriktirip yatırımı durduran oyuncu). Lig sayacı (ihale çarpanı hariç) ayrıca izlenir. SIM_IH=one SIM_IH_LOG=1: tek koşu.
    ========================================================= */
 import { TYPES, ORDER, MAXLV, CITIES, dkey, N, BuildingType, TIER_M, TIER_FEE, CFG } from '../src/config';
 
@@ -24,6 +29,8 @@ import { newState, setS, S, lotsOf, Lot } from '../src/state';
 import { Time } from '../src/time';
 import { baseRate, buildCost, buildTime, upCost, upTime, isFull, unlockInfo } from '../src/economy';
 import { tenantTick, tenants, tenantHooks, tenantReset, handKey, targetLot, wishType } from '../src/game/tenants';
+import { makeAuction, setProxyCore, settle, resolve, advice, heldNeed, pickPrize, placeKoseCore, IH } from '../src/game/auccore';
+import { ihaleLotMult } from '../src/economy';
 import { blocks, pjStart, pjStage2, pjDue, pjList, kindOf, typesAt, pjCost, pjTime } from '../src/game/projcore';
 
 if (env.SIM_PJ_X1) CFG.PJ_X1 = +env.SIM_PJ_X1; if (env.SIM_PJ_X2) CFG.PJ_X2 = +env.SIM_PJ_X2;
@@ -49,6 +56,7 @@ const setClock = () => { Time.offset = START + simT * 1000 - Date.now(); };
 
 const city = 'ist';
 const fmtT = (s: number) => s < 3600 ? `${Math.round(s / 60)} dk` : `${(s / 3600).toFixed(1)} sa`;
+const fmtM = (s: number) => `${(s / 60).toFixed(1)} dk`;
 const districtRate = (k: string) => { let r = 0; for (let i = 0; i < N; i++) r += baseRate(k, i); return r; };
 
 type Opt = { pay: number; cost: number; run: () => void };
@@ -108,6 +116,32 @@ function serveTenants(mode: TMode) {
     else { const p = lots[x.i]; if (p && !p.until && p.lvl < (w.n || 0)) { const c = upCost(x.k, p); if (S.cash >= c) { S.cash -= c; const time = upTime(x.k, p) / 1000; p.until = simT + time; p.dur = time; p.up = true; } } }
   }
 }
+/* ---------- ihale ---------- */
+type IhPlan = { at: number; kind: 'lm' | 'arsa'; win: boolean; save?: boolean }[];
+let IHP: IhPlan = [], IH_PRE = 0, lgEarned = 0, ihKeep = 0; const ihStat = { won: 0, lost: 0, paid: 0, heldMax: 0 };
+const IH_LEN = +(env.SIM_IH_LEN || 50) * 60, IH_LATE = +(env.SIM_IH_LATE || 15) * 60;
+/** Kazanmak isteyen oyuncu ihale sürerken yatırıma ara verip vekâleti ve son düzlükteki farkı karşılayacak parayı tutar
+ *  (yalnızca o kadarını; fazlası yatırıma gider). Kaybeden plan biriktirmez. */
+function ihStep() {
+  const ih = IH(), tn = Time.now(), a = ih.cur; ihKeep = 0;
+  if (a && !a.done) {
+    if (tn >= a.close) { resolve(a); if (env.SIM_IH_LOG) console.log('close', fmtT(simT), a.done, 'my', a.my, 'cap', a.cap, 'paid', a.paid, 'cash', Math.round(S.cash)); if (a.done === 'won') { ihStat.won++; ihStat.paid += a.paid || 0; if (a.kind === 'arsa') { const k = S.cur; let bi = 0, br = -1; for (let i = 0; i < N; i++) { const r = baseRate(k, i); if (r > br) { br = r; bi = i; } } placeKoseCore(k, bi); } } else if (a.my) ihStat.lost++; }
+    else {
+      const pl = (a as any).plan as IhPlan[0];
+      const want = pl.win ? advice(a) : Math.floor(a.cap * 0.9 / a.step) * a.step;
+      if (!a.my) { if (want > a.start && S.cash >= heldNeed(a, want, tn)) setProxyCore(a, want, tn); else if (pl.win && pl.save) ihKeep = heldNeed(a, want, tn); }
+      settle(a, tn); ihStat.heldMax = Math.max(ihStat.heldMax, a.held);
+      if (pl.win && a.my) ihKeep = Math.max(0, Math.min(a.my, a.cap + a.step) - a.held); // son düzlüğe para tut
+    }
+  }
+  for (const pl of IHP) {
+    if ((pl as any).done || simT < pl.at || (ih.cur && !ih.cur.done)) continue; (pl as any).done = true;
+    const pr = pickPrize(pl.kind); if (!pr) continue;
+    let unit = 0; for (const k of S.own) unit += districtRate(k);
+    if (env.SIM_IH_LOG) console.log('open', fmtT(simT), pr.kind, 'unit/dk', Math.round(unit * 60), 'cash', Math.round(S.cash));
+    const b = makeAuction('sim' + pl.at, pr.kind, pr.prize, pr.city, tn, unit * 60); b.close = tn + IH_LEN * 1000; (b as any).plan = pl; ih.cur = b;
+  }
+}
 let earnedAt: number[] = [], rateAt: number[] = [], endT = -1;
 function simulate(mode: TMode = 'off', sd = 1) {
   simT = 0; seed = sd; earnedAt = []; rateAt = []; endT = -1; tstat.arrived = tstat.settled = tstat.left = 0; tenantReset();
@@ -115,6 +149,8 @@ function simulate(mode: TMode = 'off', sd = 1) {
   setClock();
   setS(newState(Time.now(), 'x', city));
   S.cash = 150;
+  IHP.forEach(x => { delete (x as any).done; }); ihStat.won = ihStat.lost = ihStat.paid = ihStat.heldMax = 0; lgEarned = 0; ihKeep = 0;
+  S.ihale.got = ['beylerbeyi', 'sirkeci', 'kizlaragasi', 'ankaragar'].slice(0, IH_PRE); CFG.IH_LATE_MS = IH_LATE * 1000;
   const rows: { n: string; open: number; full?: number; next?: number }[] = [{ n: CITIES[city].districts[0].n, open: 0 }];
   let idx = 0;
   while (simT < HORIZON) {
@@ -126,8 +162,9 @@ function simulate(mode: TMode = 'off', sd = 1) {
     pjDue(simT); // proje etapları
     for (const b of ORDER) if (S.earned >= TYPES[b].unlock) S.seen[b] = true;
     if (mode !== 'off') { S.playMs = simT * 1000; tenantTick(DT * 1000, rnd); if (mode !== 'passive') serveTenants(mode); }
-    let inc = 0; for (const k of S.own) inc += districtRate(k);
-    S.cash += inc * DT; S.earned += inc * DT; earnedAt.push(S.earned); rateAt.push(inc);
+    let inc = 0, lg = 0; for (const k of S.own) for (let i = 0; i < N; i++) { const r = baseRate(k, i); inc += r; lg += r / ihaleLotMult(k, i); }
+    S.cash += inc * DT; S.earned += inc * DT; lgEarned += lg * DT; earnedAt.push(S.earned); rateAt.push(inc);
+    if (IHP.length) ihStep();
     const cur = dkey(city, idx), row = rows[idx];
     if (row.full == null && isFull(cur)) row.full = simT;
     // sıradaki tapu
@@ -144,7 +181,7 @@ function simulate(mode: TMode = 'off', sd = 1) {
     if (row.full != null && idx < 4) { const fee = unlockInfo(dkey(city, idx + 1)).fee; left = Math.max(60, (fee - S.cash) / Math.max(inc, 1e-9)); }
     for (let n = 0; n < 6; n++) {
       const opts = S.own.flatMap(k => options(k, left)).sort((a, b) => a.pay - b.pay);
-      const best = opts[0]; if (!best || S.cash < best.cost) break;
+      const best = opts[0]; if (!best || S.cash - ihKeep < best.cost) break; // ihale için tutulan para yatırıma gitmez
       S.cash -= best.cost; best.run();
     }
   }
@@ -197,6 +234,51 @@ if (env.SIM_PJ === 'table') {
   console.log('');
   (globalThis as any).process.exit(0);
 }
+if (env.SIM_IH === 'table') {
+  // denge tablosu (ihale): 5 semti bitirme süresi ve kazanç; 6 zaman kaydırması (0–0,5 sa) ortalaması; lig sayacı / toplam kazanç
+  const OFFS = [0, 0.1, 0.2, 0.3, 0.4, 0.5].map(h => h * 3600);
+  type Sc = { n: string; pre?: number; plan?: IhPlan; ten?: TMode; pj?: boolean };
+  const L = (h: number, win = true): IhPlan[0] => ({ at: h * 3600, kind: 'lm', win }), A = (h: number, win = true): IhPlan[0] => ({ at: h * 3600, kind: 'arsa', win });
+  const run = (sc: Sc) => {
+    let end = 0, e3 = 0, rEnd = 0, lgR = 0, won = 0, paid = 0, held = 0, n = 0;
+    for (const off of (sc.plan ? OFFS : [0])) {
+      IHP = (sc.plan || []).map(x => ({ ...x, at: x.at + off })); IH_PRE = sc.pre || 0; PJ = !!sc.pj;
+      const seeds = sc.ten && sc.ten !== 'off' ? [1, 2, 3, 4] : [1];
+      for (const sd of seeds) {
+        const rows = simulate(sc.ten || 'off', sd); end += rows[4].full!; e3 += earnedAt[Math.min(earnedAt.length, Math.round(2 * 3600 / DT)) - 1]; rEnd += rateAt[rateAt.length - 1]; lgR += lgEarned / S.earned; won += ihStat.won; paid += ihStat.paid; held += ihStat.heldMax; n++;
+      }
+    }
+    IHP = []; return { end: end / n, e3: e3 / n, rEnd: rEnd / n, lg: lgR / n, won: won / n, paid: paid / n, held: held / n };
+  };
+  const pct = (v: number, b: number) => { const d = (v / b - 1) * 100; return (Math.abs(d) < 0.05 ? '%0' : (d > 0 ? '+%' : '−%') + Math.abs(d).toFixed(1)).replace('.', ','); };
+  console.log(`\nRakip ve ihale · İstanbul, reklamsız aktif oyuncu · tarihi yapı +%${Math.round(CFG.IH_LM_X * 100)} · köşe başı +%${Math.round(CFG.IH_KOSE_X * 100)} · açılış ${CFG.IH_LM_OPEN}/${CFG.IH_ARSA_OPEN} dk kira · ihale ${IH_LEN / 60} dk (son düzlük ${IH_LATE / 60} dk)\n`);
+  console.log('| Senaryo | 5 semti bitirme | Fark | Kazanç (2 sa) | Kira (bitişte) | Kazanılan · ödenen | Lig sayacı / kazanç |');
+  console.log('|---|---|---|---|---|---|---|');
+  const S_ = (x: IhPlan[0]) => ({ ...x, save: true });
+  const groups: [Sc, Sc[]][] = [
+    [{ n: 'yok sayan' }, [
+      { n: 'katılıp kaybeden (2 ihale, tavan altı vekâlet)', plan: [L(0.45, false), A(1.3, false)] },
+      { n: '1 tarihi yapı kazanır (kasası yetince vekâlet)', plan: [L(0.45)] },
+      { n: '1 hafta: tarihi yapı + köşe başı (kasası yetince)', plan: [L(0.45), A(1.3)] },
+      { n: '1 hafta, açılıştan biriktiren (yatırımı durdurur)', plan: [S_(L(0.45)), S_(A(1.3))] },
+      { n: 'önceki haftalarda 1 yapı (+%3)', pre: 1 },
+      { n: 'önceki haftalarda 4 yapı (+%12)', pre: 4 },
+      { n: '4 yapı + bu hafta köşe başı', pre: 4, plan: [A(1.3)] },
+    ]],
+    [{ n: 'kiracı + proje (aktif), ihalesiz', ten: 'active', pj: true }, [
+      { n: 'kiracı + proje + 1 hafta ihale', ten: 'active', pj: true, plan: [L(0.45), A(1.3)] },
+      { n: 'kiracı + proje + 4 yapı', ten: 'active', pj: true, pre: 4 },
+    ]],
+  ];
+  for (const [b0, rest] of groups) {
+    const base = run(b0);
+    console.log(`| ${b0.n} | ${fmtM(base.end)} | %0 | %0 | %0 | — | ${base.lg.toFixed(3)} |`);
+    for (const sc of rest) { const r = run(sc); console.log(`| ${sc.n} | ${fmtM(r.end)} | ${pct(r.end, base.end)} | ${pct(r.e3, base.e3)} | ${pct(r.rEnd, base.rEnd)} | ${r.won.toFixed(1)} · ödenen ${Math.round(r.paid).toLocaleString('tr')} | ${r.lg.toFixed(3)} |`); }
+  }
+  console.log('');
+  (globalThis as any).process.exit(0);
+}
+if (env.SIM_IH === 'one') IHP = [{ at: 0.6 * 3600, kind: 'lm', win: true }, { at: 1.3 * 3600, kind: 'arsa', win: true }];
 const rows = simulate(MODE as TMode, +(env.SIM_SEED || 1));
 if (PJ) console.log(`büyük proje: ${pstat.pj} proje · ${pstat.pj2} 2. etap · ilk ${pstat.first >= 0 ? fmtT(pstat.first) : '—'}\n${env.SIM_LOG ? pstat.log.join('\n') : ''}`);
 if (MODE !== 'off') console.log(`kiracı: ${MODE} · tohum ${env.SIM_SEED || 1} · ${JSON.stringify(tstat)}`);
