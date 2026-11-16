@@ -2,7 +2,7 @@
 import { CFG, MAXLV, ORDER, TYPES, BuildingType, DistrictKey, DMAP } from '../config';
 import { t } from '../i18n';
 import { S, lotsOf, Plot } from '../state';
-import { now, withDisc, buildCost, buildTime, upCost, upTime, producing, unlockInfo, totalRate, pending } from '../economy';
+import { pjOf, now, withDisc, buildCost, buildTime, upCost, upTime, producing, unlockInfo, totalRate, pending } from '../economy';
 import { Snd, buzz } from '../sound';
 import { ui, $, reduceMotion, view } from '../ui/ctx';
 import { toast, bump, flyTo, countUp, showGain, bigStamp } from '../ui/modal';
@@ -58,6 +58,7 @@ export function upgrade(k: DistrictKey, i: number) {
   Snd.build(); buzz.light(); persist(); ui.sheetSig = ''; view.render();
 }
 export function demolish(k: DistrictKey, i: number) {
+  if (pjOf(k, i)) { deny(); return; } // projedeki bina tek başına yıkılamaz: önce proje ayrılır
   const p = lotsOf(S, k)[i]; if (p && p.buf > 0) collect(k, i);
   if (p && p.sp) { S.inv.push(p.sp); toast(t('{name} depoya kaldırıldı', { name: t(specialOf(p.sp).n) })); } // özel yapı kaybolmaz
   lotsOf(S, k)[i] = null; persist(); view.closeSheet(); Snd.wreck(); view.render();
@@ -104,7 +105,7 @@ export function collectAll(from?: Element | null) {
   const before = S.cash;
   addCash(a); S.collects++; track('collect'); addXp(5);
   // paralar binalardan kasaya uçar; sonuncusu varınca kasa vurgulanır ve sayaç saymaya başlar
-  const cash = $('#cash'), flights = from ? src.map((x, n) => { const el = ui.tiles[x.i]; return el ? flyTo(el, cash, n * 45) : Promise.resolve(); }) : [];
+  const cash = $('#cash'), flights = from ? src.map((x, n) => { const q = pjOf(S.cur, x.i), el = ui.tiles[q ? q.a : x.i]; return el ? flyTo(el, cash, n * 45) : Promise.resolve(); }) : [];
   const landed = Promise.all(flights).then(() => bump());
   countUp(before, S.cash, landed); showGain(`+${fmt(a)} ↑`);
   if (full) bigStamp(t('DOLU KASA!'), t('KUMBARALAR TAŞMADAN'));

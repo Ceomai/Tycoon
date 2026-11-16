@@ -2,7 +2,7 @@
    EKONOMİ — kira, maliyet, süre, komşuluk ve semt/il açılışları
    ========================================================= */
 import { CFG, COLS, ROWS, N, TYPES, LV_INC, UP_COST, UP_TIME, DMAP, DistrictKey, BuildingType, TIER_M, TIER_FEE, dkey, CITIES, CITY_ORDER, DRULES } from './config';
-import { S, Plot, Lot, lotsOf } from './state';
+import { S, Plot, Lot, lotsOf, Pj } from './state';
 import { Time } from './time';
 import { LM } from './landmarks';
 import { marketMult, civicMult, achBonus } from './game/modifiers';
@@ -116,10 +116,23 @@ export function tenantMult(k: DistrictKey, i: number): number {
 }
 /** f'yi kiracı bonusu olmadan hesaplar (çevrimdışı kazanç). */
 export function withoutTenants<T>(f: () => T): T { const o = tenOff; tenOff = true; try { return f(); } finally { tenOff = o; } }
+
+/* ---------- büyük projeler (game/project.ts): 2×2 bloktaki dört bina kendi kirasını korur, üstüne etap bonusu ----------
+   Bonus kalıcıdır (çevrimdışı ve lig kazancında da sayılır). Kiracı bonusuyla toplanır, çarpılmaz: üst üste binip şişmesin. */
+/** 2×2 bloğun dört arsası (a: sol üst). */
+export const pjCells = (a: number) => [a, a + 1, a + COLS, a + COLS + 1];
+export function pjOf(k: DistrictKey, i: number): Pj | null {
+  const L = S.pj && S.pj[k]; if (!L || !L.length) return null;
+  for (const q of L) { const d = i - q.a; if (d === 0 || d === 1 || d === COLS || d === COLS + 1) return q; }
+  return null;
+}
+/** Tamamlanan etabın bonusu (0: ilk inşaat sürüyor). */
+export const pjX = (st: number) => (st >= 2 ? CFG.PJ_X2 : st >= 1 ? CFG.PJ_X1 : 0);
+export const pjMult = (k: DistrictKey, i: number) => { const q = pjOf(k, i); return q ? 1 + pjX(q.st) : 1; };
 export function baseRate(k: DistrictKey, i: number): number {
   const p = lotsOf(S, k)[i]; if (!producing(p)) return 0;
   if (p!.sp) return specialBase(k, i) * permMult() * districtMult(k);
-  return TYPES[p!.t].inc * LV_INC[p!.lvl] * incM(k) * (1 + neighborBonus(k, i)) * ruleMult(k, i, p!.t) * marketMult(p!.t, curWeek()) * civicMult(k, p!.t) * permMult() * districtMult(k) * tenantMult(k, i);
+  return TYPES[p!.t].inc * LV_INC[p!.lvl] * incM(k) * (1 + neighborBonus(k, i)) * ruleMult(k, i, p!.t) * marketMult(p!.t, curWeek()) * civicMult(k, p!.t) * permMult() * districtMult(k) * (tenantMult(k, i) + pjMult(k, i) - 1);
 }
 export function rate(k: DistrictKey, i: number, t = now()): number {
   const b = baseRate(k, i); if (!b) return 0;

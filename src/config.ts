@@ -154,6 +154,17 @@ export const CFG = {
   TEN_AFFORD_SEC: 180,         // istek kasa + bu kadar saniyelik kirayla karşılanabilmeli
   TEN_TIME_MAX: 6 * 60e3,      // isteğin gerektirdiği inşaat en fazla bu kadar sürmeli
   TEN_STAMP: 3,                // kiracı defteri: bir tipten bu kadar kiracı yerleşince müdavim pulu (yalnızca görünüm)
+  // büyük projeler (game/project.ts, arsa birleştirme): isteğe bağlı katman; denge scripts/sim.ts (SIM_PJ) ile ölçüldü.
+  // Bedel/süre yüzde olarak (Remote Config varsayılanı 1'i aşamayan oranları yalnızca düşürebilir; yüzde iki yöne ayarlanır).
+  PJ_MINLV: 5,                 // 2×2'deki dört binanın en düşük seviyesi
+  PJ_MAX: 2,                   // semt başına en fazla proje (ruhsat)
+  PJ_X1: 0.2,                  // 1. etap: dört binanın kirasına +%20
+  PJ_X2: 0.3,                  // 2. etap (kat ekle): toplam +%30
+  PJ_COST_PCT: 100,            // 1. etap bedeli = dört binanın son kat (Sv4→5) bedeli toplamının yüzdesi
+  PJ_COST2: 2,                 // 2. etap bedeli = 1. etap × bu
+  PJ_TIME_PCT: 100,            // 1. etap süresi = dört binanın Sv4→5 kat çıkma süresi ortalamasının yüzdesi
+  PJ_TIME2: 1.5,               // 2. etap süresi = 1. etap × bu
+  PJ_UNLOCK_OWN: 2,            // en az bu kadar semt sahibi olunca açılır (2. tapu)
 };
 export type Cfg = typeof CFG;
 

@@ -25,6 +25,7 @@ import { payLien, showDistrictCard } from './district';
 import { maybeTip, sayEvent } from './rifki';
 import { maybeStarter, clubTick } from './monetize';
 import { tenantTick } from './tenants';
+import { tickProjects } from './project';
 
 let lastT = performance.now(), lastGoals = 0, teslimOf = '';
 const anyProducing = () => S.own.some(k => lotsOf(S, k).some(producing));
@@ -61,6 +62,7 @@ function step(pt: number, dt: number) {
     }
     if (built && isFull(k)) sayEvent('done', k); // son arsa da doldu: Rıfkı kutlar
   }
+  tickProjects(tn, pt); // büyük projeler: biten etap teslim
   if (doneAny) { Snd.done(); if (doneHere) buzz.success(); ui.sheetSig = ''; }
   if (S.fx.length) S.fx = S.fx.filter(f => f.until > tn);
   if (S.boostUntil && S.boostUntil <= tn) { S.boostUntil = 0; toast(t('Tüm mülklere 2x bitti')); }

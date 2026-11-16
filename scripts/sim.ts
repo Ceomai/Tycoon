@@ -9,6 +9,9 @@
    Kiracılar (src/game/tenants.ts): SIM_TEN=off|passive|half|active · SIM_SEED (tohum) · SIM_TEN_BONUS · SIM_TEN_LIVE (dk) ·
    SIM_TEN_MIN / SIM_TEN_MAX (dk). passive: kiracılar gelir ama oyuncu bakmaz (anahtar verilmez) · half: adayların yarısına bakar ·
    active: karşılanabilir her isteği hemen yapar ve anahtarı verir. SIM_TEN=table: dört kipi 8 tohumla karşılaştıran tablo.
+   Büyük projeler (src/game/projcore.ts): SIM_PJ=1 aktif oyuncu projeleri (ve 2. etabı) da aynı geri dönüş ölçütüyle yatırım
+   seçeneği sayar · SIM_EXTRA=saat: son semt dolduktan sonra da oyna (kira ölçümü) · ayar: SIM_PJ_X1, SIM_PJ_X2, SIM_PJ_COST
+   (yüzde), SIM_PJ_COST2, SIM_PJ_MINLV, SIM_PJ_MAX · SIM_PJ=table: yok sayan / projeler / kiracılar / ikisi birlikte tablosu.
    ========================================================= */
 import { TYPES, ORDER, MAXLV, CITIES, dkey, N, BuildingType, TIER_M, TIER_FEE, CFG } from '../src/config';
 
@@ -21,6 +24,13 @@ import { newState, setS, S, lotsOf, Lot } from '../src/state';
 import { Time } from '../src/time';
 import { baseRate, buildCost, buildTime, upCost, upTime, isFull, unlockInfo } from '../src/economy';
 import { tenantTick, tenants, tenantHooks, tenantReset, handKey, targetLot, wishType } from '../src/game/tenants';
+import { blocks, pjStart, pjStage2, pjDue, pjList, kindOf, typesAt, pjCost, pjTime } from '../src/game/projcore';
+
+if (env.SIM_PJ_X1) CFG.PJ_X1 = +env.SIM_PJ_X1; if (env.SIM_PJ_X2) CFG.PJ_X2 = +env.SIM_PJ_X2;
+if (env.SIM_PJ_COST) CFG.PJ_COST_PCT = +env.SIM_PJ_COST; if (env.SIM_PJ_COST2) CFG.PJ_COST2 = +env.SIM_PJ_COST2;
+if (env.SIM_PJ_MINLV) CFG.PJ_MINLV = +env.SIM_PJ_MINLV; if (env.SIM_PJ_MAX) CFG.PJ_MAX = +env.SIM_PJ_MAX;
+let PJ = env.SIM_PJ === '1'; const EXTRA = +(env.SIM_EXTRA || 0) * 3600;
+const pstat = { pj: 0, pj2: 0, spent: 0, first: -1, log: [] as string[] };
 
 type TMode = 'off' | 'passive' | 'half' | 'active';
 if (env.SIM_TEN_BONUS) CFG.TEN_BONUS = +env.SIM_TEN_BONUS;
@@ -65,6 +75,23 @@ function options(k: string, horizonLeft: number): Opt[] {
       out.push({ pay, cost, run: () => { p.until = simT + time; p.dur = time; p.up = true; } });
     }
   }
+  if (PJ) {
+    // proje: dört binanın kirası korunur, üstüne etap bonusu; kazanç = proje bitince semt kirası farkı
+    for (const a of blocks(k)) {
+      const L = (S.pj[k] = S.pj[k] || []); L.push({ a, kd: kindOf(typesAt(k, a)), st: 1, until: 0, dur: 1 });
+      const gain = districtRate(k) - before; L.pop(); if (!L.length) delete S.pj[k];
+      const cost = pjCost(k, a), time = pjTime(k, a) / 1000, pay = cost / gain + time;
+      if (gain <= 0 || pay > horizonLeft) continue;
+      out.push({ pay, cost, run: () => { S.cash += cost; if (pjStart(k, a, simT, 1 / 1000)) { pstat.pj++; pstat.spent += cost; if (pstat.first < 0) pstat.first = simT; pstat.log.push(`${fmtT(simT)} ${k} a${a} ${kindOf(typesAt(k, a))} geri dönüş ${fmtT(pay)}`); } else S.cash -= cost; } });
+    }
+    for (const q of pjList(k)) {
+      if (q.st !== 1 || q.until) continue;
+      q.st = 2; const gain = districtRate(k) - before; q.st = 1;
+      const cost = pjCost(k, q.a, 2), time = pjTime(k, q.a, 2) / 1000, pay = cost / gain + time;
+      if (gain <= 0 || pay > horizonLeft) continue;
+      out.push({ pay, cost, run: () => { S.cash += cost; if (pjStage2(k, q, simT, 1 / 1000)) { pstat.pj2++; pstat.spent += cost; pstat.log.push(`${fmtT(simT)} ${k} a${q.a} 2. etap geri dönüş ${fmtT(pay)}`); } else S.cash -= cost; } });
+    }
+  }
   return out;
 }
 
@@ -81,9 +108,10 @@ function serveTenants(mode: TMode) {
     else { const p = lots[x.i]; if (p && !p.until && p.lvl < (w.n || 0)) { const c = upCost(x.k, p); if (S.cash >= c) { S.cash -= c; const time = upTime(x.k, p) / 1000; p.until = simT + time; p.dur = time; p.up = true; } } }
   }
 }
-let earnedAt: number[] = [];
+let earnedAt: number[] = [], rateAt: number[] = [], endT = -1;
 function simulate(mode: TMode = 'off', sd = 1) {
-  simT = 0; seed = sd; earnedAt = []; tstat.arrived = tstat.settled = tstat.left = 0; tenantReset();
+  simT = 0; seed = sd; earnedAt = []; rateAt = []; endT = -1; tstat.arrived = tstat.settled = tstat.left = 0; tenantReset();
+  pstat.pj = pstat.pj2 = pstat.spent = 0; pstat.first = -1; pstat.log = [];
   setClock();
   setS(newState(Time.now(), 'x', city));
   S.cash = 150;
@@ -95,10 +123,11 @@ function simulate(mode: TMode = 'off', sd = 1) {
     for (const k of S.own) for (const p of lotsOf(S, k) as Lot[]) {
       if (p && p.until && p.until <= simT) { p.until = 0; if (p.up) { p.lvl++; p.up = false; } else p.lvl = 1; }
     }
+    pjDue(simT); // proje etapları
     for (const b of ORDER) if (S.earned >= TYPES[b].unlock) S.seen[b] = true;
     if (mode !== 'off') { S.playMs = simT * 1000; tenantTick(DT * 1000, rnd); if (mode !== 'passive') serveTenants(mode); }
     let inc = 0; for (const k of S.own) inc += districtRate(k);
-    S.cash += inc * DT; S.earned += inc * DT; earnedAt.push(S.earned);
+    S.cash += inc * DT; S.earned += inc * DT; earnedAt.push(S.earned); rateAt.push(inc);
     const cur = dkey(city, idx), row = rows[idx];
     if (row.full == null && isFull(cur)) row.full = simT;
     // sıradaki tapu
@@ -108,9 +137,10 @@ function simulate(mode: TMode = 'off', sd = 1) {
         S.cash -= u.fee; S.own.push(nk); lotsOf(S, nk); S.cur = nk;
         row.next = simT; idx++; rows.push({ n: CITIES[city].districts[idx].n, open: simT }); continue;
       }
-    } else if (row.full != null) break;
-    // yatırım: semt doluysa yalnızca tapudan önce amorti olanlar
+    } else if (row.full != null) { if (!EXTRA) break; if (endT < 0) endT = simT; if (simT - endT >= EXTRA) break; }
+    // yatırım: semt doluysa yalnızca tapudan önce amorti olanlar (son semt dolduysa: kalan ek süre içinde amorti olanlar)
     let left = Infinity;
+    if (endT >= 0) left = Math.max(60, EXTRA - (simT - endT));
     if (row.full != null && idx < 4) { const fee = unlockInfo(dkey(city, idx + 1)).fee; left = Math.max(60, (fee - S.cash) / Math.max(inc, 1e-9)); }
     for (let n = 0; n < 6; n++) {
       const opts = S.own.flatMap(k => options(k, left)).sort((a, b) => a.pay - b.pay);
@@ -140,7 +170,35 @@ if (MODE === 'table') {
   console.log('');
   (globalThis as any).process.exit(0);
 }
+if (env.SIM_PJ === 'table') {
+  // denge tablosu (projeler): Bebek dolunca 3 saat daha oynanır. Kazanç (2/4 sa, toplam) ve kira (Bebek dolunca, +1, +3 sa)
+  // farkı "yok sayan" (proje ve kiracıya hiç dokunmayan) oyuncuya göre; kiracılı satırlar 8 tohum ortalaması.
+  if (!EXTRA) { console.log('SIM_EXTRA gerekli (ör. SIM_EXTRA=3)'); (globalThis as any).process.exit(1); }
+  const at = (a: number[], sec: number) => a[Math.min(a.length, Math.round(sec / DT)) - 1];
+  type R = { full: number; e2: number; e4: number; eEnd: number; rF: number; r1: number; r3: number; pj: number; pj2: number; first: number; fills: number[] };
+  const run = (pj: boolean, mode: TMode, sd: number): R => {
+    PJ = pj; const rows = simulate(mode, sd), fullT = rows[4].full!;
+    return { full: fullT, e2: at(earnedAt, 7200), e4: at(earnedAt, 14400), eEnd: earnedAt[earnedAt.length - 1], rF: at(rateAt, fullT), r1: at(rateAt, fullT + 3600), r3: rateAt[rateAt.length - 1],
+      pj: pstat.pj, pj2: pstat.pj2, first: pstat.first, fills: rows.map(r => (r.full! - r.open) / 60) };
+  };
+  const avg = (pj: boolean, mode: TMode) => { const sds = mode === 'off' ? [1] : [1, 2, 3, 4, 5, 6, 7, 8], rs = sds.map(sd => run(pj, mode, sd));
+    const o: any = {}; for (const key of Object.keys(rs[0]) as (keyof R)[]) o[key] = key === 'fills' ? rs[0].fills.map((_, j) => rs.reduce((x, r) => x + r.fills[j], 0) / rs.length) : rs.reduce((x, r) => x + (r[key] as number), 0) / rs.length; return o as R; };
+  const base = avg(false, 'off');
+  const pct = (v: number, b: number) => { const d = (v / b - 1) * 100; return (Math.abs(d) < 0.05 ? '%0' : (d > 0 ? '+%' : '−%') + Math.abs(d).toFixed(1)).replace('.', ','); };
+  console.log(`\nBüyük projeler · İstanbul, reklamsız aktif oyuncu · +%${Math.round(CFG.PJ_X1 * 100)} / +%${Math.round(CFG.PJ_X2 * 100)} · semt başına ${CFG.PJ_MAX} · Sv${CFG.PJ_MINLV} · bedel %${CFG.PJ_COST_PCT} · Bebek + ${EXTRA / 3600} sa\n`);
+  console.log('| Senaryo | Proje / 2. etap | İlk proje | Semt dolma (dk) | Bebek dolma | Kazanç 2 sa | Kazanç 4 sa | Kira (Bebek dolunca) | Kira (+1 sa) | Kira (+3 sa) | Toplam kazanç |');
+  console.log('|---|---|---|---|---|---|---|---|---|---|---|');
+  const line = (n: string, r: R) => console.log(`| ${n} | ${r.pj.toFixed(r.pj % 1 ? 1 : 0)} / ${r.pj2.toFixed(r.pj2 % 1 ? 1 : 0)} | ${r.first >= 0 ? fmtT(r.first) : '—'} | ${r.fills.map(v => v.toFixed(0)).join('/')} | ${fmtT(r.full)} | ${pct(r.e2, base.e2)} | ${pct(r.e4, base.e4)} | ${pct(r.rF, base.rF)} | ${pct(r.r1, base.r1)} | ${pct(r.r3, base.r3)} | ${pct(r.eEnd, base.eEnd)} |`);
+  line('yok sayan (proje ve kiracı yok)', base);
+  line('projeler (aktif)', avg(true, 'off'));
+  line('kiracılar (aktif)', avg(false, 'active'));
+  line('kiracılar + projeler (aktif)', avg(true, 'active'));
+  line('kiracılar yarı ilgili + projeler', avg(true, 'half'));
+  console.log('');
+  (globalThis as any).process.exit(0);
+}
 const rows = simulate(MODE as TMode, +(env.SIM_SEED || 1));
+if (PJ) console.log(`büyük proje: ${pstat.pj} proje · ${pstat.pj2} 2. etap · ilk ${pstat.first >= 0 ? fmtT(pstat.first) : '—'}\n${env.SIM_LOG ? pstat.log.join('\n') : ''}`);
 if (MODE !== 'off') console.log(`kiracı: ${MODE} · tohum ${env.SIM_SEED || 1} · ${JSON.stringify(tstat)}`);
 console.log(`\nTapu · aktif oyuncu (reklamsız), İstanbul · kademe ${JSON.stringify(TIER_M)} · kira artışı ${CFG.TIER_INC} · tapu ${JSON.stringify(TIER_FEE)}\n`);
 console.log('Semt'.padEnd(12), 'Açılış'.padStart(9), 'Doldu'.padStart(9), 'Dolma süresi'.padStart(14), 'Duvar (bekleme)'.padStart(17));

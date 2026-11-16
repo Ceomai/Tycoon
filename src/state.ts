@@ -1,9 +1,14 @@
-import { BuildingType, CityId, DistrictKey, N, SCHEMA, dkey, CFG, DMAP, TYPES, MAXLV, CITY_ORDER, OBSTACLE_IDS } from './config';
+import { BuildingType, CityId, DistrictKey, N, COLS, ROWS, SCHEMA, dkey, CFG, DMAP, TYPES, MAXLV, CITY_ORDER, OBSTACLE_IDS } from './config';
 import type { Tenant } from './game/tenants';
 
 export interface Skin { c?: number; r?: number; s?: boolean; }
 export interface Plot { t: BuildingType; lvl: number; buf: number; until: number; dur: number; up: boolean; bu?: number; sp?: string; ob?: string; sk?: Skin; } // bu: bu mülke 2x bitişi · sp: özel yapı · ob: engel (gecekondu, hurda…)
 export type Lot = Plot | null;
+/** Büyük proje (game/project.ts): 2×2 blok, a: sol üst arsa. st: tamamlanan etap (0 = ilk inşaat sürüyor, 2 = son).
+ *  until/dur: süren etabın bitişi (oyun saati, binalar gibi) ve süresi; until 0 = inşaat yok. kd: tür (yalnızca ad/görünüm). */
+export interface Pj { a: number; kd: PjKind; st: number; until: number; dur: number; }
+export type PjKind = 'site' | 'carsi' | 'plaza' | 'karma';
+export const PJ_KINDS: readonly PjKind[] = ['site', 'carsi', 'plaza', 'karma'];
 export interface Fx { k: 'row' | 'type'; d?: DistrictKey; r?: number; t?: BuildingType; x: number; until: number; }
 export interface Task { k: string; goal: number; prog: number; claimed: boolean; }
 export interface Offer { k: string; goal: number; prog: number; until: number; title: string; rw: number; done: boolean; }
@@ -57,6 +62,8 @@ export interface State {
   ten: Tenant[];                   // kiracılar (game/tenants.ts): bekleyen adaylar, anahtar bekleyenler ve yerleşenler
   tdef: Record<string, { met: number; ok: number }>; // kiracı defteri: tip → tanışılan / yerleşen (yalnızca görünüm)
   nextTen: number;                 // sonraki kiracı adayı (oyun süresi, ms; 0 = henüz açılmadı)
+  pj: Record<DistrictKey, Pj[]>;   // büyük projeler (arsa birleştirme), semt başına en fazla CFG.PJ_MAX
+  pjIntro: boolean;                // Rıfkı projeleri bir kez tanıttı mı
   clubDay: string;                 // Kulüp günlük jetonunun verildiği gün // tapu sezonu // lig (kaynak sunucu; bu önbellek), last = gösterilen son hafta sonucu
 }
 
@@ -81,7 +88,7 @@ export function newState(now: number, weekKey: string, city: CityId | null = nul
     offer: null, premium: false, clockFlag: 0, league: { tier: 0, seals: 0, last: '' }, guideHint: false, collectMode: 'tap', stars: {}, inv: [], ozel: { week: '', bought: false }, rifki: true, lien: {}, lienT: {}, dEarn: {}, cards: [],
     market: '', ach: [], cnt: { ob: 0, civic: 0, skin: 0, kapora: 0 }, civic: {}, nextCivic: 12 * 60e3, night: true, vib: true, tokens: 0, skinsU: [], season: { id: '', xp: 0, got: [], ggot: [], gold: false },
     noAds: false, club: false, starter: { at: 0, bought: false }, seasonFirst: false, adCredit: 0, clubDay: '',
-    ten: [], tdef: {}, nextTen: 0,
+    ten: [], tdef: {}, nextTen: 0, pj: {}, pjIntro: false,
   };
 }
 
@@ -115,9 +122,9 @@ const strs = (x: unknown) => (Array.isArray(x) ? x.filter(v => typeof v === 'str
 const nums = (x: unknown) => (Array.isArray(x) ? x.filter(v => typeof v === 'number' && Number.isFinite(v)) : []);
 const isD = (k: unknown): k is DistrictKey => typeof k === 'string' && Object.prototype.hasOwnProperty.call(DMAP, k);
 const MAX_CASH = 1e300; // taşmayı (Infinity) önler
-function rec<T>(x: unknown, f: (v: unknown) => T | undefined): Record<string, T> {
+function rec<T>(x: unknown, f: (v: unknown, k: DistrictKey) => T | undefined): Record<string, T> {
   const o: Record<string, T> = {};
-  if (isObj(x)) for (const k of Object.keys(x)) { if (!isD(k)) continue; const v = f(x[k]); if (v !== undefined) o[k] = v; }
+  if (isObj(x)) for (const k of Object.keys(x)) { if (!isD(k)) continue; const v = f(x[k], k); if (v !== undefined) o[k] = v; }
   return o;
 }
 function cleanLot(q: unknown): Lot {
@@ -158,6 +165,27 @@ function cleanTdef(x: unknown): Record<string, { met: number; ok: number }> {
   if (isObj(x)) for (const a of TEN_ARCHS) { const r = x[a]; if (isObj(r)) o[a] = { met: Math.floor(num(r.met, 0, 0, 1e6)), ok: Math.floor(num(r.ok, 0, 0, 1e6)) }; }
   return o;
 }
+/** Büyük projeler: geçerli 2×2 (sağ ve alt kenarı taşmaz), sahip olunan semtte, dört arsası da bina (özel yapı / engel değil),
+ *  çakışmayan; etap 0–2, süren inşaat makul (elle uzatılamaz, 2. etaptan sonra inşaat olmaz). Bozuk proje düşer: binalar yerinde kalır. */
+const PJ_DUR_MAX = 48 * 3600e3, PJ_N_MAX = 4; // 4×5 ızgarada en fazla 4 ayrık 2×2
+function cleanPj(x: unknown, own: DistrictKey[], d: Record<string, Lot[]>, now: number): Record<DistrictKey, Pj[]> {
+  return rec(x, (v, k) => {
+    if (!Array.isArray(v) || !own.includes(k)) return undefined;
+    const lots = d[k] || [], used = new Set<number>(), out: Pj[] = [];
+    for (const q of v) {
+      if (out.length >= PJ_N_MAX) break;
+      if (!isObj(q) || !int(q.a, 0, N - 1) || q.a % COLS >= COLS - 1 || Math.floor(q.a / COLS) >= ROWS - 1 || !PJ_KINDS.includes(q.kd)) continue;
+      const cells = [q.a, q.a + 1, q.a + COLS, q.a + COLS + 1];
+      if (cells.some(j => used.has(j) || !lots[j] || lots[j]!.sp || lots[j]!.ob || lots[j]!.lvl < 1)) continue;
+      cells.forEach(j => used.add(j));
+      const st = Math.round(num(q.st, 0, 0, 2)), dur = num(q.dur, 1, 1, PJ_DUR_MAX);
+      let until = num(q.until, 0, 0); if (until) until = Math.min(until, now + dur);
+      if (st >= 2) until = 0;
+      out.push({ a: q.a, kd: q.kd, st: until || st ? st : 1, until, dur }); // etap 0 ve inşaat yok: bozuk kayıt, ilk etap bitmiş sayılır
+    }
+    return out.length ? out : undefined;
+  });
+}
 function sanitize(s: any, now: number, weekKey: string): State {
   const own = [...new Set(strs(s.own).filter(isD))].filter(k => CITY_ORDER.includes(DMAP[k].city)); // yalnızca etkin bölgenin semtleri
   // city: null = şehir henüz seçilmemiş (ilk açılış yarım kaldı): semtlerden türetilmez, oyuncu şehir seçer.
@@ -197,6 +225,7 @@ function sanitize(s: any, now: number, weekKey: string): State {
   const o = s.offer, fin = (x: unknown) => typeof x === 'number' && Number.isFinite(x);
   out.offer = isObj(o) && typeof o.k === 'string' && fin(o.until) && fin(o.goal) && o.goal > 0 && fin(o.prog) && typeof o.title === 'string' && fin(o.rw) && o.rw >= 0
     ? { k: o.k, goal: o.goal, prog: Math.max(0, o.prog), until: o.until, title: o.title, rw: o.rw, done: o.done === true } : null;
+  out.pj = cleanPj(s.pj, out.own, out.d, now); out.pjIntro = s.pjIntro === true;
   out.ten = cleanTenants(s.ten, out.own, out.playMs); out.tdef = cleanTdef(s.tdef); out.nextTen = num(s.nextTen, 0, 0);
   if (!out.ref.code || typeof out.ref.code !== 'string') out.ref = base.ref;
   if (out.collectMode !== 'auto') out.collectMode = 'tap';

@@ -6,7 +6,7 @@ import { CFG, ORDER, DMAP, N, DistrictKey } from '../config';
 import { S, lotsOf } from '../state';
 import { now, pending, producing, neighbors, PAIRS, buildCost, withDisc, rate, isFull, unlockInfo } from '../economy';
 import { weekKey, loc } from '../format';
-import { t, nm, lowTxt } from '../i18n';
+import { t, nm, lowTxt, pctTxt } from '../i18n';
 import { $, ui, SheetState, view, reduceMotion } from '../ui/ctx';
 import { rifkiFace, moodOf, faceIn } from '../ui/rifkiFace';
 import { nearestGoal } from './goals';
@@ -17,11 +17,12 @@ import { saveTarget, boostSaving } from './monetize';
 import { tenantSay, Tenant, TenantEv } from './tenants';
 import { tenantBadge } from '../ui/tenantFace';
 import type { Arch } from './tenants';
+import { blocks, nearest, pjDistrictOk, pjUnlocked, pjName, kindOf, typesAt } from './projcore';
 
 let last2x = -1e9; // 2x hatırlatması (CFG.HINT2X_EVERY) en fazla bu sıklıkla
 
 /** tn: kiracı olayında balonun köşesinde kiracının küçük yüzü (Rıfkı onu tanıtıyor). */
-interface Tip { id: string; text: string; go?: SheetState; tn?: Arch; }
+export interface Tip { id: string; text: string; go?: SheetState; tn?: Arch; }
 
 /* Türkçede bina adı cümlede çekimlendiği için (Evin / Evinize / ev) her bina için ayrı tam cümle anahtarı. */
 function pairText(bt: string): string {
@@ -85,16 +86,37 @@ function tips(): Tip[] {
     const q = lotsOf(S, bs.lot.k)[bs.lot.i]!;
     out.unshift({ id: 'save2x', text: save2xText(q.sp ? 'sp' : q.t, { d: nm(DMAP[tg.k].n), n: Math.round(bs.now), m: Math.max(1, Math.round(bs.now - bs.saved)) }), go: { k: 'plot', key: bs.lot.k, i: bs.lot.i } });
   }
+  projectTips(out);
   let best = -1, br = 0;
   lots.forEach((p, i) => { if (producing(p) && !((p!.bu || 0) > tn)) { const r = rate(k, i, tn); if (r > br) { br = r; best = i; } } });
   if (best >= 0 && S.collects > 10) out.push({ id: 'boost', text: boostText(lots[best]!.sp ? 'sp' : lots[best]!.t), go: { k: 'plot', key: k, i: best } });
   return out;
 }
 
+/** Büyük projeler: açılış (bir kez, ilk uygun blok çıkınca) ve "blok neredeyse hazır" (1–2 kat kaldı). */
+function projectTips(out: Tip[]) {
+  if (!pjUnlocked()) return;
+  if (!S.pjIntro) {
+    const k = [S.cur, ...S.own.filter(o => o !== S.cur)].find(o => blocks(o).length);
+    if (k) {
+      const a = blocks(k)[0];
+      out.unshift({ id: 'pjintro', text: t('Efendim, dolu semtte yan yana dört binanız varsa birleştirip koca bir proje yapabiliriz. {loc} bir {name}, ne dersiniz?', { loc: loc(nm(DMAP[k].n)), name: pjName(k, kindOf(typesAt(k, a))) }), go: { k: 'plot', key: k, i: a } });
+      return;
+    }
+  }
+  const k = S.cur, why = pjDistrictOk(k);
+  if (why || blocks(k).length) return; // ruhsat yok (ya da semt sınırı dolu) veya hazır blok zaten var
+  const n = nearest(k);
+  if (n && n.floors >= 1 && n.floors <= 2) out.push({ id: 'pjnear', text: t('Şu dört binaya {f} kat daha çıkılırsa tek proje olur, kira da {p} artar. Benden söylemesi.', { f: n.floors, p: pctTxt(Math.round(CFG.PJ_X1 * 100)) }), go: { k: 'plot', key: k, i: n.i } });
+}
+/** Olay konuşması (proje teslimi, kaporalı semtte ruhsat): açık kart/panel kapanınca söylenir. */
+export function sayTip(tip: Tip) { if (S.rifki) pendingEv = tip; }
+
 export function hideTip() { const el = $('#rifki'); if (el) el.hidden = true; current = null; clearTimeout(hideT); }
 export function showTip(tip: Tip) {
   const el = $('#rifki'); if (!el) return;
   current = tip; lastId = tip.id;
+  if (tip.id === 'pjintro') S.pjIntro = true; // tanıtım bir kez
   const mood = moodOf(tip.id); // ifade: ipucu kimliğinden (ui/rifkiFace.ts TIP_MOOD)
   el.innerHTML = `<div class="rk-face" data-mood="${mood}">${rifkiFace(mood)}</div><button class="rk-bub${tip.tn ? ' has-tn' : ''}" data-rk="go"><b>${t('RIFKI ABİ')}</b><span>${tip.text}</span>${tip.tn ? `<i class="rk-tn">${tenantBadge(tip.tn, tip.id === 'tenok' || tip.id === 'tenready' ? 'happy' : 'wait')}</i>` : ''}</button><button class="rk-x" data-rk="x" aria-label="${t('Kapat')}">×</button>`;
   el.hidden = false; faceIn(el.querySelector('.rk-face svg'), reduceMotion); clearTimeout(hideT); hideT = setTimeout(hideTip, 10e3);

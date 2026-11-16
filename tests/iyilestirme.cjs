@@ -6,6 +6,8 @@
 // Adım 4: animasyonlar (pop, para uçuşu→sayaç, kart kapanışı, panel/semt geçişi, basma, boşta duraklama) ve titreşim; hareketi azalt.
 // Adım 9: Rıfkı Abi'nin yüzü (ifade ipucuna göre; göz kırpma/nefes boşta ve hareketi azalt açıkken durur).
 // Kiracılar (16): Rıfkı tanıtır, kart, hedef arsa, inşaatta süre durur, anahtar teslimi, gidiş/bitiş bildirimi, defter, koyu tema, 320 px, EN.
+// Büyük projeler (17): Rıfkı tanıtır, arsa panelinde teklif, seçim çerçevesi (çakışan iki blok), onay kartı (kiracı notu), şantiye,
+// teslim, 2. etap, ayırma; reklamla hızlandırma yok; UK/DE üslubu; koyu tema + hareketi azalt, 320 px, yatay 844×390.
 // Çalıştır: npm run test:iy  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 const {chromium}=require('playwright');
 const { serve, PREF_IF: PREF, state, vis, recorder, out } = require('./helpers.cjs');
@@ -188,8 +190,167 @@ async function kiraciBolum(b) {
   await p.context().close();
 }
 
+// ---------- 17) Büyük projeler: teklif, seçim çerçevesi, onay kartı, şantiye, teslim, 2. etap, ayırma, koyu tema, 320 px, yatay ----------
+async function projeBolum(b) {
+  /** Proje vakası: Kadıköy dolu; 0,1,2,4,5,6 Sv5, diğerleri Sv4 → 5. arsayı içeren iki uygun blok (0: Han, 1: Pasaj). Beşiktaş alınmış. */
+  async function openPj(o = {}) {
+    const ctx = await b.newContext({ viewport: o.vp || { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: !o.desk, hasTouch: true, reducedMotion: o.rm ? 'reduce' : 'no-preference' });
+    await ctx.addInitScript(`localStorage.setItem('tapu-prefs',JSON.stringify({lang:'${o.lang || 'tr'}',region:'${o.region || 'tr'}',ent:{},news:true${o.dark ? ",theme:'dark'" : ''}}));` + (o.dark ? "localStorage.setItem('tapu-theme','dark');" : ''));
+    const p = await ctx.newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(e.message));
+    await p.clock.install(); await p.goto(URL); await p.clock.runFor(700);
+    await p.click(`#modal .cityopt[data-a="${o.city || 'ist'}"]`, { force: true }); await p.clock.runFor(400);
+    for (let k = 0; k < 5 && await has(p, '#modal .card'); k++) { await p.click('#modal .card [data-a]', { force: true }); await p.clock.runFor(400); }
+    await p.evaluate(() => { const S = window.__tapuState(), k = S.cur, k2 = k.replace(/-0$/, '-1');
+      const T = ['ev', 'kafe', 'kafe', 'ofis', 'ev', 'dukkan', 'dukkan', 'ofis'];
+      S.d[k] = Array.from({ length: 20 }, (_, i) => ({ t: T[i % 8], lvl: [0, 1, 2, 4, 5, 6].includes(i) ? 5 : 4, buf: 0, until: 0, dur: 1, up: false }));
+      S.d[k2] = Array(20).fill(null); S.own = [k, k2]; S.lien = {}; S.lienT = {}; S.collectMode = 'tap'; S.cash = 1e13; S.earned = 1e9; S.seen = { ev: true, kafe: true, dukkan: true, ofis: true };
+      S.nextEvent = 9e12; S.nextOffer = 9e12; S.nextCivic = 9e12; S.nextAd = 9e12; S.nextTaxi = 9e12; S.collects = 0; S.market = 'x'; S.rifki = true; S.guideHint = true;
+      S.starter = { at: 1, bought: true }; S.offer = null; S.ten = []; S.tdef = {}; S.nextTen = 9e15; S.pj = {}; S.pjIntro = false; S.cards = Object.keys(S.d);
+      const d = new Date(); S.daily = { last: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'), streak: 1 };
+      S.tasks = { day: S.daily.last, bonus: false, list: [{ k: 'taxi', goal: 1e9, prog: 0, claimed: false }] }; });
+    await p.clock.runFor(1500);
+    for (let k = 0; k < 5 && await has(p, '#modal .card'); k++) { await p.click('#modal .card [data-a]', { force: true }); await p.clock.runFor(400); }
+    return p;
+  }
+  const rk = p => p.evaluate(() => { const r = document.querySelector('#rifki'); return r.hidden ? null : { mood: r.querySelector('.rk-face')?.dataset.mood, txt: r.querySelector('.rk-bub span')?.textContent || '' }; });
+  const rkX = p => p.evaluate(() => { const r = document.querySelector('#rifki .rk-x'); if (r && !document.querySelector('#rifki').hidden) r.click(); });
+  const tile = i => `#grid .lot[data-i="${i}"]`;
+  const tapTile = async (p, i) => { await p.click(tile(i), { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350); };
+  const rate = p => p.evaluate(() => window.__tapuTest.totalRate());
+  const noOverflow = (p, root) => p.evaluate(r => { const els = [...document.querySelectorAll(r + ' *')].filter(e => { const b = e.getBoundingClientRect(); return b.width && (b.right > innerWidth + 0.5 || b.left < -0.5); }); return { doc: document.documentElement.scrollWidth, vw: innerWidth, bad: els.map(e => e.tagName + '.' + (e.getAttribute('class') || '')).slice(0, 4) }; }, root);
+  const frames = p => p.evaluate(() => [...document.querySelectorAll('#grid .pjframe')].map(f => { const l = f.querySelector('.pjf-l'), r = l.getBoundingClientRect(); return { a: +f.dataset.a, txt: l.textContent, x: r.x, y: r.y, w: r.width, h: r.height }; }));
+  const overlap = (a, c) => a.x < c.x + c.w && c.x < a.x + a.w && a.y < c.y + c.h && c.y < a.y + a.h;
+
+  let p = await openPj();
+  // Rıfkı tanıtır (bir kez): şaşkın yüz, yerel ad
+  await p.clock.runFor(46e3); const r0 = await rk(p);
+  ok(r0 && r0.mood === 'wow' && /koca bir proje/.test(r0.txt) && /Kadıköy’de bir (Han|Pasaj)/.test(r0.txt) && (await S(p)).pjIntro, 'Rıfkı projeleri tanıtıyor (wow, "Kadıköy’de bir …"): ' + JSON.stringify(r0));
+  await rkX(p);
+  // arsa panelinde teklif
+  await tapTile(p, 5);
+  const of = await p.evaluate(() => { const o = document.querySelector('#sheetBody .pjoffer'); return o ? { t: o.textContent, svg: !!o.querySelector('.pjo-ic svg'), bh: o.querySelector('[data-a="pj"]').getBoundingClientRect().height } : null; });
+  ok(of && /Büyük proje/.test(of.t) && /2 blok uygun/.test(of.t) && /kira \+%20/.test(of.t) && of.svg && of.bh >= 44, 'arsa panelinde "Büyük proje" teklifi (2 blok, +%20, ≥44 px düğme): ' + JSON.stringify(of));
+  await p.waitForTimeout(400); await p.screenshot({ path: out + 'proje-1-teklif.png' });
+  await p.keyboard.press('Escape'); await p.clock.runFor(400);
+  await tapTile(p, 12); // Sv4 bina, aynı semt: ilerleme notu
+  const note = await p.evaluate(() => document.querySelector('#sheetBody .pjnote')?.textContent || '');
+  ok(/bu 2×2 blokta \d\/4 bina Sv 5 · \d kat kaldı/.test(note), 'Sv4 binada ilerleme notu: ' + note);
+  await p.keyboard.press('Escape'); await p.clock.runFor(400);
+  // seçim modu: çakışan iki blok, etiketler ≥44 px ve üst üste binmiyor, diğer arsalar soluk
+  await tapTile(p, 5); await p.click('#sheetBody [data-a="pj"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(300);
+  const fr = await frames(p), bar = await p.evaluate(() => { const b = document.querySelector('#pjBar'); return b && !b.hidden ? b.textContent : ''; });
+  const dim = await p.evaluate(() => ({ sel: document.querySelector('#grid').classList.contains('pjsel'), op: getComputedStyle(document.querySelector('#grid .lot[data-i="19"]')).opacity }));
+  ok(fr.length === 2 && fr.map(f => f.txt).sort().join() === 'Han,Pasaj' && fr.every(f => f.h >= 44 && f.w >= 44) && !overlap(fr[0], fr[1]), 'seçim çerçevesi: Han ve Pasaj, etiketler ≥44 px, çakışmıyor: ' + JSON.stringify(fr));
+  ok(/2 blok uygun · birini seç/.test(bar) && dim.sel && +dim.op < 0.5 && !(await has(p, '#sheet.on')), 'şerit "2 blok uygun", panel kapalı, diğer arsalar soluk: ' + JSON.stringify(dim));
+  await p.waitForTimeout(300); await p.screenshot({ path: out + 'proje-2-secim.png' });
+  // çerçeve dışına dokunmak seçimi bırakır; yeniden gir
+  await p.click(tile(9), { force: true }); await p.clock.runFor(400);
+  ok(!(await frames(p)).length && !(await has(p, '#pjBar:not([hidden])')) && !(await has(p, '#sheet.on')), 'çerçeve dışına dokununca seçim kapanır (panel açılmaz)');
+  // kiracı: 5. arsada yerleşik kiracı (esnaf, dükkân) — onay kartı söyler, projede kalır
+  await p.evaluate(() => { const S = window.__tapuState(); S.ten.push({ id: 7, a: 'esnaf', k: S.cur, i: 5, w: { k: 'nb', t: 'ev' }, dl: S.playMs, st: 'live', end: S.playMs + 40 * 60e3 }); });
+  await tapTile(p, 5); await p.click('#sheetBody [data-a="pj"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(300);
+  const pas = (await frames(p)).find(f => f.txt === 'Pasaj');
+  await p.mouse.click(pas.x + pas.w / 2, pas.y + pas.h / 2); await p.clock.runFor(400); await p.waitForTimeout(350);
+  const card = await p.evaluate(() => { const c = document.querySelector('#modal .pjcard'); return c ? { h: c.querySelector('h3').textContent, chips: c.querySelectorAll('.pjchip').length, led: [...c.querySelectorAll('.ledger > div')].map(d => d.textContent.replace(/\s+/g, ' ')), ten: c.querySelector('.pjten')?.textContent || '', go: !c.querySelector('[data-a="go"]').disabled, svg: !!c.querySelector('.pjart svg'), tt: getComputedStyle(c.querySelector('h3')).textTransform } : null; });
+  ok(card && card.h === 'Pasaj' && card.chips === 4 && card.led.length === 4 && /\+%20/.test(card.led[1]) && card.go && card.svg, 'onay kartı (proje ruhsatı): Pasaj, 4 bina, kira önce/sonra +%20, bedel, süre: ' + JSON.stringify(card && card.led));
+  ok(card && /Hüseyin Usta projede oturmaya devam eder/.test(card.ten) && /tek bina sayılır/.test(card.ten), 'onay kartı kiracıyı söylüyor (sessizce düşmez): ' + (card && card.ten));
+  await p.waitForTimeout(300); await p.screenshot({ path: out + 'proje-3-onay.png' });
+  const rate0 = await rate(p);
+  await p.click('#modal [data-a="go"]', { force: true }); await p.clock.runFor(600); await p.waitForTimeout(300);
+  const s1 = await S(p), q1 = s1.pj[s1.cur] && s1.pj[s1.cur][0];
+  const tl = await p.evaluate(() => { const e = document.querySelector('#grid .lot[data-i="1"]'), r = e.getBoundingClientRect(); return { cls: e.className, gc: e.style.gridColumn, w: r.width, h: r.height, hidden: [2, 5, 6].map(i => getComputedStyle(document.querySelector(`#grid .lot[data-i="${i}"]`)).display), prog: e.querySelector('.pjprog')?.textContent || '', one: document.querySelector('#grid .lot[data-i="0"]').getBoundingClientRect().width }; });
+  ok(q1 && q1.a === 1 && q1.kd === 'carsi' && q1.st === 0 && q1.until > Date.now(), 'proje başladı (Pasaj, 1. etap inşaatta): ' + JSON.stringify(q1));
+  ok(/\bpj\b/.test(tl.cls) && /\bc\b/.test(tl.cls) && /span 2/.test(tl.gc) && tl.w > tl.one * 1.9 && tl.hidden.every(d => d === 'none') && /Proje inşaatı/i.test(tl.prog), '2×2 şantiye karosu, diğer üç karo gizli, "PROJE İNŞAATI" çubuğu: ' + JSON.stringify(tl));
+  ok(Math.abs((await rate(p)) / rate0 - 1) < 0.01, 'inşaat sürerken kira değişmiyor');
+  ok(s1.ten.some(x => x.id === 7 && x.st === 'live') && !(await frames(p)).length, 'kiracı projede kaldı; seçim çerçeveleri kalktı');
+  await p.waitForTimeout(300); await p.screenshot({ path: out + 'proje-4-santiye.png' });
+  // proje inşaatında reklamla hızlandırma ve 2x yok
+  await tapTile(p, 1);
+  const ps = await p.evaluate(() => ({ h: document.querySelector('#sheetBody .pj-head h3')?.textContent, ad: !!document.querySelector('#sheetBody [data-a="skip"],#sheetBody [data-a="lotboost"],#sheetBody [data-a="token"]'), cd: !!document.querySelector('#sheetBody [data-cd]') }));
+  ok(ps.h === 'Pasaj' && !ps.ad && ps.cd, 'proje paneli (inşaat): geri sayım var, reklamla hızlandırma / 2x yok: ' + JSON.stringify(ps));
+  await p.keyboard.press('Escape'); await p.clock.runFor(400); await rkX(p);
+  // teslim
+  await p.evaluate(() => { const S = window.__tapuState(); S.pj[S.cur][0].until = Date.now() + 500; }); await p.clock.runFor(900); await p.waitForTimeout(150);
+  const del = await p.evaluate(() => ({ ts: document.querySelector('#grid .lot[data-i="1"] .teslim')?.textContent || '', big: document.querySelector('#bigStamp:not([hidden])')?.textContent || '' }));
+  await p.screenshot({ path: out + 'proje-5-teslim.png' });
+  const s2 = await S(p), rate1 = await rate(p);
+  ok(s2.pj[s2.cur][0].st === 1 && /TESLİM/.test(del.ts) && /Pasaj/.test(del.ts) && /PROJE TESLİM/.test(del.big) && /KİRALAR \+%20/.test(del.big), 'teslim: karoda TESLİM mührü (Pasaj), büyük mühür "PROJE TESLİM · KİRALAR +%20": ' + JSON.stringify(del));
+  ok(rate1 > rate0 * 1.01, 'teslimde toplam kira arttı (' + rate0.toFixed(1) + ' → ' + rate1.toFixed(1) + ')');
+  await p.clock.runFor(3000); const r1 = await rk(p);
+  ok(r1 && r1.mood === 'party' && /Pasaj hayırlı olsun/.test(r1.txt), 'Rıfkı teslimi kutluyor: ' + JSON.stringify(r1));
+  await rkX(p);
+  ok(await has(p, tile(1) + ' .pjn') && await has(p, tile(1) + ' .tn.s-live'), 'bitmiş proje karosunda ad etiketi ve kiracı rozeti');
+  // proje paneli: döküm, 2. etap
+  await tapTile(p, 1);
+  const pp = await p.evaluate(() => ({ led: [...document.querySelectorAll('#sheetBody .ledger > div')].map(d => d.textContent.replace(/\s+/g, ' ')), b2: document.querySelector('#sheetBody [data-a="pj2"]')?.textContent || '' }));
+  ok(pp.led.some(s => /Proje bonusu.*\+%20/.test(s)) && pp.led.some(s => /Kiracı · Hüseyin Usta/.test(s)) && pp.led.some(s => /aynen sayılır/.test(s)) && /2. etap · kat ekle/.test(pp.b2), 'proje paneli: kira dökümü, kiracı satırı, 2. etap düğmesi: ' + JSON.stringify(pp.led));
+  await p.waitForTimeout(300); await p.screenshot({ path: out + 'proje-6-panel.png' });
+  await p.click('#sheetBody [data-a="pj2"]', { force: true }); await p.clock.runFor(400);
+  ok((await S(p)).pj[s2.cur][0].until > Date.now(), '2. etap başladı');
+  await p.evaluate(() => { const S = window.__tapuState(); S.pj[S.cur][0].until = Date.now() + 500; }); await p.clock.runFor(1200);
+  const s3 = await S(p), rate2 = await rate(p);
+  ok(s3.pj[s3.cur][0].st === 2 && rate2 > rate1, '2. etap teslim: etap 2, kira yine arttı');
+  const fin = await p.evaluate(() => ({ last: document.querySelector('#sheetBody .btns .btn[disabled]')?.textContent || '', h: document.querySelector('#sheetBody .pj-head h3')?.textContent }));
+  ok(/Son etap/.test(fin.last) && /II/.test(fin.h), 'panelde "Son etap", adda II: ' + JSON.stringify(fin));
+  // ayırma: iki dokunuş; kira eski hâline, karolar geri
+  await p.click('#sheetBody [data-a="split"]', { force: true }); await p.clock.runFor(300);
+  ok((await S(p)).pj[s3.cur] && await has(p, '#sheetBody .iconbtn.warn'), 'ayır: ilk dokunuş onay ister');
+  await p.click('#sheetBody [data-a="split"]', { force: true }); await p.clock.runFor(600);
+  const s4 = await S(p), rate3 = await rate(p), back = await p.evaluate(() => [1, 2, 5, 6].map(i => { const e = document.querySelector(`#grid .lot[data-i="${i}"]`); return getComputedStyle(e).display !== 'none' && !e.classList.contains('pj'); }));
+  ok(!s4.pj[s4.cur] && back.every(Boolean) && Math.abs(rate3 / rate0 - 1) < 0.01 && s4.d[s4.cur].every(x => x && x.lvl >= 4) && /Proje ayrıldı/.test(await p.textContent('#toast')), 'ayırınca dört bina yerinde, kira eski hâline: ' + rate3.toFixed(1));
+  ok(s4.ten.some(x => x.id === 7 && x.st === 'live'), 'ayırınca kiracı binasında kalıyor');
+  ok(!p.errs.length, 'konsol temiz' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+
+  // koyu tema + hareketi azalt + 320 px (Almanya / Almanca: Markthalle üslubu)
+  p = await openPj({ dark: true, rm: true, vp: { width: 320, height: 568 }, lang: 'de', region: 'de', city: 'muc' });
+  await rkX(p);
+  await tapTile(p, 5);
+  const o320 = await noOverflow(p, '#sheetBody');
+  ok(o320.doc <= 320 && !o320.bad.length && await has(p, '#sheetBody .pjoffer'), '320 px (DE): teklif taşmıyor: ' + JSON.stringify(o320));
+  await p.click('#sheetBody [data-a="pj"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(300);
+  const f320 = await frames(p), an = await p.evaluate(() => { const f = document.querySelector('#grid .pjframe'); return f ? getComputedStyle(f).animationName : ''; });
+  ok(f320.length === 2 && f320.every(f => f.h >= 44 && f.x >= -0.5 && f.x + f.w <= 320.5) && !overlap(f320[0], f320[1]), '320 px: iki etiket ekranda, ≥44 px, çakışmıyor: ' + JSON.stringify(f320.map(f => f.txt)));
+  ok(an === 'none', 'hareketi azalt: çerçeve nabzı yok');
+  ok(f320.some(f => f.txt === 'Markthalle'), 'Almanya üslubu: Markthalle');
+  await p.waitForTimeout(300); await p.screenshot({ path: out + 'proje-7-320-koyu-secim.png' });
+  await p.mouse.click(f320[0].x + f320[0].w / 2, f320[0].y + f320[0].h / 2); await p.clock.runFor(400); await p.waitForTimeout(350);
+  const c320 = await noOverflow(p, '#modal'), dk = await p.evaluate(() => { const c = document.querySelector('#modal .pjcard'); return c ? { th: document.documentElement.dataset.theme, bg: getComputedStyle(c).backgroundColor, btn: [...c.querySelectorAll('.btns button')].map(x => x.getBoundingClientRect().height) } : null; });
+  ok(dk && dk.th === 'dark' && !/255, 255, 255/.test(dk.bg) && dk.btn.every(h => h >= 44) && !c320.bad.length, '320 px koyu: onay kartı koyu zeminde, düğmeler ≥44 px, taşma yok: ' + JSON.stringify(dk));
+  await p.waitForTimeout(300); await p.screenshot({ path: out + 'proje-8-320-koyu-onay.png' });
+  await p.click('#modal [data-a="go"]', { force: true }); await p.clock.runFor(400);
+  await p.evaluate(() => { const S = window.__tapuState(); S.pj[S.cur][0].until = Date.now() + 500; }); await p.clock.runFor(3500); await rkX(p);
+  await p.waitForTimeout(300); await p.screenshot({ path: out + 'proje-9-320-koyu-tahta.png' });
+  ok(await has(p, '#grid .lot.pj.b .pjn'), 'koyu tema: bitmiş proje karosu ve adı');
+  ok(!p.errs.length, 'konsol temiz' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+
+  // yatay 844×390 (Birleşik Krallık / İngilizce)
+  p = await openPj({ vp: { width: 844, height: 390 }, lang: 'en', region: 'uk', city: 'lon' });
+  await rkX(p);
+  await tapTile(p, 5); await p.click('#sheetBody [data-a="pj"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(300);
+  const fl = await frames(p), bl = await p.evaluate(() => { const b = document.querySelector('#pjBar').getBoundingClientRect(), g = document.querySelector('#grid').getBoundingClientRect(); return { b: [b.left, b.right, b.top, b.bottom], g: [g.left, g.right, g.top, g.bottom], doc: document.documentElement.scrollWidth }; });
+  ok(fl.length === 2 && fl.every(f => f.y >= -0.5 && f.y + f.h <= 390.5 && f.h >= 44) && fl.some(f => /Victorian Arcade/.test(f.txt)), 'yatay: etiketler ekranda, İngiltere adı (Victorian Arcade): ' + JSON.stringify(fl.map(f => f.txt)));
+  ok(bl.doc <= 844 && (bl.b[1] <= bl.g[0] || bl.b[0] >= bl.g[1] || bl.b[3] <= bl.g[2] || bl.b[2] >= bl.g[3]), 'yatay: şerit tahtaya binmiyor, yatay kaydırma yok: ' + JSON.stringify(bl));
+  await p.waitForTimeout(300); await p.screenshot({ path: out + 'proje-10-yatay-secim.png' });
+  await p.mouse.click(fl[0].x + fl[0].w / 2, fl[0].y + fl[0].h / 2); await p.clock.runFor(400); await p.waitForTimeout(350);
+  const go = await p.evaluate(() => { const c = document.querySelector('#modal .pjcard'); const b = c && c.querySelector('[data-a="go"]'); if (!b) return null; b.scrollIntoView({ block: 'nearest' }); const r = b.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, h: r.height, txt: b.textContent }; });
+  ok(go && go.bottom <= 390.5 && go.h >= 44 && /Start project/.test(go.txt), 'yatay: onay kartı kaydırılarak "Start project" erişilebilir: ' + JSON.stringify(go));
+  await p.click('#modal [data-a="go"]', { force: true }); await p.clock.runFor(400);
+  await p.evaluate(() => { const S = window.__tapuState(); S.pj[S.cur][0].until = Date.now() + 500; }); await p.clock.runFor(3500); await rkX(p);
+  await p.waitForTimeout(300); await p.screenshot({ path: out + 'proje-11-yatay-uk.png' });
+  const t2 = await p.evaluate(() => { const e = document.querySelector('#grid .lot.pj'); return e ? e.getAttribute('aria-label') : ''; });
+  ok(/big project/.test(t2), 'yatay UK: proje karosu, ekran okuyucu metni İngilizce: ' + t2);
+  ok(!p.errs.length, 'konsol temiz' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+}
+
 (async()=>{
   const b=await chromium.launch(); URL=await serve();
+  if(process.env.IY_ONLY==='17'){ // yalnızca büyük projeler bölümü: IY_ONLY=17 node tests/iyilestirme.cjs
+    console.log('17) Büyük projeler'); await projeBolum(b); await b.close();
+    const pass=results.filter(r=>r.pass).length; console.log(`\nSONUÇ: ${pass}/${results.length} geçti`); process.exit(pass===results.length?0:1);
+  }
 
   console.log('1) Semtler paneli · OTO modu');
   let p=await open(b);
@@ -635,6 +796,8 @@ async function kiraciBolum(b) {
   }
   console.log('16) Kiracılar');
   await kiraciBolum(b);
+  console.log('17) Büyük projeler');
+  await projeBolum(b);
   await b.close();
   const pass=results.filter(r=>r.pass).length;
   console.log(`\nSONUÇ: ${pass}/${results.length} geçti`);

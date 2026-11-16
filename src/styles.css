@@ -1014,3 +1014,62 @@ body.idle .sumbar{animation-play-state:running!important}
 .tn-head ~ .btns .txt{min-height:44px} /* metin düğmesi (Kiracı defteri) de ≥44 px dokunma alanı */
 .ledger.tn-led b{white-space:normal;text-align:right;min-width:0} /* kiracı kartı: uzun istek/bağlantı metni dar ekranda alt satıra geçer */
 .tn-head .sh-t h3{text-transform:none} /* kiracı adı büyük harfe çevrilmez: Türkçe kural yabancı adı bozmasın (OLİVİA), "Garcia ailesi" karışık dilli */
+
+/* =====================================================================================================
+   BÜYÜK PROJELER (arsa birleştirme) — 2×2 karo, seçim çerçevesi ve şeridi, arsa panelindeki teklif, onay kartı, panel.
+   Proje adları büyük harfe çevrilmez (Türkçe kural yabancı adı bozmasın: "DANCHİ").
+   ===================================================================================================== */
+:root{--pj-lot:var(--L,#efe6d2) var(--D,#2a281f); --pj-frame:var(--L,#b8860b) var(--D,#ffc21a)}
+.night .board{--pj-lot:#2a281f}
+.night .lot.pj{--gl:var(--night-glow)}
+.lot.pjh{display:none}
+.lot.pj{background:var(--pj-lot);border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink),inset 0 0 0 4px color-mix(in srgb,var(--surface) 70%,transparent)}
+.lot.pj.c{background:var(--site)}
+.lot.pj .pjn{position:absolute;left:6px;top:6px;z-index:3;max-width:calc(100% - 12px);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:700 var(--fs-tile)/1.15 var(--cond);letter-spacing:.04em;background:var(--ink);color:var(--surface);padding:3px 7px;border-radius:var(--r-xs);pointer-events:none}
+.lot.pj .pjn i{font-style:normal;color:var(--haz)}
+.lot.pj .pjprog{position:absolute;left:8%;right:8%;top:6px;z-index:3;display:flex;flex-direction:column;gap:3px;align-items:center;padding:4px 6px;border-radius:var(--r-sm);background:color-mix(in srgb,var(--surface) 88%,transparent);box-shadow:0 0 0 1px var(--ink);pointer-events:none}
+.lot.pj .pjprog b{font:700 var(--fs-tile)/1 var(--cond);letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
+.lot.pj .pjprog i{display:block;width:100%;height:5px;border-radius:var(--r-pill);background:var(--track);overflow:hidden}
+.lot.pj .pjprog u{display:block;height:100%;background:repeating-linear-gradient(45deg,var(--hatch-a) 0 4px,var(--hatch-b) 4px 8px);transition:transform .25s linear}
+.lot.pj .teslim{left:12%;right:12%;top:34%}
+.lot.pj.tnb .pjn,.lot.pj.tnb .pjprog{left:44px} /* kiracı rozeti sol üstte: ad / ilerleme yanına */
+.lot.pj.tnb .pjprog{right:6px}
+@media (max-width:360px){ .pjframe .pjf-l{padding:0 var(--sp-3);font-size:var(--fs-3)} }
+.lot.pj .cd{inset:30% 20%}
+.lot.pj .fill{left:25%;right:25%;bottom:4%}
+/* seçim modu: uygun 2×2 bloklar kesik altın çerçeve; diğer arsalar soluk; yalnızca etiket dokunulur */
+.grid.pjsel .lot:not(.pjin){opacity:.38;filter:saturate(.5)}
+.pjframe{position:absolute;z-index:5;border:3px dashed var(--pj-frame);border-radius:var(--r-xl);background:color-mix(in srgb,var(--haz) 12%,transparent);pointer-events:none;animation:pjPulse 1.4s ease-in-out infinite}
+.pjframe .pjf-l{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer;display:flex;align-items:center;min-height:44px;min-width:44px;max-width:calc(200% + 20px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:700 var(--fs-4)/1 var(--cond);letter-spacing:.04em;background:var(--pj-frame);color:var(--on-gold);padding:0 var(--sp-6);border:0;border-radius:var(--r-pill);box-shadow:0 0 0 1.5px var(--ink),var(--shadow)}
+.pjframe .pjf-l:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.pjframe .pjf-l::before{content:"";flex:none;width:14px;height:14px;margin-right:6px;border:2px solid currentColor;border-radius:3px;background:linear-gradient(currentColor,currentColor) 50% 0/2px 100% no-repeat,linear-gradient(currentColor,currentColor) 0 50%/100% 2px no-repeat}
+@keyframes pjPulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--haz) 0%,transparent)}50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--haz) 35%,transparent)}}
+.pjbar{position:fixed;left:var(--ovl-l,16px);width:var(--ovl-w,calc(100% - 32px));bottom:var(--ovl-b,50%);z-index:8;display:flex;align-items:center;gap:var(--sp-4);min-height:44px;background:var(--ink);color:var(--surface);border-radius:var(--r-hud);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-6);box-shadow:var(--sh-hud);box-sizing:border-box}
+.pjbar span{flex:1;min-width:0;font:500 var(--fs-3)/1.25 var(--mono)}
+.pjbar span b{display:block;font:700 var(--fs-4)/1.1 var(--cond);letter-spacing:.06em;text-transform:uppercase;color:var(--haz)}
+.pjbar button{flex:none;min-height:44px;min-width:44px;padding:0 var(--sp-6);border:1.5px solid var(--surface);border-radius:var(--r-pill);background:transparent;color:var(--surface);font:600 var(--fs-3) var(--cond);letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+.pjbar[hidden]{display:none}
+/* arsa panelindeki teklif */
+.pjoffer{display:grid;grid-template-columns:56px 1fr;gap:var(--sp-2) var(--sp-4);align-items:center;margin:var(--sp-4) 0;padding:var(--sp-4);border:2px dashed var(--pj-frame);border-radius:var(--r-xl);background:color-mix(in srgb,var(--haz) 10%,var(--surface))}
+.pjoffer .pjo-ic{width:56px;height:56px;border-radius:var(--r-md);box-shadow:0 0 0 1.5px var(--ink);background-color:var(--pj-lot);overflow:hidden}
+.pjoffer .pjo-ic svg{width:100%;height:100%}
+.pjoffer .pjo-t{min-width:0}
+.pjoffer .pjo-t b{display:block;font:700 var(--fs-5)/1.1 var(--cond);letter-spacing:.04em;text-transform:uppercase}
+.pjoffer .pjo-t small{display:block;font:400 var(--fs-2)/1.35 var(--ui);color:var(--muted)}
+.pjoffer .pjo-b{grid-column:1 / -1;min-height:44px}
+.note.pjnote{border-left:3px solid var(--pj-frame);padding-left:var(--sp-3);text-align:left}
+.pjchips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:var(--sp-3) 0}
+.pjchip{font:600 var(--fs-2)/1 var(--mono);padding:5px 8px;border-radius:var(--r-pill);background:var(--zone);box-shadow:0 0 0 1px var(--ink);color:var(--ink)}
+.card.pjcard{padding-left:var(--sp-6);padding-right:var(--sp-6)}
+.card.pjcard h3{text-transform:none}
+.card.pjcard .pjart{height:150px;border-radius:var(--r-lg);box-shadow:0 0 0 1.5px var(--ink);margin:var(--sp-2) 0 var(--sp-4);overflow:hidden;background-color:var(--pj-lot)}
+.card.pjcard .pjart svg{width:100%;height:100%}
+.card.pjcard .ledger{text-align:left;margin-top:var(--sp-3)}
+.card.pjcard .btns .txt{min-height:44px}
+.pjten{display:flex;flex-direction:column;gap:3px;text-align:left;margin:var(--sp-2) 0;padding:var(--sp-2) var(--sp-3);border-left:3px solid var(--pj-frame);font:400 var(--fs-2)/1.35 var(--ui);color:var(--muted)}
+.pjten b{font:700 var(--fs-3)/1.1 var(--cond);letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
+.ledger b.up{color:var(--up)}
+.sh-art.pjsh{width:96px;height:96px;background-color:var(--pj-lot)}
+.pj-head .sh-t h3{text-transform:none;overflow-wrap:anywhere}
+@media (max-height:440px){ .card.pjcard .pjart{height:96px} }
+@media (prefers-reduced-motion: reduce){ .pjframe{animation:none;box-shadow:0 0 0 4px color-mix(in srgb,var(--haz) 35%,transparent)} .lot.pj .pjprog u{transition:none} }

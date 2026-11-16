@@ -34,7 +34,7 @@ import { $, ui, hist, syncHistory, histSettled } from './ui/ctx';
 import { onModalClick, justOpened, modalBack, bigStamp } from './ui/modal';
 import { openSheet, closeSheet, sheetBack, onSheetAction } from './ui/sheets';
 import { bindSheetDrag } from './ui/sheetdrag';
-import { render, fit, setupGrid, drawGuilloche } from './ui/board';
+import { render, fit, setupGrid, drawGuilloche, pjSelecting, exitPjSelect } from './ui/board';
 import { Street } from './ui/street';
 import { ensureTasks } from './game/tasks';
 import { catchUp } from './game/events';
@@ -97,6 +97,7 @@ function handleBack(): boolean {
   if (ui.ad) return true;
   if (ui.modal) { modalBack(); return true; }
   if (ui.sheet) { sheetBack(); return true; }
+  if (pjSelecting()) { exitPjSelect(); return true; } // büyük proje seçim modu
   return false;
 }
 
@@ -105,7 +106,7 @@ function bindUi() {
   // başarısız işlemde sallanacak öğe: son basılan düğme (motion.ts deny)
   document.addEventListener('click', e => { const b = (e.target as Element | null)?.closest?.('button,[role="button"]') as HTMLElement | null; if (b) { ui.lastPress = b; ui.lastPressAt = performance.now(); } }, { capture: true });
   // Esc (masaüstü): kartı kapatılabiliyorsa kapatır; paneli iç içe olsa da tümden kapatır (geri tuşu/tarayıcı geri bir önceki panele döner)
-  document.addEventListener('keydown', e => { ui.lastInput = performance.now(); if (e.key !== 'Escape') return; if (ui.modal) modalBack(); else if (ui.sheet) closeSheet(); });
+  document.addEventListener('keydown', e => { ui.lastInput = performance.now(); if (e.key !== 'Escape') return; if (ui.modal) modalBack(); else if (ui.sheet) closeSheet(); else if (pjSelecting()) exitPjSelect(); });
   $('#collectBtn').addEventListener('click', () => {
     if (S.collectMode === 'auto') toast(t('Kiralar otomatik toplanıyor · Ayarlar’dan değiştirebilirsin'));
     else collectAll($('#collectBtn .core'));

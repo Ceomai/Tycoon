@@ -58,14 +58,18 @@ export const tenantHooks = {
   arrive: (_x: Tenant) => {}, ready: (_x: Tenant) => {}, note: (_x: Tenant) => {}, settle: (_x: Tenant) => {}, leave: (_x: Tenant) => {}, end: (_x: Tenant) => {},
 };
 
-/* ---------- hedef dışı arsalar: ileride projelere (arsa birleştirme) ayrılan arsalar kiracı hedefi olmaz ----------
-   Projeler modülü excludeTenantLots((k, i) => …) ile koşul ekler; böyle bir arsada kiracı doğmaz, komşu isteği oraya
-   yönelmez, sonradan hedef dışı kalan arsadaki aday da sessizce (bildirim olmadan) çekilir. */
-const excludes: ((k: DistrictKey, i: number) => boolean)[] = [];
-export function excludeTenantLots(f: (k: DistrictKey, i: number) => boolean): () => void {
-  excludes.push(f); return () => { const j = excludes.indexOf(f); if (j >= 0) excludes.splice(j, 1); };
+/* ---------- hedef dışı arsalar: projelere (arsa birleştirme) ayrılan arsalar kiracı hedefi olmaz ----------
+   excludeTenantLots((k, i) => …) ile koşul eklenir; böyle bir arsada kiracı doğmaz, komşu isteği oraya yönelmez.
+   keep = false: sonradan hedef dışı kalan arsadaki aday da sessizce (bildirim olmadan) çekilir.
+   keep = true (projeler): yalnızca yeni hedef seçimi etkilenir; arsadaki mevcut kiracıyı kaydı açan modül kendisi ele alır
+   (game/project.ts: birleşmede yerleşik kiracı projede kalır, anahtar bekleyen yerleşir; sessizce düşen olmaz).
+   Yerleşmiş kiracı (sözleşme sürerken) hiçbir koşulda düşürülmez. */
+const excludes: { f: (k: DistrictKey, i: number) => boolean; keep: boolean }[] = [];
+export function excludeTenantLots(f: (k: DistrictKey, i: number) => boolean, keep = false): () => void {
+  const e = { f, keep }; excludes.push(e); return () => { const j = excludes.indexOf(e); if (j >= 0) excludes.splice(j, 1); };
 }
-export const lotExcluded = (k: DistrictKey, i: number) => excludes.some(f => f(k, i));
+export const lotExcluded = (k: DistrictKey, i: number) => excludes.some(e => e.f(k, i));
+const lotDropped = (k: DistrictKey, i: number) => excludes.some(e => !e.keep && e.f(k, i));
 
 const isBottom = (i: number) => Math.floor(i / COLS) === ROWS - 1;
 const seaDistrict = (k: DistrictKey) => { const r = DRULES[k]; return !!r && r.kind === 'row'; };
@@ -108,9 +112,9 @@ export function inProgress(x: Tenant): boolean {
     case 'new': return !!p && !!p.until && p.t === x.w.t;
   }
 }
-/** Kiracının binası hâlâ yerinde mi (yıkıldı, türü değişti, semt elden çıktı ya da arsa hedef dışı kaldıysa sessizce çekilir). */
+/** Kiracının binası hâlâ yerinde mi (yıkıldı, türü değişti, semt elden çıktı ya da aday arsası hedef dışı kaldıysa sessizce çekilir). */
 function valid(x: Tenant): boolean {
-  if (!S.own.includes(x.k) || lotExcluded(x.k, x.i)) return false;
+  if (!S.own.includes(x.k) || (x.st !== 'live' && lotDropped(x.k, x.i))) return false;
   const p = lotsOf(S, x.k)[x.i];
   if (x.w.k === 'new' && x.st === 'wait') return !p || (!p.sp && !p.ob && p.t === x.w.t);
   return !!p && !p.sp && !p.ob && ARCH[x.a].rents.includes(p.t) && (p.lvl >= 1 || !!p.until);

@@ -5,7 +5,7 @@ import { fmt, fmtTime, clock } from '../../format';
 import { PAIRS, ruleMult, neighborBonus, pairAdj, spAdj, districtMult, withDisc, buildCost, buildTime, upCost, upTime, adj, rate, incM, permMult, fxMult } from '../../economy';
 import { bld, site, svg } from '../../draw';
 import { I } from '../../icons';
-import { $, ui } from '../ctx';
+import { $, ui, view } from '../ctx';
 import { build, upgrade, skip, demolish, lotBoost, useToken, placeSpecial } from '../../game/actions';
 import { specialSvg, specialOf } from '../../specials';
 import { lienBlocks, closeLien, clearCost, clearObstacle, obstacleSvg, OBSTACLES } from '../../game/district';
@@ -14,6 +14,8 @@ import { t, tk, nm, pctTxt } from '../../i18n';
 import { Panel, STAY, openSheet, lv, lvBar, discBox, later } from './core';
 import { tenantAt, wishTargets, wishType, tName, wishShort, nbAsk, handKey, inProgress, bonusPct, Tenant } from '../../game/tenants';
 import { tenantBadge } from '../tenantFace';
+import { blocks, nearest, pjUnlocked, pjDistrictOk, pjName, styleOf, kindOf, typesAt, pjCost, pjMinLv, pjMax, pjLienWarn } from '../../game/project';
+import { projSvg, psvg } from '../../projdraw';
 
 /** Bu arsayla ilgili kiracı: arsanın kendi kiracısı ya da komşu isteğinin hedefi olan boş arsa. */
 const tenOf = (k: string, i: number): Tenant | null => tenantAt(k, i) || wishTargets(k).get(i) || null;
@@ -39,7 +41,7 @@ export const plot: Panel<PlotC> = {
     const canUp = c.canUp = p.lvl < MAXLV && !p.sp, uc = c.uc = canUp ? withDisc(upCost(k, p)) : 0, afford = c.afford = canUp && S.cash >= uc, a = c.a = adj(k, i);
     c.pa = pairAdj(k, i); c.sa = spAdj(k, i);
     const lbLeft = c.lbLeft = Math.max(0, (p.bu || 0) - tn);
-    return 'b' + tenSig(k, i) + '|' + S.tokens + p.t + p.lvl + (afford ? 1 : 0) + a + (S.boostUntil > tn ? Math.ceil((S.boostUntil - tn) / 60e3) : 0) + '|' + Math.ceil(lbLeft / 60e3) + fxMult(k, i, p, tn) + S.disc + (s.del ? 1 : 0);
+    return 'b' + tenSig(k, i) + pjOfferSig(k, i) + '|' + S.tokens + p.t + p.lvl + (afford ? 1 : 0) + a + (S.boostUntil > tn ? Math.ceil((S.boostUntil - tn) / 60e3) : 0) + '|' + Math.ceil(lbLeft / 60e3) + fxMult(k, i, p, tn) + S.disc + (s.del ? 1 : 0);
   },
   render(s, tn, c) {
     const { k, i, p } = c;
@@ -91,7 +93,7 @@ export const plot: Panel<PlotC> = {
             ${lbLeft > 0 ? `<div><span>${t('Bu mülke 2x')}</span><i></i><b class="red">${t('{s} kaldı', { s: fmtTime(lbLeft) })}</b></div>` : ''}
             ${S.boostUntil > tn ? `<div><span>${t('Tüm mülklere 2x')}</span><i></i><b class="red">${t('{s} kaldı', { s: fmtTime(S.boostUntil - tn) })}</b></div>` : ''}
             ${canUp ? `<div><span>${t('Sv {l} olunca', { l: p.lvl + 1 })}</span><i></i><b>${t('{v}/sn', { v: fmt(next, true) })}</b></div>` : ''}
-          </div>${sp ? '' : nbDiagram(k, i)}${canUp ? discBox() : ''}
+          </div>${sp ? '' : pjOffer(k, i)}${sp ? '' : nbDiagram(k, i)}${canUp ? discBox() : ''}
           <div class="btns">${canUp ? `<button class="btn" data-a="up" ${afford ? '' : 'disabled'}>${t('Kat çık')} · ${fmt(uc)} <small>${fmtTime(upTime(k, p))}</small></button>` : sp ? '' : `<button class="btn" disabled>${t('Son seviye')}</button>`}
           <button class="btn gold lotb" data-a="lotboost" ${lbLeft > CFG.LOT_BOOST_MAX - CFG.LOT_BOOST / 2 ? 'disabled' : ''}><span class="lbl">${I.play} ${t('İzle · bu mülke 2x')}</span><small>${t('+1 saat')}${lbLeft ? ' · ' + t('en fazla 4 saat') : ''}</small></button>
           ${S.tokens > 0 ? `<button class="btn soft" data-a="token" ${lbLeft > CFG.LOT_BOOST_MAX - CFG.LOT_BOOST / 2 ? 'disabled' : ''}>${t('2x jetonu kullan · {n} jeton', { n: S.tokens })}</button>` : ''}
@@ -123,6 +125,7 @@ export const plot: Panel<PlotC> = {
     if (a === 'skin') { openSheet({ k: 'skin', key: s.key, i: s.i }); return STAY; }
     if (a === 'token') { useToken(k, i); return STAY; }
     if (a === 'place') { placeSpecial(k, i, btn.dataset.id!); return STAY; }
+    if (a === 'pj') { view.closeSheet(); view.pjSelect(k, i); return STAY; }
     if (a === 'del') { if (s.del) { demolish(k, i); return STAY; } s.del = true; later(s, 'del'); }
   },
 };
@@ -164,4 +167,27 @@ function nbDiagram(k: string, i: number) {
   const c = i % COLS, up = i >= COLS ? i - COLS : null, dn = i + COLS < N ? i + COLS : null, lf = c > 0 ? i - 1 : null, rt = c < COLS - 1 ? i + 1 : null;
   return `<div class="nbgrid">${cell(up, 'u')}${cell(lf, 'l')}<span class="nb c me"><b>${t(TYPES[p.t].n)}</b></span>${cell(rt, 'r')}${cell(dn, 'd')}</div>
     <p class="note nbnote">${t('Akıllı ikililer: <b>Kafe + Ofis</b>, <b>Ev + Dükkân</b> · ikisine de +%{p}', { p: Math.round(CFG.PAIR * 100) })}</p>`;
+}
+
+/* ---------- büyük proje: arsa panelindeki teklif (Sv3+ binada) ve ilerleme notu ---------- */
+function pjOfferSig(k: string, i: number) {
+  if (!pjUnlocked()) return '';
+  const b = blocks(k, i), n = nearest(k, i);
+  return '|pj' + b.length + (b.length ? kindOf(typesAt(k, b[0])) : '') + (n ? n.ready + ',' + n.floors : '') + pjDistrictOk(k);
+}
+function pjOffer(k: string, i: number) {
+  if (!pjUnlocked()) return '';
+  const p = lotsOf(S, k)[i]; if (!p || p.lvl < 3) return '';
+  const why = pjDistrictOk(k), b = blocks(k, i);
+  if (b.length) {
+    const kind = kindOf(typesAt(k, b[0]));
+    return `<div class="pjoffer"><span class="pjo-ic bpbg">${psvg(projSvg(kind, styleOf(k), 1))}</span><span class="pjo-t"><b>${t('Büyük proje')}</b><small>${b.length > 1 ? t('{n} blok uygun', { n: b.length }) + ' · ' : pjName(k, kind) + ' · '}${t('Bu bina ve yanındaki üç bina tek projeye dönüşebilir · kira +{p}', { p: pctTxt(Math.round(CFG.PJ_X1 * 100)) })}</small></span>
+      <button class="btn soft pjo-b" data-a="pj">${t('Projeye dönüştür')}${b.length === 1 ? ` <small>${fmt(pjCost(k, b[0]))}</small>` : ''}</button></div>`;
+  }
+  if (why === 'lien') { if (p.lvl >= pjMinLv()) pjLienWarn(k); return p.lvl >= 4 ? `<p class="note pjnote">${t('Büyük proje: borç bitmeden ruhsat çıkmaz')}</p>` : ''; }
+  if (why === 'max') return `<p class="note pjnote">${t('Büyük proje: bu semtte ruhsat dolu ({n}/{n})', { n: pjMax() })}</p>`;
+  if (why === 'notfull') return p.lvl >= 4 ? `<p class="note pjnote">${t('Büyük proje: semt dolunca yan yana 2×2 dört bina birleşebilir')}</p>` : '';
+  if (why) return '';
+  const n = nearest(k, i);
+  return n && n.floors > 0 ? `<p class="note pjnote">${t('Büyük proje: bu 2×2 blokta {r}/4 bina Sv {lv} · {f} kat kaldı', { r: n.ready, lv: pjMinLv(), f: n.floors })}</p>` : '';
 }

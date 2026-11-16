@@ -1,7 +1,7 @@
 /* ALT PANEL ÇEKİRDEĞİ — açma/kapama, geri yığını, odak, panel içi geçiş, imza (sig) ile yeniden çizim, canlı alanlar ve
    eylem yönlendirme. Panellerin kendisi sheets/ altındaki modüllerde; kayıt tablosu sheets.ts'te doldurulur. */
 import { S } from '../../state';
-import { now } from '../../economy';
+import { now, pjOf } from '../../economy';
 import { I, small } from '../../icons';
 import { Snd } from '../../sound';
 import { t } from '../../i18n';
@@ -28,6 +28,7 @@ export const PANELS: Partial<Record<SheetState['k'], Panel>> = {};
 /** Panel açar. Açık bir panelden başka panele geçilirse önceki panel geri yığınına girer (geri tuşu oraya döner);
  *  yığında zaten olan bir panele geçmek (ör. "Mülke dön", "Kılavuz") yığını o noktaya kadar geri sarar. */
 export function openSheet(s: SheetState, fromBack = false) {
+  if (s.k === 'plot' && s.key && s.i != null) { const q = pjOf(s.key, s.i); if (q) s = { k: 'proj', key: s.key, i: q.a }; } // projedeki bina: proje paneli
   const prev = ui.sheet, wasOpen = !!prev; let dir = fromBack ? -1 : 1;
   if (!fromBack) {
     if (!prev) ui.sheetStack = [];

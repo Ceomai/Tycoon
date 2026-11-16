@@ -26,7 +26,7 @@ try {
 
 /** Alt panel türleri (sheets/ altında her birinin modülü var; kayıt tablosu sheets.ts). */
 export type SheetKind = 'plot' | 'skin' | 'map' | 'set' | 'menu' | 'tasks' | 'coll' | 'lb' | 'leagues' | 'ref' | 'arsiv' | 'sezon' | 'ozel'
-  | 'guide' | 'guideItem' | 'store' | 'holding' | 'kiraci' | 'defter';
+  | 'guide' | 'guideItem' | 'store' | 'holding' | 'kiraci' | 'defter' | 'proj';
 /** Açık panelin durumu. key/i: arsa (plot, skin) ya da kılavuz maddesi (guideItem: i). del/conf/reset: "Emin misin?" onayı
  *  (3 sn sonra kendiliğinden düşer). req/v/err: lig tablosu isteği ve sonucu (lb). sel: arşivde seçili mühür. */
 export interface SheetState {
@@ -42,6 +42,7 @@ export const view = {
   render: () => { /* board.ts */ },
   openSheet: (_s: SheetState) => { /* sheets/core.ts */ },
   closeSheet: () => { /* sheets/core.ts */ },
+  pjSelect: (_k: string, _i: number) => { /* board.ts: büyük proje seçim modu */ },
 };
 
 export const ui = {
