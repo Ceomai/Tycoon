@@ -14,7 +14,8 @@ import { guide, guideItem } from './sheets/guide';
 import { ref } from './sheets/ref';
 import { store } from './sheets/store';
 import { holding } from './sheets/holding';
+import { kiraci, defter } from './sheets/tenant';
 
-Object.assign(PANELS, { plot, skin, map, set: settings, menu, tasks, coll, arsiv, lb, leagues, sezon, ozel, guide, guideItem, ref, store, holding });
+Object.assign(PANELS, { plot, skin, map, set: settings, menu, tasks, coll, arsiv, lb, leagues, sezon, ozel, guide, guideItem, ref, store, holding, kiraci, defter });
 
 export { openSheet, closeSheet, sheetBack, renderSheet, onSheetAction } from './sheets/core';

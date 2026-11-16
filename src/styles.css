@@ -950,3 +950,67 @@ body.idle .sumbar{animation-play-state:running!important}
   .toast.on{transition:opacity 140ms linear,visibility 0s}
   .sw::after,.lot,.boost .rfg.tr,.dp u,.offer i b,.lot .fill i,:where(.btn,.bcard,.txt,.chip,.linkbtn,.sw,.distbar,.offer,.guidetab,.rk-bub,.rk-x,.dk,.cityopt,.drow,.gditem,.gdback,.gdnav button,.cm,.iconbtn,.sh-x,.sumbar,.ad-x,.ad-prem){transition:none}
 }
+
+/* =====================================================================================================
+   KİRACILAR (game/tenants.ts, ui/sheets/tenant.ts) — arsa rozeti, hedef arsa, mülk şeridi, kiracı kartı, defter, Rıfkı balonundaki küçük yüz
+   ===================================================================================================== */
+/* arsa rozeti: yuvarlak yüz + kalan süre halkası (conic, --tp derece) + köşe işareti */
+.lot .tn{position:absolute;left:4px;top:4px;z-index:3;width:clamp(24px,36cqi,34px);aspect-ratio:1;isolation:isolate;pointer-events:none}
+.lot .tn svg{display:block;width:100%;height:100%;border-radius:var(--r-round);background:var(--rk-card);border:1.5px solid var(--ink);box-sizing:border-box}
+.lot .tn::before{content:'';position:absolute;inset:-3px;z-index:-1;border-radius:var(--r-round);background:conic-gradient(var(--stamp) var(--tp),var(--track) 0)}
+.lot .tn.s-live::before,.lot .tn.s-ready::before{background:var(--up)}
+.lot .tn i{position:absolute;right:-6px;bottom:-5px;min-width:15px;height:15px;padding:0 2px;border-radius:var(--r-pill);display:grid;place-items:center;font:700 10px/1 var(--mono);font-style:normal;border:1.3px solid var(--ink);box-sizing:border-box}
+.lot .tn .td{background:var(--surface);color:var(--ink);letter-spacing:-.05em}
+.lot .tn .th{background:var(--stamp-fill);color:var(--on-accent)}
+.lot .tn .tk{width:19px;height:19px;right:-8px;bottom:-7px;background:var(--gold);color:var(--on-gold);padding:2px}
+.lot .tn .tk svg{border:none;background:none;border-radius:0}
+.lot .tn.s-ready{animation:tnBob 1.4s var(--ease-out) infinite}
+@keyframes tnBob{0%,100%{transform:translateY(0)}40%{transform:translateY(-3px) scale(1.06)}}
+/* kiracının istediği boş arsa: kesik çizgi + istenen tür */
+.lot.tq{outline:2px dashed var(--stamp);outline-offset:-4px}
+.lot .tgt{position:absolute;left:50%;bottom:8%;transform:translateX(-50%);z-index:3;max-width:90%;padding:2px var(--sp-2);border-radius:var(--r-xs);background:var(--surface);border:1.3px solid var(--stamp);color:var(--stamp);font:700 var(--fs-tile)/1.1 var(--cond);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+@container (max-width: 48px) { .lot .tgt{display:none} }
+.lot .teslim.ts-tn{border-color:var(--up);outline-color:var(--up);color:var(--up)}
+.lot .teslim.ts-tn small{text-transform:none} /* kiracı adı (Olivia, Mrs Hughes): Türkçe büyük harf kuralı yabancı adı bozmasın */
+/* mülk panelinde kiracı şeridi */
+.tn-strip{display:flex;align-items:center;gap:var(--sp-5);width:100%;min-height:52px;margin:0 0 var(--sp-6);padding:var(--sp-3) var(--sp-5);background:var(--rk-card);color:var(--ink);border:1.5px dashed var(--ink);border-radius:var(--r-lg);font:inherit;text-align:left;cursor:pointer}
+.tn-strip .tn{flex:none;width:38px;height:38px}
+.tn-strip .tn svg{width:100%;height:100%;border-radius:var(--r-round);border:1.5px solid var(--ink);background:var(--surface);box-sizing:border-box;display:block}
+.tn-strip .tsx{min-width:0;display:flex;flex-direction:column;gap:2px}
+.tn-strip b{font:600 var(--fs-4) var(--ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tn-strip small{font:500 var(--fs-3) var(--mono);color:var(--muted)}
+.tn-strip.s-ready{border:2px solid var(--gold);background:color-mix(in srgb,var(--gold) 16%,var(--rk-card))}
+.tn-strip.s-ready small{color:var(--gold-ink);font-weight:700}
+.tn-strip.s-live{border-style:solid;border-color:var(--up)}
+.tn-strip.s-live small{color:var(--up)}
+.bcard.want{outline:2.5px solid var(--stamp);outline-offset:-2.5px}
+.bcard .wtag{position:absolute;left:0;right:0;top:0;padding:2px 0;background:var(--stamp-fill);color:var(--on-accent);font:700 9px/1.2 var(--cond);letter-spacing:.08em}
+/* kiracı kartı */
+.tn-head .tn-por{flex:none;width:76px}
+.tn-head .tn-por svg{display:block;width:76px;height:89px}
+.tn-head .tn-sec{margin:0 0 2px;color:var(--stamp)}
+.tn-q{position:relative;margin:0 0 var(--sp-8);padding:var(--sp-5) var(--sp-6);background:var(--rk-card);border:1.5px solid var(--ink);border-radius:var(--r-lg);font:500 var(--fs-5)/1.4 var(--ui);color:var(--ink)}
+.tn-q::before{content:'';position:absolute;left:30px;top:-8px;width:13px;height:13px;background:var(--rk-card);border-left:1.5px solid var(--ink);border-top:1.5px solid var(--ink);transform:rotate(45deg)}
+.ledger b.up{color:var(--up)}
+/* Rıfkı balonunda kiracının küçük yüzü (Rıfkı onu tanıtıyor) */
+.rifki .rk-bub.has-tn{padding-left:calc(var(--sp-5) + 22px)}
+.rifki .rk-tn{position:absolute;left:-12px;bottom:-8px;width:32px;height:32px;border-radius:var(--r-round);overflow:hidden;border:1.5px solid var(--ink);background:var(--rk-card);box-shadow:0 0 0 2px var(--surface)}
+.rifki .rk-tn svg{display:block;width:100%;height:100%}
+/* kiracı defteri */
+.tdf{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-5);margin:var(--sp-6) 0}
+@media (max-width:359px){ .tdf{grid-template-columns:repeat(2,1fr)} }
+.tdc{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:var(--sp-5) var(--sp-3);background:var(--rk-card);border:1.5px solid var(--ink);border-radius:var(--r-lg);text-align:center;min-width:0;overflow:hidden}
+.tdc .tdp{width:54px;height:54px;border-radius:var(--r-round);overflow:hidden;border:1.5px solid var(--ink);background:var(--surface);display:grid;place-items:center}
+.tdc .tdp svg{display:block;width:100%;height:100%}
+.tdc .tdp b{font:700 var(--fs-9) var(--mono);color:var(--muted)}
+.tdc.unk{background:var(--surface);border-style:dashed}
+.tdc .tdn{font:600 var(--fs-3) var(--ui);margin-top:var(--sp-2);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tdc small{font:400 var(--fs-1)/1.25 var(--ui);color:var(--muted)}
+.tdc .tds{display:flex;gap:4px;margin-top:var(--sp-2)}
+.tdc .tds i{width:10px;height:10px;border-radius:var(--r-round);border:1.3px solid var(--ink)}
+.tdc .tds i.on{background:var(--up-fill);border-color:var(--up-fill)}
+.tdc em{position:absolute;right:-4px;top:8px;transform:rotate(14deg);padding:1px 6px;border:2px solid var(--stamp);border-radius:var(--r-sm);color:var(--stamp);font:700 9px/1.2 var(--cond);letter-spacing:.1em;font-style:normal;background:color-mix(in srgb,var(--surface) 80%,transparent)}
+@media (prefers-reduced-motion: reduce){ .lot .tn.s-ready{animation:none} }
+.tn-head ~ .btns .txt{min-height:44px} /* metin düğmesi (Kiracı defteri) de ≥44 px dokunma alanı */
+.ledger.tn-led b{white-space:normal;text-align:right;min-width:0} /* kiracı kartı: uzun istek/bağlantı metni dar ekranda alt satıra geçer */
+.tn-head .sh-t h3{text-transform:none} /* kiracı adı büyük harfe çevrilmez: Türkçe kural yabancı adı bozmasın (OLİVİA), "Garcia ailesi" karışık dilli */

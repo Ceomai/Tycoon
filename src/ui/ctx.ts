@@ -26,7 +26,7 @@ try {
 
 /** Alt panel türleri (sheets/ altında her birinin modülü var; kayıt tablosu sheets.ts). */
 export type SheetKind = 'plot' | 'skin' | 'map' | 'set' | 'menu' | 'tasks' | 'coll' | 'lb' | 'leagues' | 'ref' | 'arsiv' | 'sezon' | 'ozel'
-  | 'guide' | 'guideItem' | 'store' | 'holding';
+  | 'guide' | 'guideItem' | 'store' | 'holding' | 'kiraci' | 'defter';
 /** Açık panelin durumu. key/i: arsa (plot, skin) ya da kılavuz maddesi (guideItem: i). del/conf/reset: "Emin misin?" onayı
  *  (3 sn sonra kendiliğinden düşer). req/v/err: lig tablosu isteği ve sonucu (lb). sel: arşivde seçili mühür. */
 export interface SheetState {
@@ -70,7 +70,7 @@ export const ui = {
   /** TOPLA sonrası kasa sayacı */
   cashAnim: null as null | { from: number; to: number; t0: number },
   /** Tapu teslim mührü: arsa → { bitiş zamanı, yazı } */
-  teslim: {} as Record<number, { at: number; txt: string }>,
+  teslim: {} as Record<number, { at: number; txt: string; b?: string }>, // b: mühür yazısı (yoksa TESLİM; kiracı: YERLEŞTİ)
   /** Bu karede yeniden çizilen karolardan hangilerinde pop oynayacak (render sonrası WAAPI ile; loop/actions işaretler) */
   pop: new Set<number>(),
   /** Son basılan düğme ve anı: başarısız işlemde sallanacak öğe (motion.ts deny) */

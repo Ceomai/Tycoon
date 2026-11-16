@@ -140,6 +140,20 @@ export const CFG = {
   TAXI_CASH_MIN: 100,          // ... en az
   LM_CHANCE: 0.08,             // altın taksiden ve moloz temizliğinden tarihi yapı çıkma şansı
   SP_PRICE_MIN: 20000,         // haftanın özel tapusu en düşük fiyatı
+  // kiracılar (game/tenants.ts): süreler oyun süresiyle (S.playMs) işler; denge scripts/sim.ts (SIM_TEN) ile ölçüldü
+  TEN_BONUS: 0.5,              // yerleşen kiracının binasına kira bonusu (+%50)
+  TEN_LIVE: 60 * 60e3,         // sözleşme süresi
+  TEN_MIN: 5 * 60e3, TEN_MAX: 8 * 60e3, // aday aralığı
+  TEN_FIRST: 60e3,             // açılınca ilk aday
+  TEN_UNLOCK_EARN: 1000,       // açılma: kafe açıldıktan sonra …
+  TEN_UNLOCK_PROD: 6,          // … ve bir semtte en az bu kadar bina kira getirirken
+  TEN_CAP: 2, TEN_CAP3: 3,     // aynı anda bekleyen en fazla aday (3+ semtte TEN_CAP3)
+  TEN_WAIT: 8 * 60e3,          // bekleme (isteği karşılayacak inşaat sürerken durur)
+  TEN_NOTE: 2 * 60e3,          // son bu kadar kala Rıfkı bir kez hatırlatır
+  TEN_READY: 3 * 60e3,         // istek karşılanınca anahtar teslimi için en az bu kadar süre
+  TEN_AFFORD_SEC: 180,         // istek kasa + bu kadar saniyelik kirayla karşılanabilmeli
+  TEN_TIME_MAX: 6 * 60e3,      // isteğin gerektirdiği inşaat en fazla bu kadar sürmeli
+  TEN_STAMP: 3,                // kiracı defteri: bir tipten bu kadar kiracı yerleşince müdavim pulu (yalnızca görünüm)
 };
 export type Cfg = typeof CFG;
 

@@ -3,7 +3,7 @@ import { CFG, COLS, N, DMAP, BuildingType } from '../config';
 import { S, lotsOf } from '../state';
 import { fmt, fmtTime } from '../format';
 import { t, nm, pctTxt } from '../i18n';
-import { now, totalRate, producing, baseRate } from '../economy';
+import { now, totalRate, producing, baseRate, withoutTenants } from '../economy';
 import { I } from '../icons';
 import { Snd } from '../sound';
 import { svg } from '../draw';
@@ -46,8 +46,10 @@ export function showEvent() {
     });
 }
 
-/** Uygulama dışında geçen süre: kumbaralar dolar; 2 dk'dan uzunsa yokken kazanç kartı. */
-export function catchUp(ms: number) {
+/** Uygulama dışında geçen süre: kumbaralar dolar; 2 dk'dan uzunsa yokken kazanç kartı.
+ *  Kiracı bonusu sayılmaz: sözleşme oyun süresiyle işler, oyuncu yokken azalmaz (economy.ts withoutTenants). */
+export function catchUp(ms: number) { withoutTenants(() => catchUpRaw(ms)); }
+function catchUpRaw(ms: number) {
   if (!(ms > 0)) return;
   for (const k of S.own) for (let i = 0; i < N; i++) {
     const p = lotsOf(S, k)[i]; if (!producing(p)) continue;

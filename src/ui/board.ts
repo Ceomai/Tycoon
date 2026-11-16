@@ -1,6 +1,6 @@
 /* ANA EKRAN — üst bilgi, arsalar, birleşik parseller, yönlendirme balonu, dokunma (sokak hayatı: street.ts) */
 import { CFG, COLS, ROWS, N, TYPES, DMAP, CITIES, DistrictKey } from '../config';
-import { t, nm, upper, pctTxt } from '../i18n';
+import { t, nm, upper, pctTxt, lowTxt } from '../i18n';
 import { S, lotsOf } from '../state';
 import { fmt, fmtX, clock, esc } from '../format';
 import { now, totalRate, coinFill, fxMult, producing, buyableDistricts, pending } from '../economy';
@@ -17,6 +17,8 @@ import { pop } from './motion';
 import { openSheet, renderSheet } from './sheets';
 import { tasksClaimable } from '../game/tasks';
 import { canHolding } from '../game/collection';
+import { tenantAt, wishTargets, wishType, handKey, tName, Tenant } from '../game/tenants';
+import { tenantBadge } from './tenantFace';
 
 export function render() {
   const tn = now(), k = S.cur, d = DMAP[k], boosted = S.boostUntil > tn;
@@ -65,10 +67,14 @@ export function render() {
   const cs = $('#csub'); if (cs.textContent !== sub) cs.textContent = sub;
   $('#mapDot').hidden = !buyableDistricts().length;
   const lots = lotsOf(S, k), first = !S.own.some(o2 => lotsOf(S, o2).some(p => p)), hintI = first ? 5 : -1;
+  const tgts = wishTargets(k); // kiracıların istediği boş komşu arsalar
   for (let i = 0; i < N; i++) {
     const el = ui.tiles[i], p = lots[i];
     let sig: string;
     liveFill(i, el, p, k);
+    const tq = tenantAt(k, i), tg = tq ? undefined : tgts.get(i);
+    // kiracı rozeti: halka 20 sn adımla azalır (gereksiz yeniden çizim yok)
+    const tsig = tq ? tq.st + tq.a + (tq.st === 'live' ? '' : Math.ceil(Math.max(0, tq.dl - S.playMs) / 20e3)) : tg ? 'g' + wishType(tg) : '';
     const lockE = !p && lienBlocks(k);
     if (!p) sig = 'e' + (i === hintI ? 1 : 0) + (lockE ? 'L' : '');
     else if (p.ob) sig = 'ob|' + p.ob + (ui.teslim[i] && ui.teslim[i].at > performance.now() ? 1 : 0);
@@ -81,13 +87,16 @@ export function render() {
       const ts = ui.teslim[i] && ui.teslim[i].at > performance.now() ? 1 : 0;
       sig = [JSON.stringify(p.sk || ''), p.t, p.sp || '', p.lvl, p.until ? 1 : 0, prog, cd, ts, coin, lb, hot ? 1 : 0, mergeSides(i), d.v].join('|');
     }
+    sig += '|' + tsig;
     if (sig === ui.tileSig[i]) continue;
     ui.tileSig[i] = sig;
     if (!p) {
       el.className = 'lot' + (i === hintI ? ' hint' : '') + (lockE ? ' lk' : ''); el.style.cssText = '';
       const tsl = ui.teslim[i] && ui.teslim[i].at > performance.now() ? `<span class="teslim"><b>${t('TEMİZ')}</b><small>${ui.teslim[i].txt}</small></span>` : '';
-      el.innerHTML = svg(emptyLot(i), 'art') + (lockE ? `<span class="lkb">${I.lock}</span>` : '') + tsl;
-      el.setAttribute('aria-label', lockE ? t('Kilitli arsa (kapora borcu)') : t('Boş arsa')); continue;
+      el.innerHTML = svg(emptyLot(i), 'art') + (lockE ? `<span class="lkb">${I.lock}</span>` : '') + tsl + tenantHtml(tq)
+        + (tg ? `<span class="tgt"><b>${upper(t(TYPES[wishType(tg)!].n))}?</b></span>` : '');
+      if (tg) el.classList.add('tq');
+      el.setAttribute('aria-label', (lockE ? t('Kilitli arsa (kapora borcu)') : t('Boş arsa')) + tenantAria(tq) + (tg ? t(', kiracı burada {b} istiyor', { b: lowTxt(t(TYPES[wishType(tg)!].n)) }) : '')); continue;
     }
     if (p.ob) { el.className = 'lot ob'; el.style.cssText = ''; el.innerHTML = svg(obstacleSvg(p.ob), 'art') + `<span class="obn">${t(OBSTACLES[p.ob].n)}</span>`; el.setAttribute('aria-label', t('{name}: temizlenmesi gerekiyor', { name: t(OBSTACLES[p.ob].n) })); continue; }
     const prog = p.until ? Math.min(1, 1 - (p.until - tn) / p.dur) : 1;
@@ -100,19 +109,31 @@ export function render() {
     if (p.until && left <= CFG.SKIP_LEFT) { el.classList.add('final'); h += `<span class="cd"><small>${t('TESLİME')}</small><b>0:0${Math.max(0, Math.ceil(left / 1000))}</b><i><u style="width:${Math.round(prog * 100)}%"></u></i></span>`; }
     else if (p.until) h += `<span class="ff">${I.ff}</span>`;
     const tsl = ui.teslim[i];
-    if (tsl && tsl.at > performance.now()) h += `<span class="teslim"><b>${t('TESLİM')}</b><small>${tsl.txt}</small></span>`;
+    if (tsl && tsl.at > performance.now()) h += `<span class="teslim${tsl.b ? ' ts-tn' : ''}"><b>${tsl.b || t('TESLİM')}</b><small>${tsl.txt}</small></span>`;
     // para baloncuğu yok: ince doluluk çubuğu (tek tuş modunda) ve mülke özel 2x etiketi
     if (producing(p) && S.collectMode !== 'auto') { const f = coinFill(k, i); h += `<span class="fill${f >= .999 ? ' full' : ''}"><i style="transform:${fillTf(f)}"></i></span>`; }
     if ((p.bu || 0) > tn) h += '<span class="lb2">2x</span>';
+    h += tenantHtml(tq);
     if (p.sk && p.sk.s && !p.until) h += `<span class="tab">${p.sp ? t('ÖZEL') : upper(t(TYPES[p.t].n))}</span>`;
     el.innerHTML = h; el.style.cssText = skinStyle(p);
-    el.setAttribute('aria-label', t('{name}, seviye {lvl}', { name: p.sp ? t(specialOf(p.sp).n) : t(TYPES[p.t].n), lvl: p.lvl }) + (p.until ? t(', inşaatta') : '') + ((p.bu || 0) > tn ? t(', 2x kazanıyor') : ''));
+    el.setAttribute('aria-label', t('{name}, seviye {lvl}', { name: p.sp ? t(specialOf(p.sp).n) : t(TYPES[p.t].n), lvl: p.lvl }) + (p.until ? t(', inşaatta') : '') + ((p.bu || 0) > tn ? t(', 2x kazanıyor') : '') + tenantAria(tq));
   }
   if (ui.pop.size) { for (const i of ui.pop) pop(ui.tiles[i] && ui.tiles[i].querySelector('svg.art')); ui.pop.clear(); } // inşaat başlangıcı / teslim
   renderLinks(); renderBubble();
   if (ui.sheet) renderSheet();
 }
 let ringV = -1;
+/** Kiracı rozeti: yuvarlak yüz + kalan süre halkası (bekliyor: kırmızı, azalır), köşede "…" (bekliyor), altın anahtar
+ *  (teslime hazır: tek dokunuşla yerleşir), kalp (yerleşti). Dokunma hedefi karonun tamamı. */
+function tenantHtml(x: Tenant | null): string {
+  if (!x) return '';
+  const left = x.st === 'live' ? 1 : Math.max(0, Math.min(1, (x.dl - S.playMs) / CFG.TEN_WAIT));
+  const mark = x.st === 'ready' ? `<i class="tk">${KEY}</i>` : x.st === 'live' ? '<i class="th">♥</i>' : '<i class="td">…</i>';
+  return `<span class="tn s-${x.st}" style="--tp:${(left * 360).toFixed(0)}deg" aria-hidden="true">${tenantBadge(x.a, x.st === 'wait' ? 'wait' : 'happy')}${mark}</span>`;
+}
+const tenantAria = (x: Tenant | null) => !x ? '' : x.st === 'wait' ? t(', kiracı adayı bekliyor: {n}', { n: tName(x.a, x.k)[0] })
+  : x.st === 'ready' ? t(', anahtar hazır: dokununca {n} yerleşir', { n: tName(x.a, x.k)[0] }) : t(', kiracı: {n}', { n: tName(x.a, x.k)[0] });
+const KEY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="8" cy="12" r="4.5"/><path d="M12.5 12H21M18 12v3.5M21 12v2.5"/></svg>';
 const setText = (el: Element | null, v: string) => { if (el && el.textContent !== v) el.textContent = v; };
 /** Doluluk (0–1): tam genişlikteki dolgu taşmayı kesen kabın içinde translateX ile kayar (genişlik/boyama yok; scaleX
  *  taramalı kapora dolgusunu bozardı). Yalnızca değişince yazılır; geçiş compositor'da oynar. */
@@ -210,6 +231,9 @@ function tileAt(x: number, y: number): number | null {
   return tl ? +tl.dataset.i! : null;
 }
 function tapTile(i: number) {
+  const x = tenantAt(S.cur, i);
+  if (x && x.st === 'ready' && handKey(x)) { render(); return; } // anahtar teslimi: tek dokunuş
+  if (x && x.st === 'wait') { openSheet({ k: 'kiraci', key: S.cur, i }); return; }
   openSheet({ k: 'plot', key: S.cur, i });
 }
 export function setupGrid() {

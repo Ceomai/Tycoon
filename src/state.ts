@@ -1,4 +1,5 @@
 import { BuildingType, CityId, DistrictKey, N, SCHEMA, dkey, CFG, DMAP, TYPES, MAXLV, CITY_ORDER, OBSTACLE_IDS } from './config';
+import type { Tenant } from './game/tenants';
 
 export interface Skin { c?: number; r?: number; s?: boolean; }
 export interface Plot { t: BuildingType; lvl: number; buf: number; until: number; dur: number; up: boolean; bu?: number; sp?: string; ob?: string; sk?: Skin; } // bu: bu mülke 2x bitişi · sp: özel yapı · ob: engel (gecekondu, hurda…)
@@ -53,6 +54,9 @@ export interface State {
   starter: { at: number; bought: boolean }; // başlangıç paketi: gösterildiği an, alındı mı
   seasonFirst: boolean;            // Altın Tapu ilk sezon indirimi kullanıldı mı
   adCredit: number;                // bu oyun süresine (playMs) kadar geçiş reklamı yok
+  ten: Tenant[];                   // kiracılar (game/tenants.ts): bekleyen adaylar, anahtar bekleyenler ve yerleşenler
+  tdef: Record<string, { met: number; ok: number }>; // kiracı defteri: tip → tanışılan / yerleşen (yalnızca görünüm)
+  nextTen: number;                 // sonraki kiracı adayı (oyun süresi, ms; 0 = henüz açılmadı)
   clubDay: string;                 // Kulüp günlük jetonunun verildiği gün // tapu sezonu // lig (kaynak sunucu; bu önbellek), last = gösterilen son hafta sonucu
 }
 
@@ -77,6 +81,7 @@ export function newState(now: number, weekKey: string, city: CityId | null = nul
     offer: null, premium: false, clockFlag: 0, league: { tier: 0, seals: 0, last: '' }, guideHint: false, collectMode: 'tap', stars: {}, inv: [], ozel: { week: '', bought: false }, rifki: true, lien: {}, lienT: {}, dEarn: {}, cards: [],
     market: '', ach: [], cnt: { ob: 0, civic: 0, skin: 0, kapora: 0 }, civic: {}, nextCivic: 12 * 60e3, night: true, vib: true, tokens: 0, skinsU: [], season: { id: '', xp: 0, got: [], ggot: [], gold: false },
     noAds: false, club: false, starter: { at: 0, bought: false }, seasonFirst: false, adCredit: 0, clubDay: '',
+    ten: [], tdef: {}, nextTen: 0,
   };
 }
 
@@ -125,6 +130,34 @@ function cleanLot(q: unknown): Lot {
   return p;
 }
 const cleanLots = (x: unknown): Lot[] => { const a = Array.isArray(x) ? x.slice(0, N).map(cleanLot) : []; while (a.length < N) a.push(null); return a; };
+/* kiracılar: game/tenants.ts ile aynı listeler (döngüsel içe aktarma olmasın diye burada; birim testi eşitliği denetler) */
+export const TEN_ARCHS = ['ogrenci', 'aile', 'sanatci', 'yazilimci', 'emekli', 'esnaf'];
+const TEN_WISH = ['nb', 'quiet', 'lvl', 'new'], TEN_ST = ['wait', 'ready', 'live'], TEN_MAX_N = 24;
+const int = (x: unknown, min: number, max: number) => typeof x === 'number' && Number.isInteger(x) && x >= min && x <= max;
+/** Kiracı listesi: bozuk / bilinmeyen kayıtlar düşer; süreler oyun süresine göre makul aralığa çekilir (elle uzatılamaz). */
+function cleanTenants(x: unknown, own: DistrictKey[], playMs: number): Tenant[] {
+  if (!Array.isArray(x)) return [];
+  const out: Tenant[] = [], seen = new Set<string>(), fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+  for (const q of x) {
+    if (out.length >= TEN_MAX_N) break;
+    if (!isObj(q) || !TEN_ARCHS.includes(q.a) || !isD(q.k) || !own.includes(q.k) || !int(q.i, 0, N - 1) || !TEN_ST.includes(q.st) || !fin(q.id) || !fin(q.dl) || !fin(q.end)) continue;
+    const w = q.w; if (!isObj(w) || !TEN_WISH.includes(w.k)) continue;
+    const wt = w.t === undefined ? undefined : TYPES[w.t as BuildingType] ? (w.t as BuildingType) : null;
+    if (wt === null || ((w.k === 'nb' || w.k === 'new') && !wt) || (w.k === 'lvl' && !int(w.n, 1, MAXLV))) continue;
+    const key = q.k + ':' + q.i; if (seen.has(key)) continue; seen.add(key);
+    const wish: Tenant['w'] = { k: w.k }; if (wt) wish.t = wt; if (w.k === 'lvl') wish.n = w.n; if (w.k === 'new' && w.sea === true) wish.sea = true;
+    const t: Tenant = { id: q.id, a: q.a, k: q.k, i: q.i, w: wish, st: q.st,
+      dl: Math.min(q.dl, playMs + Math.max(CFG.TEN_WAIT, CFG.TEN_READY)), end: q.st === 'live' ? Math.min(q.end, playMs + CFG.TEN_LIVE) : 0 };
+    if (q.noted === true) t.noted = true;
+    out.push(t);
+  }
+  return out;
+}
+function cleanTdef(x: unknown): Record<string, { met: number; ok: number }> {
+  const o: Record<string, { met: number; ok: number }> = {};
+  if (isObj(x)) for (const a of TEN_ARCHS) { const r = x[a]; if (isObj(r)) o[a] = { met: Math.floor(num(r.met, 0, 0, 1e6)), ok: Math.floor(num(r.ok, 0, 0, 1e6)) }; }
+  return o;
+}
 function sanitize(s: any, now: number, weekKey: string): State {
   const own = [...new Set(strs(s.own).filter(isD))].filter(k => CITY_ORDER.includes(DMAP[k].city)); // yalnızca etkin bölgenin semtleri
   // city: null = şehir henüz seçilmemiş (ilk açılış yarım kaldı): semtlerden türetilmez, oyuncu şehir seçer.
@@ -164,6 +197,7 @@ function sanitize(s: any, now: number, weekKey: string): State {
   const o = s.offer, fin = (x: unknown) => typeof x === 'number' && Number.isFinite(x);
   out.offer = isObj(o) && typeof o.k === 'string' && fin(o.until) && fin(o.goal) && o.goal > 0 && fin(o.prog) && typeof o.title === 'string' && fin(o.rw) && o.rw >= 0
     ? { k: o.k, goal: o.goal, prog: Math.max(0, o.prog), until: o.until, title: o.title, rw: o.rw, done: o.done === true } : null;
+  out.ten = cleanTenants(s.ten, out.own, out.playMs); out.tdef = cleanTdef(s.tdef); out.nextTen = num(s.nextTen, 0, 0);
   if (!out.ref.code || typeof out.ref.code !== 'string') out.ref = base.ref;
   if (out.collectMode !== 'auto') out.collectMode = 'tap';
   return out as State;

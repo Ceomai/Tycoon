@@ -24,6 +24,7 @@ import { checkAch, showMarket, maybeCivic } from './fun';
 import { payLien, showDistrictCard } from './district';
 import { maybeTip, sayEvent } from './rifki';
 import { maybeStarter, clubTick } from './monetize';
+import { tenantTick } from './tenants';
 
 let lastT = performance.now(), lastGoals = 0, teslimOf = '';
 const anyProducing = () => S.own.some(k => lotsOf(S, k).some(producing));
@@ -63,7 +64,7 @@ function step(pt: number, dt: number) {
   if (doneAny) { Snd.done(); if (doneHere) buzz.success(); ui.sheetSig = ''; }
   if (S.fx.length) S.fx = S.fx.filter(f => f.until > tn);
   if (S.boostUntil && S.boostUntil <= tn) { S.boostUntil = 0; toast(t('Tüm mülklere 2x bitti')); }
-  if (!ui.ad) S.playMs += dt;
+  if (!ui.ad) { S.playMs += dt; if (S.city) tenantTick(dt); } // kiracılar oyun süresiyle (reklam ve arka plan saymaz)
   S.lastSeen = tn;
   if (S.offer && !S.offer.done && S.offer.until <= tn) { toast(t('{title}: süre doldu', { title: t(S.offer.title) })); S.offer = null; }
   if (!ui.ad && S.playMs >= S.nextTaxi) { S.nextTaxi = S.playMs + (S.offer && S.offer.k === 'taxi' ? rand(CFG.TAXI_OFFER_MIN, CFG.TAXI_OFFER_MAX) : rand(CFG.TAXI_MIN, CFG.TAXI_MAX)); Street.spawn('taxi'); }

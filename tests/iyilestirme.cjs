@@ -5,9 +5,10 @@
 // Adım 3: HUD yerleşimi — bindirmeler (Rıfkı, toast, semt özeti, büyük mühür, ipucu) arsalara binmez; küçük ekran/yatay/tablet ölçüleri.
 // Adım 4: animasyonlar (pop, para uçuşu→sayaç, kart kapanışı, panel/semt geçişi, basma, boşta duraklama) ve titreşim; hareketi azalt.
 // Adım 9: Rıfkı Abi'nin yüzü (ifade ipucuna göre; göz kırpma/nefes boşta ve hareketi azalt açıkken durur).
+// Kiracılar (16): Rıfkı tanıtır, kart, hedef arsa, inşaatta süre durur, anahtar teslimi, gidiş/bitiş bildirimi, defter, koyu tema, 320 px, EN.
 // Çalıştır: npm run test:iy  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 const {chromium}=require('playwright');
-const { serve, PREF_IF: PREF, state, vis, recorder } = require('./helpers.cjs');
+const { serve, PREF_IF: PREF, state, vis, recorder, out } = require('./helpers.cjs');
 let URL; // http://127.0.0.1:<port>/index.html — main başında serve() ile
 const results=[]; const ok=recorder(results);
 const S=state;
@@ -40,6 +41,151 @@ const writes=p=>p.evaluate(()=>{ window.__wo.disconnect(); return window.__w; })
 async function hold(p,sel){
   const el=p.locator(sel).first(); await el.scrollIntoViewIfNeeded(); const bb=await el.boundingBox();
   await p.mouse.move(bb.x+bb.width/2,bb.y+bb.height/2); await p.mouse.down(); await p.clock.runFor(180); await p.mouse.up(); await p.clock.runFor(400);
+}
+
+// ---------- 16) Kiracılar: tanıtım, kart, hedef arsa, anahtar teslimi, gidiş bildirimi, defter, koyu tema, hareketi azalt, 320 px / EN ----------
+async function kiraciBolum(b) {
+  /** Kiracı vakası: tek semt (Kadıköy), ilk sıradaki 6 ev üretimde, kafe açık, tap modu, Rıfkı açık. Adayı oyunun kendi
+   *  tick'i getirir (Math.random o an 0: ilk aday deterministik → Ece, 2. arsadaki ev, 6. arsaya kafe ister). */
+  async function openTen(o = {}) {
+    const ctx = await b.newContext({ viewport: o.vp || { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: o.rm ? 'reduce' : 'no-preference' });
+    await ctx.addInitScript(`localStorage.setItem('tapu-prefs',JSON.stringify({lang:'${o.lang || 'tr'}',region:'${o.region || 'tr'}',ent:{},news:true${o.dark ? ",theme:'dark'" : ''}}));` + (o.dark ? "localStorage.setItem('tapu-theme','dark');" : ''));
+    const p = await ctx.newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(e.message));
+    await p.clock.install(); await p.goto(URL); await p.clock.runFor(700);
+    await p.click(`#modal .cityopt[data-a="${o.city || 'ist'}"]`, { force: true }); await p.clock.runFor(400);
+    for (let k = 0; k < 5 && await has(p, '#modal .card'); k++) { await p.click('#modal .card [data-a]', { force: true }); await p.clock.runFor(400); }
+    await p.evaluate(() => { const S = window.__tapuState(); const k = S.cur;
+      S.d[k] = Array.from({ length: 20 }, (_, i) => (i < 6 ? { t: 'ev', lvl: 1, buf: 0, until: 0, dur: 1, up: false } : null));
+      S.own = [k]; S.lien = {}; S.lienT = {}; S.collectMode = 'tap'; S.cash = 1e6; S.earned = 5000; S.seen = { ev: true, kafe: true };
+      S.nextEvent = 9e12; S.nextOffer = 9e12; S.nextCivic = 9e12; S.nextAd = 9e12; S.nextTaxi = 9e12; S.collects = 0; S.market = 'x'; S.rifki = true; S.guideHint = true;
+      S.starter = { at: 1, bought: true }; S.offer = null; S.ten = []; S.tdef = {}; S.nextTen = 9e15;
+      const d = new Date(); S.daily = { last: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'), streak: 1 };
+      S.tasks = { day: S.daily.last, bonus: false, list: [{ k: 'taxi', goal: 1e9, prog: 0, claimed: false }] }; });
+    await p.clock.runFor(1500);
+    for (let k = 0; k < 5 && await has(p, '#modal .card'); k++) { await p.click('#modal .card [data-a]', { force: true }); await p.clock.runFor(400); }
+    if (await has(p, '#rifki:not([hidden])')) await p.evaluate(() => document.querySelector('#rifki .rk-x').click());
+    // aday: bir sonraki tick'te gelir (Math.random = 0 yalnız o an)
+    await p.evaluate(() => { const S = window.__tapuState(); S.nextTen = S.playMs + 300; const r = Math.random; Math.random = () => 0; setTimeout(() => { Math.random = r; }, 700); });
+    await p.clock.runFor(1200);
+    return p;
+  }
+  const rk = p => p.evaluate(() => { const r = document.querySelector('#rifki'); return r.hidden ? null : { mood: r.querySelector('.rk-face')?.dataset.mood, txt: r.querySelector('.rk-bub span')?.textContent || '', tn: !!r.querySelector('.rk-bub .rk-tn svg') }; });
+  const tile = (p, i) => `#grid .lot[data-i="${i}"]`;
+  const tapTile = async (p, i) => { await p.click(tile(p, i), { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350); };
+  const noOverflow = p => p.evaluate(() => { const sh = document.querySelector('#sheet'); return { doc: document.documentElement.scrollWidth, vw: innerWidth, sheet: sh ? sh.scrollWidth - sh.clientWidth : 0, body: [...document.querySelectorAll('#sheetBody *')].filter(e => { const r = e.getBoundingClientRect(); return r.width && (r.right > innerWidth + 0.5 || r.left < -0.5); }).map(e => e.tagName + '.' + (e.getAttribute('class') || '') + ':' + Math.round(e.getBoundingClientRect().left) + '-' + Math.round(e.getBoundingClientRect().right)).slice(0, 4) }; });
+
+  let p = await openTen();
+  // tanıtım
+  const st0 = await S(p), x0 = st0.ten[0];
+  ok(st0.ten.length === 1 && x0.a === 'ogrenci' && x0.i === 2 && x0.w.k === 'nb' && x0.w.t === 'kafe' && x0.st === 'wait', 'aday oyunun tick\'iyle geldi (Ece, 2. arsa, yanında kafe): ' + JSON.stringify(x0));
+  const r0 = await rk(p);
+  ok(r0 && r0.mood === 'wow' && r0.tn && /Ece/.test(r0.txt) && /kiracı adayı/.test(r0.txt) && /%50/.test(r0.txt), 'Rıfkı tanıtıyor: şaşkın yüz, balonda kiracının yüzü, ad ve %50: ' + JSON.stringify(r0));
+  ok(await has(p, tile(p, 2) + ' .tn.s-wait svg') && await has(p, tile(p, 2) + ' .tn .td'), 'tahtada rozet: 2. arsada yüz, halka ve "…"');
+  const tg = await p.evaluate(() => { const e = document.querySelector('#grid .lot[data-i="6"]'); return { tq: e.classList.contains('tq'), lbl: e.querySelector('.tgt')?.textContent, aria: e.getAttribute('aria-label') }; });
+  ok(tg.tq && tg.lbl === 'KAFE?' && /kiracı burada kafe istiyor/.test(tg.aria), 'hedef arsa (6): kesik çizgi, "KAFE?" etiketi, ekran okuyucu metni: ' + JSON.stringify(tg));
+  await p.waitForTimeout(450); await p.screenshot({ path: out + 'kiraci-1-tanitim.png' });
+  // Rıfkı balonuna dokunmak kiracı kartını açar
+  await p.click('#rifki .rk-bub', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350);
+  const card = await p.evaluate(() => ({ h: document.querySelector('#sheetBody .tn-head h3')?.textContent, q: document.querySelector('#sheetBody .tn-q')?.textContent || '', go: document.querySelector('#sheetBody [data-a="go"]')?.textContent, por: !!document.querySelector('#sheetBody .tn-por svg[data-arch="ogrenci"][data-m="wait"]'), led: document.querySelectorAll('#sheetBody .ledger > div').length }));
+  ok(card.h === 'Ece' && /kafe/.test(card.q) && card.go === 'Arsaya git · kafe kur' && card.por && card.led === 5, 'kiracı kartı (balondan): portre, ad, alıntı, 5 satır defter, tek düğme: ' + JSON.stringify(card));
+  await p.waitForTimeout(450); await p.screenshot({ path: out + 'kiraci-2-kart.png' });
+  // kart → hedef arsanın paneli: şerit ve KİRACI İSTİYOR kartı
+  await p.click('#sheetBody [data-a="go"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350);
+  const pl = await p.evaluate(() => ({ strip: document.querySelector('#sheetBody .tn-strip small')?.textContent || '', want: document.querySelector('#sheetBody .bcard.want')?.dataset.t, tag: document.querySelector('#sheetBody .bcard.want .wtag')?.textContent }));
+  ok(/Komşusu Ece burada kafe istiyor/.test(pl.strip) && pl.want === 'kafe' && pl.tag === 'KİRACI İSTİYOR', 'hedef arsa paneli: kiracı şeridi ve işaretli kafe kartı: ' + JSON.stringify(pl));
+  await p.click('#sheetBody .bcard.want', { force: true }); await p.clock.runFor(400);
+  const dl0 = (await S(p)).ten[0].dl, pm0 = (await S(p)).playMs; await p.clock.runFor(20e3); const s20 = await S(p);
+  ok(s20.d['ist-0'][6] && s20.d['ist-0'][6].t === 'kafe' && s20.ten[0].dl - dl0 >= (s20.playMs - pm0) - 500, 'inşaat sürerken kiracının süresi duruyor (usta çalışıyor)');
+  await p.evaluate(() => { const S = window.__tapuState(); S.d['ist-0'][6].until = Date.now() + 300; }); await p.clock.runFor(1500);
+  if (await has(p, '#sheet.on')) { await p.keyboard.press('Escape'); await p.clock.runFor(400); }
+  await p.clock.runFor(800);
+  const s1 = await S(p), r1 = await rk(p);
+  ok(s1.ten[0].st === 'ready' && await has(p, tile(p, 2) + ' .tn.s-ready .tk svg'), 'istek oldu: halka yeşil, rozette altın anahtar');
+  ok(r1 && r1.mood === 'happy' && /anahtar/.test(r1.txt), 'Rıfkı haber veriyor (memnun): ' + JSON.stringify(r1));
+  // anahtar teslimi: tek dokunuş
+  const rate0 = await p.evaluate(() => window.__tapuTest.totalRate());
+  await p.evaluate(() => { const r = document.querySelector('#rifki .rk-x'); if (r) r.click(); });
+  await p.click(tile(p, 2), { force: true }); await p.clock.runFor(300);
+  const s2 = await S(p), stamp = await p.evaluate(() => { const e = document.querySelector('#grid .lot[data-i="2"] .teslim.ts-tn'); return e ? e.textContent : ''; });
+  const rate1 = await p.evaluate(() => window.__tapuTest.totalRate());
+  ok(s2.ten[0].st === 'live' && !(await has(p, '#sheet.on')), 'tek dokunuşla yerleşti (panel açılmadı)');
+  ok(/YERLEŞTİ/.test(stamp) && /Ece/.test(stamp), 'binaya YERLEŞTİ mührü basıldı: ' + stamp);
+  ok(rate1 > rate0, 'toplam kira arttı (' + rate0.toFixed(2) + ' → ' + rate1.toFixed(2) + ')');
+  await p.clock.runFor(600); const r2 = await rk(p);
+  ok(r2 && r2.mood === 'party' && /taşındı/.test(r2.txt), 'Rıfkı kutluyor (kutlama yüzü): ' + JSON.stringify(r2));
+  await p.waitForTimeout(450); await p.screenshot({ path: out + 'kiraci-3-yerlesti.png' });
+  await p.clock.runFor(2500);
+  ok(await has(p, tile(p, 2) + ' .tn.s-live .th'), 'yerleşen kiracının rozetinde kalp');
+  await tapTile(p, 2);
+  const led = await p.evaluate(() => [...document.querySelectorAll('#sheetBody .ledger > div')].map(d => d.textContent).find(s => /Kiracı/.test(s)) || '');
+  ok(/Kiracı · Ece/.test(led) && /%50/.test(led), 'mülk panelinde defter satırı: ' + led.replace(/\s+/g, ' '));
+  await p.keyboard.press('Escape'); await p.clock.runFor(400);
+  // gidiş bildirimi: istek karşılanmayan aday süre sonunda gider (Rıfkı konuşmaz, kısa bildirim)
+  await p.evaluate(() => { const r = document.querySelector('#rifki .rk-x'); if (r && !document.querySelector('#rifki').hidden) r.click();
+    const S = window.__tapuState(); S.ten.push({ id: 99, a: 'aile', k: S.cur, i: 3, w: { k: 'lvl', n: 2 }, dl: S.playMs + 600, st: 'wait', end: 0, noted: true }); });
+  await p.clock.runFor(1500);
+  const toast1 = await p.textContent('#toast'), s3 = await S(p), r3 = await rk(p);
+  ok(/Yılmaz ailesi başka bir yere baktı/.test(toast1) && !s3.ten.some(x => x.id === 99) && !r3 && s3.cash >= 0, 'gidiş: kısa bildirim, ceza yok, Rıfkı sessiz: ' + toast1);
+  await p.evaluate(() => { const S = window.__tapuState(); S.ten[0].end = S.playMs + 500; }); await p.clock.runFor(1500);
+  const toast2 = await p.textContent('#toast');
+  ok(/Sözleşme bitti: Ece/.test(toast2) && (await S(p)).ten.length === 0, 'sözleşme bitince teşekkür bildirimi: ' + toast2);
+  // kiracı defteri (menüden)
+  await p.click('#menuBtn', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350);
+  ok(await has(p, '#sheetBody .drow[data-a="defter"]'), 'menüde "Kiracı defteri" satırı');
+  await p.click('#sheetBody .drow[data-a="defter"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350);
+  const df = await p.evaluate(() => ({ n: document.querySelectorAll('#sheetBody .tdc').length, unk: document.querySelectorAll('#sheetBody .tdc.unk').length, ece: document.querySelector('#sheetBody .tdc[data-arch="ogrenci"] .tdn')?.textContent, on: document.querySelectorAll('#sheetBody .tdc[data-arch="ogrenci"] .tds i.on').length }));
+  ok(df.n === 6 && df.unk === 5 && df.ece === 'Ece' && df.on === 1, 'defter: 6 tip, gelmeyenler "???", Ece\'nin 1 pulu: ' + JSON.stringify(df));
+  await p.waitForTimeout(450); await p.screenshot({ path: out + 'kiraci-4-defter.png' });
+  // dokunma alanı: rozetli arsa ≥ 44 px (rozet tıklamayı yutmaz)
+  await p.keyboard.press('Escape'); await p.clock.runFor(400);
+  const hit = await p.evaluate(() => { const e = document.querySelector('#grid .lot[data-i="2"]'), r = e.getBoundingClientRect(), b = e.querySelector('.tn'); const bb = b ? b.getBoundingClientRect() : r; const at = document.elementFromPoint(bb.x + bb.width / 2, bb.y + bb.height / 2); return { w: r.width, h: r.height, hit: !!(at && at.closest('.lot') === e) }; });
+  ok(hit.w >= 44 && hit.h >= 44 && hit.hit, 'rozetli arsanın dokunma alanı ≥44 px ve rozet dokunuşu arsaya gider: ' + JSON.stringify(hit));
+  ok(!p.errs.length, 'konsol temiz' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+
+  // koyu tema + hareketi azalt
+  p = await openTen({ dark: true, rm: true });
+  const dk = await p.evaluate(() => { const b = document.querySelector('#grid .lot[data-i="2"] .tn svg'); return { th: document.documentElement.dataset.theme, bg: b ? getComputedStyle(b).backgroundColor : '' }; });
+  ok(dk.th === 'dark' && dk.bg === 'rgb(31, 25, 15)', 'koyu tema: rozet zemini koyu kart rengi (--rk-card): ' + JSON.stringify(dk));
+  await p.evaluate(() => { const r = document.querySelector('#rifki .rk-x'); if (r && !document.querySelector('#rifki').hidden) r.click(); });
+  await tapTile(p, 2);
+  const dq = await p.evaluate(() => { const q = document.querySelector('#sheetBody .tn-q'); const cs = q && getComputedStyle(q); return cs ? { bg: cs.backgroundColor, fg: cs.color } : null; });
+  ok(dq && dq.bg === 'rgb(31, 25, 15)' && dq.fg === 'rgb(227, 234, 223)', 'koyu tema: kiracı kartı alıntısı koyu zemin, açık yazı: ' + JSON.stringify(dq));
+  await p.waitForTimeout(450); await p.screenshot({ path: out + 'kiraci-5-koyu-kart.png' });
+  await p.keyboard.press('Escape'); await p.clock.runFor(400);
+  await p.evaluate(() => { const S = window.__tapuState(); S.d[S.cur][6] = { t: 'kafe', lvl: 1, buf: 0, until: 0, dur: 1, up: false }; }); await p.clock.runFor(800);
+  const an = await p.evaluate(() => { const e = document.querySelector('#grid .lot[data-i="2"] .tn.s-ready'); return e ? { a: getComputedStyle(e).animationName, n: e.getAnimations().length } : null; });
+  ok(an && an.a === 'none' && an.n === 0, 'hareketi azalt: anahtar zıplaması yok: ' + JSON.stringify(an));
+  await p.evaluate(() => { const r = document.querySelector('#rifki .rk-x'); if (r && !document.querySelector('#rifki').hidden) r.click(); });
+  await p.waitForTimeout(450); await p.screenshot({ path: out + 'kiraci-6-koyu-tahta.png' });
+  ok(!p.errs.length, 'konsol temiz' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+
+  // 320 px · İngiltere / İngilizce (yerel adlar, çeviri)
+  p = await openTen({ vp: { width: 320, height: 568 }, lang: 'en', region: 'uk', city: 'lon' });
+  const e0 = await S(p), r4 = await rk(p);
+  ok(e0.ten.length === 1 && r4 && /Olivia/.test(r4.txt) && /tenant/.test(r4.txt) && !/kiracı|efendim/.test(r4.txt), 'İngiltere/EN: yerel ad (Olivia), İngilizce tanıtım: ' + JSON.stringify(r4));
+  await p.evaluate(() => { const r = document.querySelector('#rifki .rk-x'); if (r && !document.querySelector('#rifki').hidden) r.click(); });
+  await tapTile(p, 2);
+  const c320 = await p.evaluate(() => ({ h: document.querySelector('#sheetBody .tn-head h3')?.textContent, go: document.querySelector('#sheetBody [data-a="go"]')?.textContent, role: document.querySelector('#sheetBody .tn-head .sh-t p:last-child')?.textContent }));
+  const tt = await p.evaluate(() => getComputedStyle(document.querySelector('#sheetBody .tn-head h3')).textTransform);
+  ok(tt === 'none', 'kiracı adı büyük harfe çevrilmiyor (Türkçe kuralı yabancı adı bozmasın): ' + tt);
+  ok(c320.h === 'Olivia' && c320.go === 'Go to plot · build a café' && /university student/.test(c320.role || ''), '320 px kart İngilizce: ' + JSON.stringify(c320));
+  const o1 = await noOverflow(p);
+  ok(o1.doc <= 320 && o1.sheet <= 0 && !o1.body.length, '320 px: kiracı kartında yatay taşma yok: ' + JSON.stringify(o1));
+  const btnH = await p.evaluate(() => [...document.querySelectorAll('#sheetBody .btns button')].map(b => (b.getBoundingClientRect().height).toFixed(2)));
+  ok(btnH.length && btnH.every(h => +h >= 44), '320 px: kart düğmeleri ≥44 px: ' + btnH.join(','));
+  await p.waitForTimeout(450); await p.screenshot({ path: out + 'kiraci-7-320-kart.png' });
+  await p.click('#sheetBody [data-a="defter"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350);
+  const o2 = await noOverflow(p);
+  ok(o2.doc <= 320 && o2.sheet <= 0 && !o2.body.length, '320 px: defterde yatay taşma yok: ' + JSON.stringify(o2));
+  await p.waitForTimeout(450); await p.screenshot({ path: out + 'kiraci-8-320-defter.png' });
+  await p.keyboard.press('Escape'); await p.clock.runFor(400); await p.keyboard.press('Escape'); await p.clock.runFor(400);
+  await p.click('#grid .lot[data-i="6"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350);
+  const o3 = await noOverflow(p);
+  ok(o3.doc <= 320 && o3.sheet <= 0 && !o3.body.length && await has(p, '#sheetBody .tn-strip'), '320 px: hedef arsa paneli (şerit) taşmıyor: ' + JSON.stringify(o3));
+  ok(!p.errs.length, 'konsol temiz' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
 }
 
 (async()=>{
@@ -487,6 +633,8 @@ async function hold(p,sel){
     ok(!p.errs.length,'konsol temiz'+(p.errs.length?' ['+p.errs.slice(0,2).join('|')+']':''));
     await p.context().close();
   }
+  console.log('16) Kiracılar');
+  await kiraciBolum(b);
   await b.close();
   const pass=results.filter(r=>r.pass).length;
   console.log(`\nSONUÇ: ${pass}/${results.length} geçti`);

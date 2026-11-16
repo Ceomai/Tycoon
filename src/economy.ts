@@ -106,10 +106,20 @@ export function specialBase(k: DistrictKey, i: number): number {
   return 3 * best;
 }
 
+/** Kiracı (game/tenants.ts): yerleşmiş kiracının binası sözleşme boyunca +CFG.TEN_BONUS. Haftalık lig kazancına da girer
+ *  (kira olarak toplanır). Çevrimdışı kazançta sayılmaz (sözleşme oyun süresiyle işler): bkz. withoutTenants. */
+let tenOff = false;
+export function tenantMult(k: DistrictKey, i: number): number {
+  const L = S.ten; if (tenOff || !L || !L.length) return 1;
+  for (const x of L) if (x.st === 'live' && x.k === k && x.i === i) return 1 + CFG.TEN_BONUS;
+  return 1;
+}
+/** f'yi kiracı bonusu olmadan hesaplar (çevrimdışı kazanç). */
+export function withoutTenants<T>(f: () => T): T { const o = tenOff; tenOff = true; try { return f(); } finally { tenOff = o; } }
 export function baseRate(k: DistrictKey, i: number): number {
   const p = lotsOf(S, k)[i]; if (!producing(p)) return 0;
   if (p!.sp) return specialBase(k, i) * permMult() * districtMult(k);
-  return TYPES[p!.t].inc * LV_INC[p!.lvl] * incM(k) * (1 + neighborBonus(k, i)) * ruleMult(k, i, p!.t) * marketMult(p!.t, curWeek()) * civicMult(k, p!.t) * permMult() * districtMult(k);
+  return TYPES[p!.t].inc * LV_INC[p!.lvl] * incM(k) * (1 + neighborBonus(k, i)) * ruleMult(k, i, p!.t) * marketMult(p!.t, curWeek()) * civicMult(k, p!.t) * permMult() * districtMult(k) * tenantMult(k, i);
 }
 export function rate(k: DistrictKey, i: number, t = now()): number {
   const b = baseRate(k, i); if (!b) return 0;

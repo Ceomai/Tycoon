@@ -16,6 +16,7 @@ import { Analytics } from '../services/analytics';
 import { SPECIALS } from '../specials';
 import { t, tk, nm, upper, pctTxt } from '../i18n';
 import { deny } from '../ui/motion';
+import { stampsOf, ARCHS } from './tenants';
 
 /* ---------- 2 · piyasa raporu kartı ---------- */
 export function showMarket() {
@@ -104,12 +105,16 @@ export const SKIN_COLORS: { n: string; f: string; s: string; t: string; lock?: s
   { n: tk('Mercan'), f: '#f2b7a0', s: '#d99a83', t: '#e8a993', lock: tk('Sezon · 20. basamak') },
   { n: tk('Altın'), f: '#e9c46a', s: '#c9a24a', t: '#dcb65c', lock: tk('Altın Tapu · 15. basamak') },
   { n: tk('Tuğla kırmızısı'), f: '#d98b6c', s: '#bf6f52', t: '#cf7e60', lock: tk('Başlangıç paketi') },
+  { n: tk('Kiracı yeşili'), f: '#a9c99a', s: '#8aae7b', t: '#9dbf8e', lock: tk('Kiracı defteri · 6 müdavim pulu') },
 ];
+/** Kiracı defterinin ödülü (yalnızca görünüm): 6 tipin hepsinde müdavim pulu. */
+export const TENANT_SKIN = 10;
 export const ROOFS = [{ n: tk('Kiremit') }, { n: tk('Arduvaz'), rf: '#4f5b6b', rf2: '#3d4855' }, { n: tk('Yeşil'), rf: '#5f8a4c', rf2: '#476a38' }];
 export function skinUnlocked(c: number) {
   if (c < 4) return true;
   if (c === 4) return S.ach.length >= 8;
   if (c === 5) return S.ach.length >= 16;
+  if (c === TENANT_SKIN) return stampsOf() >= ARCHS.length;
   return S.skinsU.includes(c);
 }
 /** Binanın inline stil değişkenleri (render'da kullanılır). */
