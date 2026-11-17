@@ -19,6 +19,9 @@ import { tenantBadge, tenantLook } from '../ui/tenantFace';
 import type { FaceParams } from './tenantChars';
 import { ihaleTip, IH } from './auction';
 import { blocks, nearest, pjDistrictOk, pjUnlocked, pjName, kindOf, typesAt } from './projcore';
+import { cheapCur, bankOpen, today } from './bank';
+import { curWord } from './bankcore';
+import { REGIONS, CUR_OF } from '../config';
 
 let last2x = -1e9; // 2x hatırlatması (CFG.HINT2X_EVERY) en fazla bu sıklıkla
 
@@ -88,6 +91,9 @@ function tips(): Tip[] {
     out.unshift({ id: 'save2x', text: save2xText(q.sp ? 'sp' : q.t, { d: nm(DMAP[tg.k].n), n: Math.round(bs.now), m: Math.max(1, Math.round(bs.now - bs.saved)) }), go: { k: 'plot', key: bs.lot.k, i: bs.lot.i } });
   }
   projectTips(out);
+  // banka: başlanmış başka bir bölgenin parası şu an haftalık ortalamasından ucuzsa (günde en fazla bir kez)
+  const ch = bankOpen() && S.bank && S.bank.tip !== today() ? cheapCur(true, tn) : null;
+  if (ch) out.push({ id: 'kur', text: t('Şu an {c} ucuz efendim. {r} kasasına biraz para gönderecekseniz tam zamanı; kur saat saat değişir.', { c: curWord(CUR_OF[ch.r]), r: t(REGIONS[ch.r].n) }), go: { k: 'banka', tab: 'fx' } });
   const ih = ihaleTip(); if (ih) out.splice(out[0] && out[0].id === 'pjintro' ? 1 : 0, 0, ih); // ihale günü: ihale başına bir kez (proje tanıtımından sonra)
   let best = -1, br = 0;
   lots.forEach((p, i) => { if (producing(p) && !((p!.bu || 0) > tn)) { const r = rate(k, i, tn); if (r > br) { br = r; best = i; } } });
@@ -119,6 +125,7 @@ export function showTip(tip: Tip) {
   const el = $('#rifki'); if (!el) return;
   current = tip; lastId = tip.id;
   if (tip.id === 'pjintro') S.pjIntro = true; // tanıtım bir kez
+  if (tip.id === 'kur' && S.bank) S.bank.tip = today(); // kur notu günde en fazla bir kez
   if (tip.id === 'ihale' && IH().cur) IH().cur!.tip = true; // ihale ipucu ihale başına bir kez
   const mood = moodOf(tip.id); // ifade: ipucu kimliğinden (ui/rifkiFace.ts TIP_MOOD)
   el.innerHTML = `<div class="rk-face" data-mood="${mood}">${rifkiFace(mood)}</div><button class="rk-bub${tip.tn ? ' has-tn' : ''}" data-rk="go"><b>${t('RIFKI ABİ')}</b><span>${tip.text}</span>${tip.tn ? `<i class="rk-tn">${tenantBadge(tip.tn.p, tip.id === 'tenok' || tip.id === 'tenready' ? 'happy' : 'wait', tip.tn.id)}</i>` : ''}</button><button class="rk-x" data-rk="x" aria-label="${t('Kapat')}">×</button>`;

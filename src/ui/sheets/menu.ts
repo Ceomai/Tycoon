@@ -43,6 +43,7 @@ export const menu: Panel = {
         ${ihaleRow(row)}
         ${row('ozel', I.tower, t('Haftanın özel tapusu'), ozelAvail() ? t('{ad} satışta', { ad: t(weekSpecial(weekKey(new Date(tn))).n) }) : t('{ad} alındı', { ad: t(weekSpecial(weekKey(new Date(tn))).n) }), ozelAvail())}
         ${starterActive() ? row('starter', I.crown, t('Başlangıç paketi'), t('Yalnızca bir kez · bitiş {c}', { c: lv('stl', () => clock(starterLeft())) }), true) : ''}
+        ${row('banka', I.coin, t('Banka ve bilanço'), t('Bölgeler arası aktarım · kur · toplam varlık'))}
         ${row('store', I.noads, t('Mağaza'), S.premium ? t('Holding paketi aktif') : S.club ? t('Emlak Kulübü aktif') : S.noAds ? t('Reklamsız aktif · jetonlar, sezon') : t('Reklamsız, Holding, Kulüp, jetonlar'))}
         ${row('holding', I.tower, t('Holding kur'), canHolding() ? t('{n} hisse hazır', { n: sharesPreview() }) : S.shares ? t('{n} hisse · kiralar {x}', { n: S.shares, x: fmtX(1 + 0.1 * S.shares) }) : t('Bir ilin 5. semtini alınca açılır'), canHolding())}
         ${row('set', I.gear, t('Ayarlar'), t('Ses, bildirim, hesap, gizlilik'))}

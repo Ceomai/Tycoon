@@ -2,6 +2,7 @@ import { BuildingType, CityId, DistrictKey, N, COLS, ROWS, SCHEMA, dkey, CFG, DM
 import { IHALE_IDS, migrateColl } from './landmarks';
 import type { Tenant } from './game/tenants';
 import { CHAR, charFor, liveOf, maxLive } from './game/tenantChars';
+import { newBank, newEp, trimIn, BANK_LOG, type BankState } from './game/bankcore';
 
 export interface Skin { c?: number; r?: number; s?: boolean; }
 export interface Plot { t: BuildingType; lvl: number; buf: number; until: number; dur: number; up: boolean; bu?: number; sp?: string; ob?: string; sk?: Skin; } // bu: bu mülke 2x bitişi · sp: özel yapı · ob: engel (gecekondu, hurda…)
@@ -81,6 +82,7 @@ export interface State {
   pj: Record<DistrictKey, Pj[]>;   // büyük projeler (arsa birleştirme), semt başına en fazla CFG.PJ_MAX
   pjIntro: boolean;                // Rıfkı projeleri bir kez tanıttı mı
   ihale: IhaleState;               // rakip emlakçı ve ihale (game/auccore.ts)
+  bank: BankState;                 // banka (game/bank.ts): son taban kira, kayıt kimliği, gelen/yoldaki havaleler, bugünkü hak, hareketler
   clubDay: string;                 // Kulüp günlük jetonunun verildiği gün // tapu sezonu // lig (kaynak sunucu; bu önbellek), last = gösterilen son hafta sonucu
 }
 
@@ -107,6 +109,7 @@ export function newState(now: number, weekKey: string, city: CityId | null = nul
     noAds: false, club: false, starter: { at: 0, bought: false }, seasonFirst: false, adCredit: 0, clubDay: '',
     ten: [], tdef: {}, tdc: {}, nextTen: 0, pj: {}, pjIntro: false,
     ihale: { cur: null, rm: {}, got: [], kose: [], kp: 0, intro: false, wins: 0, losses: 0 },
+    bank: newBank(),
   };
 }
 
@@ -243,6 +246,17 @@ function cleanIhale(x: unknown, own: DistrictKey[], out: any): IhaleState {
   if (typeof q.skip === 'string') r.skip = q.skip;
   return r;
 }
+/** Banka: bozuk havale/hareket düşer. Yoldaki havaleler (emanet dahil) korunur: kaybolursa para kaybolur. */
+const REG_IDS = ['tr', 'us', 'uk', 'de', 'jp', 'gl'];
+function cleanBank(x: unknown): BankState {
+  const b = isObj(x) ? x : {}, pos = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= MAX_CASH;
+  const out = Array.isArray(b.out) ? b.out.filter((o: any) => isObj(o) && typeof o.id === 'string' && o.id.length < 64 && REG_IDS.includes(o.to) && pos(o.a)).slice(0, 64)
+    .map((o: any) => ({ id: o.id, to: o.to, a: o.a, at: num(o.at, 0, 0), ...(typeof o.s === 'number' && Number.isFinite(o.s) ? { s: o.s } : {}), ...(typeof o.ep === 'string' ? { ep: o.ep } : {}) })) : [];
+  const log = Array.isArray(b.log) ? b.log.filter((l: any) => isObj(l) && REG_IDS.includes(l.r) && (l.dir === 'in' || l.dir === 'out')).slice(0, BANK_LOG)
+    .map((l: any) => ({ at: num(l.at, 0, 0), dir: l.dir, r: l.r, a: num(l.a, 0, 0, MAX_CASH), b: num(l.b, 0, 0, MAX_CASH), ...(typeof l.id === 'string' ? { id: l.id } : {}) })) : [];
+  return { rate: num(b.rate, 0, 0, MAX_CASH), ep: typeof b.ep === 'string' && b.ep && b.ep.length < 40 ? b.ep : newEp(), in: trimIn(strs(b.in).filter(v => v.length < 64)), out, log,
+    day: isObj(b.day) && typeof b.day.k === 'string' ? { k: b.day.k, got: num(b.day.got, 0, 0, MAX_CASH) } : { k: '', got: 0 }, tip: typeof b.tip === 'string' ? b.tip : '' };
+}
 function sanitize(s: any, now: number, weekKey: string): State {
   const own = [...new Set(strs(s.own).filter(isD))].filter(k => CITY_ORDER.includes(DMAP[k].city)); // yalnızca etkin bölgenin semtleri
   // city: null = şehir henüz seçilmemiş (ilk açılış yarım kaldı): semtlerden türetilmez, oyuncu şehir seçer.
@@ -285,6 +299,7 @@ function sanitize(s: any, now: number, weekKey: string): State {
   out.pj = cleanPj(s.pj, out.own, out.d, now); out.pjIntro = s.pjIntro === true;
   out.ten = cleanTenants(s.ten, out.own, out.playMs); out.tdef = cleanTdef(s.tdef); out.tdc = cleanTdc(s.tdc); out.nextTen = num(s.nextTen, 0, 0);
   out.ihale = cleanIhale(s.ihale, out.own, out);
+  out.bank = cleanBank(s.bank);
   if (!out.ref.code || typeof out.ref.code !== 'string') out.ref = base.ref;
   if (out.collectMode !== 'auto') out.collectMode = 'tap';
   return out as State;

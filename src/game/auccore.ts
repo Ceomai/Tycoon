@@ -15,7 +15,7 @@
      damgası (S.ihale.kp), oyuncu sahip olduğu bir semtte bir arsaya vurur: o arsanın kirası +CFG.IH_KOSE_X (semt başına 1,
      Holding'de semtle gider). İkisi de haftalık lig kazancına sayılmaz (economy.ts ihaleLotMult / leagueShare).
    ========================================================= */
-import { CFG, N, DMAP, CityId, DistrictKey, REGION, cityRegion } from '../config';
+import { CFG, N, DMAP, CityId, DistrictKey, REGION, cityRegion, toDisp, fromDisp } from '../config';
 import { S, Auction, IhaleState, AucKind } from '../state';
 import { totalRate } from '../economy';
 import { IHALE_LM, IhaleLm } from '../landmarks';
@@ -66,6 +66,9 @@ export const ihaleUnlocked = () => S.own.length >= CFG.IH_UNLOCK_OWN || (S.share
 /* ---------- yardımcılar ---------- */
 /** "Güzel" sayı: ilk iki hane, yukarı yuvarlanır. */
 export const nice = (v: number) => { const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(Math.max(1, v))) - 1)); return Math.ceil(v / p) * p; };
+/** Ekranda güzel görünen tutar (bölgenin parasıyla, gösterim ölçeği): açılış ve adım oyuncunun gördüğü birimde yuvarlak olsun
+ *  ($60 · adım $6); iç birime geri çevrilir. Türkiye'de (ölçek 1) nice ile aynı. */
+export const niceShown = (v: number) => fromDisp(nice(toDisp(v)));
 /** Tohumlu [0,1): ihale kimliğinden (FNV-1a + karıştırma). */
 export function seeded(id: string) { let h = 2166136261; for (const c of id) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995); h ^= h >>> 15; return ((h >>> 0) % 10000) / 10000; }
 /** Ruh hali: rakip son ihaleyi kaybettiyse (+1) hırslı, kazandıysa (−1) kasası boşalmış. */
@@ -75,7 +78,7 @@ const day = (v: number) => ((Math.floor(v) % 7) + 7) % 7;
 /** İhale oluşturur. unitPerMin: dakikalık kira. */
 export function makeAuction(id: string, kind: AucKind, prize: string, city: CityId, open: number, unitPerMin: number): Auction {
   const rv = rivalOf(city), ar = ARCHE[rv.a], unit = Math.max(50, unitPerMin);
-  const start = nice(unit * (kind === 'lm' ? CFG.IH_LM_OPEN : CFG.IH_ARSA_OPEN)), step = nice(start * CFG.IH_STEP);
+  const start = niceShown(unit * (kind === 'lm' ? CFG.IH_LM_OPEN : CFG.IH_ARSA_OPEN)), step = niceShown(start * CFG.IH_STEP);
   const mid = start * (kind === 'lm' ? CFG.IH_LM_K : CFG.IH_ARSA_K) * ar.k[kind] * moodMult(IH().rm[rv.id] || 0), nz = CFG.IH_NOISE;
   const cap = Math.max(start, Math.round(mid * (1 - nz + 2 * nz * seeded(id + rv.id)) / step) * step);
   const len = Math.max(3, CFG.IH_CLOSE_H - CFG.IH_OPEN_H) * 3600e3;

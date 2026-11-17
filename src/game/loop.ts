@@ -3,7 +3,7 @@ import { CFG, N, CITIES, CITY_ORDER, CityId, dkey, TYPES, REGIONS, REGION_ORDER,
 import { t, nm, LANGS, setLang, LANG } from '../i18n';
 import { P, savePrefs } from '../prefs';
 import { S, setS, newState, lotsOf } from '../state';
-import { rand, dayKey, weekKey } from '../format';
+import { rand, dayKey, weekKey, fmt } from '../format';
 import { now, producing, rate, pending, curWeek, tickMemo, freezeRates, isFull } from '../economy';
 import { Snd, buzz } from '../sound';
 import { $, ui, view } from '../ui/ctx';
@@ -27,6 +27,7 @@ import { maybeStarter, clubTick } from './monetize';
 import { tenantTick } from './tenants';
 import { tickProjects } from './project';
 import { ihaleTick } from './auction';
+import { bankBoot } from './bank';
 
 let lastT = performance.now(), lastGoals = 0, teslimOf = '';
 const anyProducing = () => S.own.some(k => lotsOf(S, k).some(producing));
@@ -127,6 +128,8 @@ export function pickCity(onDone?: () => void) {
       const fresh = newState(now(), weekKey(new Date(now())), c);
       Object.assign(S, { city: c, own: fresh.own, cur: fresh.cur, d: fresh.d });
       ui.tileSig = []; ui.linkSig = ''; persist(); view.render(); Snd.unlock();
+      // başlanmamış bölgeye bankadan bırakılan emanet: başlangıç sermayesi (kazanç sayılmaz)
+      void bankBoot().then(got => { if (got) toast(t('Bankadaki emanet kasana geçti: {m} başlangıç sermayesi', { m: fmt(got) })); }).catch(e => Analytics.error(e, 'bank_claim'));
       Analytics.log('start_city', { city: c });
       showDistrictCard(fresh.cur, onDone); // şehir kartpostalı + başlangıç semtinin kuralı
     });

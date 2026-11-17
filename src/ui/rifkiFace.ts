@@ -34,6 +34,7 @@ export const TIP_MOOD: Readonly<Record<string, Mood>> = {
   ihale: 'think',     // ihale günü: rakip ve ödül (ihale başına bir kez)
   ihlate: 'warn',     // son düzlükte rakip öne geçti
   ihcut: 'warn',      // kasa vekâleti karşılamadı, vekâlet indi
+  kur: 'wow',         // banka: başka bölgenin parası şu an ucuz (günde en fazla bir kez)
 };
 export const moodOf = (id: string): Mood => TIP_MOOD[id] || 'happy';
 

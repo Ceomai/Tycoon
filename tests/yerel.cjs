@@ -87,12 +87,12 @@ async function turkishLeft(p){ return p.evaluate(([re,names])=>{ const R=new Reg
  await p.clock.runFor(3000); await dismiss(p); await p.evaluate(()=>{ window.__tapuState().cash=1e9; });
  await dismiss(p); await tap(p,'#mapBtn'); const mt=await p.textContent('#sheetBody');
  ok(['New York','London','Munich','Istanbul','Tokyo'].every(c=>mt.includes(c)),'haritada 5 şehir');
- ok(mt.includes('$6M'),'4. şehir bedeli $6M: '+(mt.match(/\$[0-9.,]+M/g)||[]).join(','));
+ ok(mt.includes('$139K'),'4. şehir bedeli $139K (iç 6M, gösterim ölçeği 1 $ ≈ 43 ₺): '+(mt.match(/\$[0-9.,]+[KM]/g)||[]).join(','));
  await p.screenshot({path:out+'yerel-global.png'});
  const buy=await p.$('#sheet [data-a="buy"][data-k="ist-0"]'); if(buy){ await buy.click({force:true}); await p.clock.runFor(600); await dismiss(p); }
- s=await S(p); ok(s.own.includes('ist-0') && s.cash<1e9-5.9e6,'İstanbul 4. şehir olarak $6M’a alındı');
+ s=await S(p); ok(s.own.includes('ist-0') && s.cash<1e9-5.9e6,'İstanbul 4. şehir olarak (iç 6M) alındı');
  await p.keyboard.press('Escape'); await p.waitForTimeout(450);
- await dismiss(p); await tap(p,'#mapBtn'); ok((await p.textContent('#sheetBody')).includes('$60M'),'5. şehir bedeli $60M'); await p.keyboard.press('Escape'); await p.waitForTimeout(450);
+ await dismiss(p); await tap(p,'#mapBtn'); ok((await p.textContent('#sheetBody')).includes('$1.3M'),'5. şehir bedeli $1.3M (iç 60M)'); await p.keyboard.press('Escape'); await p.waitForTimeout(450);
  ok(p.errs.length===0,'konsol temiz '+p.errs.join('|')); await p.context().close();
 
  console.log('Yeni oyun: dil ve bölge seçimi yeniden gelir, diğer bölgenin kaydı korunur');

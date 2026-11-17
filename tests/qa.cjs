@@ -365,7 +365,7 @@ const tap=makeTap({wait:380});
    // piyasa raporu + TOPLA anı + arşiv
    p=await page(b,{},seedK(`{market:''}`));
    let mk=false; for(let k=0;k<6&&!mk;k++){ await p.clock.runFor(1500); mk=await p.isVisible('#modal .mkcard'); if(!mk) await dismiss(p); }
-   ok(mk && (await p.$$('#modal .mkr')).length===4,'haftanın piyasa raporu kartı çıktı (4 tür)');
+   ok(mk && (await p.$$('#modal .mkr:not(.mkfx)')).length===4 && (await p.$$('#modal .mkr.mkfx')).length===1,'haftanın piyasa raporu kartı çıktı (4 tür + kur satırı)');
    await tap(p,'#modal [data-a="ok"]'); let s4=await st(p); ok(s4.market && s4.market.includes('-H'),'rapor bu hafta için bir kez gösterildi');
    ok((await p.textContent('#rate')).includes('↑'),'kira göstergesinde piyasa işareti');
    await dismiss(p);
