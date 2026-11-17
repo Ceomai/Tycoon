@@ -3,7 +3,7 @@ import { CFG, COLS, ROWS, N, TYPES, DMAP, CITIES, DistrictKey } from '../config'
 import { t, nm, upper, pctTxt, lowTxt } from '../i18n';
 import { S, lotsOf } from '../state';
 import { fmt, fmtX, clock, esc } from '../format';
-import { now, totalRate, coinFill, fxMult, producing, buyableDistricts, pending, pjOf, pjCells } from '../economy';
+import { now, totalRate, coinFill, fxMult, producing, buyableDistricts, pending, pjOf, pjCells, renovating } from '../economy';
 import { Pj } from '../state';
 import { projSvg, projSite, psvg } from '../projdraw';
 import { pjName, styleOf, kindOf, typesAt, blocks } from '../game/project';
@@ -105,7 +105,8 @@ export function render() {
       sig = [JSON.stringify(p.sk || ''), p.t, p.sp || '', p.lvl, p.until ? 1 : 0, prog, cd, ts, coin, lb, hot ? 1 : 0, mergeSides(i), d.v].join('|');
     }
     const ks = koseOf(k) === i; // köşe başı damgası (ihale)
-    sig += '|' + tsig + (ks ? '|K' : '');
+    const rv = !!p && renovating(k, i); // kiracı isteği: yenileme sürüyor (kira yok)
+    sig += '|' + tsig + (ks ? '|K' : '') + (rv ? '|R' + Math.ceil((tq!.rv! - S.playMs) / 20e3) : '');
     if (sig === ui.tileSig[i]) continue;
     ui.tileSig[i] = sig;
     if (!p) {
@@ -131,11 +132,12 @@ export function render() {
     // para baloncuğu yok: ince doluluk çubuğu (tek tuş modunda) ve mülke özel 2x etiketi
     if (producing(p) && S.collectMode !== 'auto') { const f = coinFill(k, i); h += `<span class="fill${f >= .999 ? ' full' : ''}"><i style="transform:${fillTf(f)}"></i></span>`; }
     if ((p.bu || 0) > tn) h += '<span class="lb2">2x</span>';
+    if (rv) { el.classList.add('rv'); h += `<span class="rvb"><b>${t('YENİLENİYOR')}</b><small>${clock(Math.max(0, tq!.rv! - S.playMs))}</small></span>`; }
     h += tenantHtml(tq);
     if (ks) h += KOSE_TAG;
     if (p.sk && p.sk.s && !p.until) h += `<span class="tab">${p.sp ? t('ÖZEL') : upper(t(TYPES[p.t].n))}</span>`;
     el.innerHTML = h; el.style.cssText = skinStyle(p);
-    el.setAttribute('aria-label', t('{name}, seviye {lvl}', { name: p.sp ? t(specialOf(p.sp).n) : t(TYPES[p.t].n), lvl: p.lvl }) + (p.until ? t(', inşaatta') : '') + ((p.bu || 0) > tn ? t(', 2x kazanıyor') : '') + (ks ? t(', köşe başı') : '') + tenantAria(tq));
+    el.setAttribute('aria-label', t('{name}, seviye {lvl}', { name: p.sp ? t(specialOf(p.sp).n) : t(TYPES[p.t].n), lvl: p.lvl }) + (p.until ? t(', inşaatta') : '') + ((p.bu || 0) > tn ? t(', 2x kazanıyor') : '') + (ks ? t(', köşe başı') : '') + (rv ? t(', yenileniyor: kira vermiyor') : '') + tenantAria(tq));
   }
   if (ui.pop.size) { for (const i of ui.pop) pop(ui.tiles[i] && ui.tiles[i].querySelector('svg.art')); ui.pop.clear(); } // inşaat başlangıcı / teslim
   renderLinks(); renderBubble(); renderPjSelect();
@@ -255,7 +257,11 @@ function tileAt(x: number, y: number): number | null {
 function tapTile(i: number) {
   if (pjSel) { exitPjSelect(); return; } // seçim modunda çerçeve dışına dokunmak seçimi bırakır
   const pq = pjOf(S.cur, i);
-  if (pq) { openSheet({ k: 'proj', key: S.cur, i: pq.a }); return; }
+  if (pq) { // projedeki aday anahtar bekliyorsa tek dokunuşla yerleşir
+    const rx = pjCells(pq.a).map(j => tenantAt(S.cur, j)).find(x => x && x.st === 'ready');
+    if (rx && handKey(rx)) { render(); return; }
+    openSheet({ k: 'proj', key: S.cur, i: pq.a }); return;
+  }
   const x = tenantAt(S.cur, i);
   if (x && x.st === 'ready' && handKey(x)) { render(); return; } // anahtar teslimi: tek dokunuş
   if (x && x.st === 'wait') { openSheet({ k: 'kiraci', key: S.cur, i }); return; }
@@ -305,8 +311,9 @@ function renderPjTile(i: number, el: HTMLElement, k: DistrictKey, q: Pj, tn: num
   const cd = q.until && q.until - tn <= CFG.SKIP_LEFT ? Math.ceil((q.until - tn) / 1000) : 0;
   const ts = ui.teslim[i] && ui.teslim[i].at > performance.now() ? 1 : 0;
   const cells = pjCells(q.a), auto = S.collectMode === 'auto', fill = auto ? -1 : cells.reduce((s2, j) => s2 + coinFill(k, j), 0) / 4;
-  const tq = cells.map(j => tenantAt(k, j)).find(x => x && x.st === 'live') || null; // proje tek bina: bir rozet
-  const sig = ['pj', q.kd, q.st, q.until ? 1 : 0, step, cd, ts, fill < 0 ? -1 : Math.round(fill * 50), styleOf(k), tq ? tq.id : ''].join('|');
+  // proje tek bina: bir rozet (yerleşik kiracı; yoksa projeyi / 2. etabı isteyen aday)
+  const tq = cells.map(j => tenantAt(k, j)).find(x => x && x.st === 'live') || cells.map(j => tenantAt(k, j)).find(x => !!x) || null;
+  const sig = ['pj', q.kd, q.st, q.until ? 1 : 0, step, cd, ts, fill < 0 ? -1 : Math.round(fill * 50), styleOf(k), tq ? tq.id + tq.st : ''].join('|');
   if (sig === ui.tileSig[i]) return; ui.tileSig[i] = sig;
   const r = Math.floor(i / COLS), c = i % COLS, name = pjName(k, q.kd);
   el.dataset.pj = '1'; el.removeAttribute('aria-hidden');

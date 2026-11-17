@@ -6,7 +6,7 @@ import { fmt, fmtCost, fmtTime, clock, esc } from '../../format';
 import { pjOf, pjCells, pjX, rate, tenantMult } from '../../economy';
 import { projSvg, projSite, psvg } from '../../projdraw';
 import { pjName, styleOf, pjCost, pjTime, upgradeProject, splitProject, KIND_N, pjMinLv } from '../../game/project';
-import { tenantAt, tName, bonusPct } from '../../game/tenants';
+import { tenantAt, tName, bonusPct, wishShort } from '../../game/tenants';
 import { I } from '../../icons';
 import { t, nm, pctTxt } from '../../i18n';
 import { $ } from '../ctx';
@@ -16,13 +16,16 @@ import { pjChips, pjRates } from '../pjcard';
 const progOf = (q: Pj, tn: number) => Math.max(0, Math.min(1, 1 - (q.until - tn) / q.dur));
 /** Projedeki (sözleşmesi süren) kiracılar. */
 const liveTen = (k: string, q: Pj) => pjCells(q.a).map(j => tenantAt(k, j)).filter(x => x && x.st === 'live');
+/** Projeyi (2. etabı) isteyen aday: bekliyor ya da anahtar hazır. */
+const candTen = (k: string, q: Pj) => pjCells(q.a).map(j => tenantAt(k, j)).find(x => x && x.st !== 'live') || null;
+const candRow = (k: string, q: Pj) => { const x = candTen(k, q); return x ? `<div><span>${t('Kiracı adayı · {n}', { n: esc(tName(x.a, k)[0]) })}</span><i></i><b>${x.st === 'ready' ? t('İsteği oldu: anahtarı ver') : wishShort(x)}</b></div>` : ''; };
 
 export const proj: Panel<{ q: Pj | null }> = {
   sig(s, tn, c) {
     const q = c.q = pjOf(s.key!, s.i!); if (!q) return 'none';
     const k = s.key!;
     return 'pj|' + q.a + q.st + (q.until ? 1 : 0) + (q.st === 1 && !q.until && S.cash >= pjCost(k, q.a, 2) ? 1 : 0) + (s.del ? 1 : 0)
-      + (q.until ? Math.floor(progOf(q, tn) * 20) : '') + liveTen(k, q).map(x => x!.id).join();
+      + (q.until ? Math.floor(progOf(q, tn) * 20) : '') + liveTen(k, q).map(x => x!.id).join() + ((x => (x ? x.id + x.st : ''))(candTen(k, q)));
   },
   render(s, tn, { q }) {
     if (!q) return `<p class="gdp">${t('Proje ayrıldı · dört bina yerinde')}</p>`;
@@ -35,7 +38,7 @@ export const proj: Panel<{ q: Pj | null }> = {
     if (q.until) return `${head}<div class="cd"><span class="sec">${q.st ? t('2. etap') : t('Proje inşaatı')}</span><span class="cdv" data-cd>${clock(q.until - tn)}</span></div>
       <div class="prog pjpb"><i data-pb style="width:${(progOf(q, tn) * 100).toFixed(1)}%"></i></div>
       <p class="note">${t('İnşaat sürerken dört bina kira vermeye devam eder.')}</p>${pjChips(k, q.a)}
-      ${tens ? `<div class="ledger">${tens}</div>` : ''}
+      ${tens || candRow(k, q) ? `<div class="ledger">${tens}${candRow(k, q)}</div>` : ''}
       <div class="btns"><button class="txt" data-a="close">${t('Bekle')}</button></div>`;
     // binaların kendi kirası: proje bonusu çıkarılmış (kiracı bonusu toplamsal: r × m / (m + x))
     const own = pjCells(q.a).reduce((x, j) => { const m = tenantMult(k, j); return x + rate(k, j) * m / (m + pjX(q.st)); }, 0);
@@ -46,7 +49,7 @@ export const proj: Panel<{ q: Pj | null }> = {
         <div><span>${t('Proje kirası')}</span><i></i><b>${lv('pjsum', () => t('{v}/sn', { v: fmt(pjCells(q.a).reduce((x, j) => x + rate(k, j), 0), true) }))}</b></div>
         <div><span>${t('Dört binanın kendi kirası')}</span><i></i><b>${t('{v}/sn', { v: fmt(own, true) })}</b></div>
         <div><span>${t('Proje bonusu')}</span><i></i><b class="up">+${pctTxt(Math.round(pjX(q.st) * 100))}</b></div>
-        ${tens}
+        ${tens}${candRow(k, q)}
         <div><span>${t('Komşuluk ve semt kuralı')}</span><i></i><b>${t('aynen sayılır')}</b></div>
         ${can2 ? `<div><span>${t('2. etap olunca')}</span><i></i><b>${t('{v}/sn', { v: fmt(after2, true) })} · +${pctTxt(Math.round(CFG.PJ_X2 * 100))}</b></div>` : ''}
       </div>

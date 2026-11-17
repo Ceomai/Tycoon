@@ -18,6 +18,9 @@
    (SIM_SEEDS; SIM_PJ_ONCE=1: geç oyun düşüşü için "önce" ve "gerçekçi oyuncu" satırları da; SIM_PJ_ROWS=ten: yalnız kiracı
    satırları) · tanı: SIM_TYPES=1|2 (tek koşu sonunda semt başına bina türleri / yerleşim), SIM_SKIP=new,nb,lvl,quiet (o istekleri yapmaz),
    SIM_REAL=1 (yalnız kârlı istekleri yapan oyuncu).
+   Geç oyun kiracı istekleri (proje, köşe başı, cephe rengi, yenileme; game/tenants.ts LATE_KINDS): SIM_PJ=table SIM_PJ_ROWS=gec
+   SIM_EXTRA=3|6 [SIM_KOSE=1: Bebek dolunca köşe başı damgası, bütün satırlarda] · SIM_GEC_SHORT=1 (proje satırları yok) ·
+   SIM_NOLATE=1 (geç istekler kapalı) · ayar: SIM_LATE_LV (olgun semt Sv5 payı), SIM_LATE_GAP (dk), SIM_RV_FEE (sn), SIM_RV_PCT.
    Rakip ve ihale (src/game/auccore.ts, gerçek kurallar): SIM_IH=table · ihaleler oyunun kendi makeAuction / setProxyCore /
    settle / resolve işlevleriyle; takvim (Pazartesi tarihi yapı, Perşembe nadir arsa) aktif oyun süresine sıkıştırılır:
    ihale tablodaki saatte açılır, SIM_IH_LEN dk (50) sonra kapanır (son düzlük son SIM_IH_LATE dk, 15). Oyuncu kasası yettiği an
@@ -34,8 +37,14 @@ if (env.SIM_TIER_FEE) JSON.parse(env.SIM_TIER_FEE).forEach((v: number, i: number
 import { newState, setS, S, lotsOf, Lot } from '../src/state';
 import { Time } from '../src/time';
 import { baseRate, buildCost, buildTime, upCost, upTime, isFull, unlockInfo } from '../src/economy';
-import { tenantTick, tenants, tenantHooks, tenantReset, handKey, targetLot, wishType, tenantSim, charOfT } from '../src/game/tenants';
+import { tenantTick, tenants, tenantHooks, tenantReset, handKey, targetLot, wishType, tenantSim, charOfT, startRenov, isLate } from '../src/game/tenants';
+import { pjOf } from '../src/economy';
+import '../src/game/skins';
 if (env.SIM_NOFIT) tenantSim.noFit = true; // semt düzeni uyum kuralı kapalı (eski davranış)
+if (env.SIM_LATE_LV) CFG.TEN_LATE_LV = +env.SIM_LATE_LV; // olgun semt eşiği (Sv5 payı)
+if (env.SIM_LATE_GAP) CFG.TEN_LATE_GAP = +env.SIM_LATE_GAP * 60e3; // geç aday ek aralığı (dk)
+if (env.SIM_RV_FEE) CFG.TEN_RV_FEE_SEC = +env.SIM_RV_FEE; if (env.SIM_RV_PCT) CFG.TEN_RV_PCT = +env.SIM_RV_PCT;
+if (env.SIM_NOLATE) tenantSim.noLate = true; // geç oyun istekleri (proje, köşe başı, cephe, yenileme) kapalı (eski davranış)
 /** Kiracı kurgusu: 'once' = 4e3ec9e (tip tabanlı, karaktersiz, semt düzeni uyum kuralı yok) · 'char' = karakterler, uyum kuralı yok ·
  *  'sonra' = bugünkü oyun · 'gercekci' = bugünkü oyun + yalnız kârlı istekleri yapan oyuncu (SIM_REAL=1 ile varsayılan da bu olur). */
 type TKurgu = 'once' | 'char' | 'sonra' | 'gercekci';
@@ -52,8 +61,8 @@ import { blocks, pjStart, pjStage2, pjDue, pjList, kindOf, typesAt, pjCost, pjTi
 if (env.SIM_PJ_X1) CFG.PJ_X1 = +env.SIM_PJ_X1; if (env.SIM_PJ_X2) CFG.PJ_X2 = +env.SIM_PJ_X2;
 if (env.SIM_PJ_COST) CFG.PJ_COST_PCT = +env.SIM_PJ_COST; if (env.SIM_PJ_COST2) CFG.PJ_COST2 = +env.SIM_PJ_COST2;
 if (env.SIM_PJ_MINLV) CFG.PJ_MINLV = +env.SIM_PJ_MINLV; if (env.SIM_PJ_MAX) CFG.PJ_MAX = +env.SIM_PJ_MAX;
-let PJ = env.SIM_PJ === '1'; const EXTRA = +(env.SIM_EXTRA || 0) * 3600;
-const pstat = { pj: 0, pj2: 0, spent: 0, first: -1, log: [] as string[] };
+let PJ = env.SIM_PJ === '1'; const KOSE = !!env.SIM_KOSE; const EXTRA = +(env.SIM_EXTRA || 0) * 3600;
+const pstat = { pj: 0, pj2: 0, spent: 0, first: -1, log: [] as string[], ten: 0 };
 
 type TMode = 'off' | 'passive' | 'half' | 'active';
 if (env.SIM_TEN_BONUS) CFG.TEN_BONUS = +env.SIM_TEN_BONUS;
@@ -62,8 +71,9 @@ if (env.SIM_TEN_LIVE) CFG.TEN_LIVE = +env.SIM_TEN_LIVE * 60e3;
 if (env.SIM_TEN_MIN) CFG.TEN_MIN = +env.SIM_TEN_MIN * 60e3;
 if (env.SIM_TEN_MAX) CFG.TEN_MAX = +env.SIM_TEN_MAX * 60e3;
 let seed = 1; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-const tstat = { arrived: 0, settled: 0, left: 0 };
-tenantHooks.arrive = () => { tstat.arrived++; }; tenantHooks.settle = () => { tstat.settled++; }; tenantHooks.leave = () => { tstat.left++; };
+const tstat = { arrived: 0, settled: 0, left: 0, lateA: 0, lateOk: 0, kinds: {} as Record<string, number> };
+tenantHooks.arrive = x => { tstat.arrived++; if (isLate(x.w.k)) { tstat.lateA++; tstat.kinds[x.w.k] = (tstat.kinds[x.w.k] || 0) + 1; } };
+tenantHooks.settle = x => { tstat.settled++; if (isLate(x.w.k)) tstat.lateOk++; }; tenantHooks.leave = () => { tstat.left++; };
 
 const START = Date.UTC(2027, 2, 10, 9); // bayram olmayan bir gün
 const DT = 5;                            // saniye adımı
@@ -146,6 +156,14 @@ function serveTenants(mode: TMode) {
     };
     if (w.k === 'nb' || w.k === 'quiet') { const j = targetLot(x); if (j !== x.i) startBuild(j, wishType(x)!); }
     else if (w.k === 'new') startBuild(x.i, w.t!);
+    // geç oyun istekleri: proje (1. etap ya da 2. etap), cephe rengi (bedelsiz), yenileme (bedel + kısa süre kira yok); köşe başı kendiliğinden olur
+    else if (w.k === 'proj') {
+      const q = pjOf(x.k, x.i);
+      if (!q) { const a = blocks(x.k, x.i)[0]; if (a != null && pjStart(x.k, a, simT, 1 / 1000)) { pstat.pj++; pstat.ten++; } }
+      else if ((w.n || 1) >= 2 && q.st === 1 && !q.until && pjStage2(x.k, q, simT, 1 / 1000)) { pstat.pj2++; pstat.ten++; }
+    } else if (w.k === 'paint') { const p = lots[x.i]; if (p) p.sk = { ...(p.sk || {}), c: w.c }; }
+    else if (w.k === 'renov') startRenov(x);
+    else if (w.k === 'kose') { /* istek kendiliğinden karşılanır: anahtar */ }
     else { const p = lots[x.i]; if (p && !p.until && p.lvl < (w.n || 0)) { const c = upCost(x.k, p), time = upTime(x.k, p) / 1000; if (S.cash >= c && worth(c, time, () => { p.lvl++; return () => { p.lvl--; }; })) { S.cash -= c; p.until = simT + time; p.dur = time; p.up = true; } } }
   }
 }
@@ -177,8 +195,8 @@ function ihStep() {
 }
 let earnedAt: number[] = [], rateAt: number[] = [], endT = -1;
 function simulate(mode: TMode = 'off', sd = 1) {
-  simT = 0; seed = sd; earnedAt = []; rateAt = []; endT = -1; serveLeft = Infinity; tstat.arrived = tstat.settled = tstat.left = 0; tenantReset();
-  pstat.pj = pstat.pj2 = pstat.spent = 0; pstat.first = -1; pstat.log = [];
+  simT = 0; seed = sd; earnedAt = []; rateAt = []; endT = -1; serveLeft = Infinity; tstat.arrived = tstat.settled = tstat.left = tstat.lateA = tstat.lateOk = 0; tstat.kinds = {}; tenantReset();
+  pstat.pj = pstat.pj2 = pstat.spent = pstat.ten = 0; pstat.first = -1; pstat.log = [];
   setClock();
   setS(newState(Time.now(), 'x', city));
   S.cash = 150;
@@ -199,7 +217,10 @@ function simulate(mode: TMode = 'off', sd = 1) {
     S.cash += inc * DT; S.earned += inc * DT; lgEarned += lg * DT; earnedAt.push(S.earned); rateAt.push(inc);
     if (IHP.length) ihStep();
     const cur = dkey(city, idx), row = rows[idx];
-    if (row.full == null && isFull(cur)) row.full = simT;
+    if (row.full == null && isFull(cur)) {
+      row.full = simT;
+      if (KOSE && idx === 4) { const k = cur; let bi = 0, br = -1; for (let i = 0; i < N; i++) { const r = baseRate(k, i); if (r > br) { br = r; bi = i; } } IH().kp++; placeKoseCore(k, bi); } // geç oyun: köşe başı damgası (bütün satırlarda)
+    }
     // sıradaki tapu
     if (idx < 4) {
       const nk = dkey(city, idx + 1), u = unlockInfo(nk);
@@ -264,21 +285,44 @@ if (env.SIM_PJ === 'table') {
   // farkı "yok sayan" (proje ve kiracıya hiç dokunmayan) oyuncuya göre; kiracılı satırlar 8 tohum ortalaması.
   if (!EXTRA) { console.log('SIM_EXTRA gerekli (ör. SIM_EXTRA=3)'); (globalThis as any).process.exit(1); }
   const at = (a: number[], sec: number) => a[Math.min(a.length, Math.round(sec / DT)) - 1];
-  type R = { full: number; e2: number; e4: number; eEnd: number; rF: number; r1: number; r3: number; pj: number; pj2: number; first: number; fills: number[] };
+  type R = { full: number; e2: number; e4: number; eEnd: number; rF: number; r1: number; r3: number; pj: number; pj2: number; first: number; fills: number[]; eL: number; lateA: number; lateOk: number; pjTen: number; kinds: Record<string, number> };
   const run = (pj: boolean, mode: TMode, sd: number): R => {
     PJ = pj; const rows = simulate(mode, sd), fullT = rows[4].full!;
     return { full: fullT, e2: at(earnedAt, 7200), e4: at(earnedAt, 14400), eEnd: earnedAt[earnedAt.length - 1], rF: at(rateAt, fullT), r1: at(rateAt, fullT + 3600), r3: rateAt[rateAt.length - 1],
-      pj: pstat.pj, pj2: pstat.pj2, first: pstat.first, fills: rows.map(r => (r.full! - r.open) / 60) };
+      pj: pstat.pj, pj2: pstat.pj2, first: pstat.first, fills: rows.map(r => (r.full! - r.open) / 60),
+      eL: earnedAt[earnedAt.length - 1] - at(earnedAt, fullT), lateA: tstat.lateA, lateOk: tstat.lateOk, pjTen: pstat.ten, kinds: { ...tstat.kinds } };
   };
   const SDS = (env.SIM_SEEDS ? JSON.parse(env.SIM_SEEDS) : [1, 2, 3, 4, 5, 6, 7, 8]) as number[];
   const avg = (pj: boolean, mode: TMode) => { const sds = mode === 'off' ? [1] : SDS, rs = sds.map(sd => run(pj, mode, sd));
-    const o: any = {}; for (const key of Object.keys(rs[0]) as (keyof R)[]) o[key] = key === 'fills' ? rs[0].fills.map((_, j) => rs.reduce((x, r) => x + r.fills[j], 0) / rs.length) : rs.reduce((x, r) => x + (r[key] as number), 0) / rs.length; return o as R; };
+    const o: any = {}; for (const key of Object.keys(rs[0]) as (keyof R)[]) o[key] = key === 'kinds' ? Object.fromEntries(['proj', 'kose', 'paint', 'renov'].map(k => [k, rs.reduce((x, r) => x + (r.kinds[k] || 0), 0) / rs.length])) : key === 'fills' ? rs[0].fills.map((_, j) => rs.reduce((x, r) => x + r.fills[j], 0) / rs.length) : rs.reduce((x, r) => x + (r[key] as number), 0) / rs.length; return o as R; };
   const base = avg(false, 'off');
   const pct = (v: number, b: number) => { const d = (v / b - 1) * 100; return (Math.abs(d) < 0.05 ? '%0' : (d > 0 ? '+%' : '−%') + Math.abs(d).toFixed(1)).replace('.', ','); };
+  if (env.SIM_PJ_ROWS === 'gec') console.log(`\nKiracılar · geç oyun istekleri · İstanbul, reklamsız · Bebek + ${EXTRA / 3600} sa · ${SDS.length} tohum · olgun semt Sv5 ≥ %${Math.round(CFG.TEN_LATE_LV * 100)} · geç aday aralığı +${CFG.TEN_LATE_GAP / 60e3} dk · yenileme ${CFG.TEN_RV_FEE_SEC} sn kira, son kat süresinin %${Math.round(CFG.TEN_RV_PCT * 100)}'i${KOSE ? ' · Bebek dolunca köşe başı (tüm satırlarda)' : ''}\n`);
+  else {
   console.log(`\nBüyük projeler · İstanbul, reklamsız aktif oyuncu · +%${Math.round(CFG.PJ_X1 * 100)} / +%${Math.round(CFG.PJ_X2 * 100)} · semt başına ${CFG.PJ_MAX} · Sv${CFG.PJ_MINLV} · bedel %${CFG.PJ_COST_PCT} · Bebek + ${EXTRA / 3600} sa\n`);
   console.log('| Senaryo | Proje / 2. etap | İlk proje | Semt dolma (dk) | Bebek dolma | Kazanç 2 sa | Kazanç 4 sa | Kira (Bebek dolunca) | Kira (+1 sa) | Kira (+3 sa) | Toplam kazanç |');
   console.log('|---|---|---|---|---|---|---|---|---|---|---|');
+  }
   const line = (n: string, r: R) => console.log(`| ${n} | ${r.pj.toFixed(r.pj % 1 ? 1 : 0)} / ${r.pj2.toFixed(r.pj2 % 1 ? 1 : 0)} | ${r.first >= 0 ? fmtT(r.first) : '—'} | ${r.fills.map(v => v.toFixed(0)).join('/')} | ${fmtT(r.full)} | ${pct(r.e2, base.e2)} | ${pct(r.e4, base.e4)} | ${pct(r.rF, base.rF)} | ${pct(r.r1, base.r1)} | ${pct(r.r3, base.r3)} | ${pct(r.eEnd, base.eEnd)} |`);
+  if (env.SIM_PJ_ROWS === 'gec') {
+    // geç oyun (n7): Bebek dolduktan sonra EXTRA saat. Geç kazanç = Bebek dolduktan sonraki kazanç; erken = 2 sa kazanç ve Bebek dolma
+    // (geç istekler kapalıyken birebir aynı olmalı). Geç istek: gelen / yerleşen (8 tohum ort.), türlere göre gelen; proje (kiracıyla).
+    console.log('| Senaryo | Bebek dolma | Kazanç 2 sa | Kira (+1 sa) | Kira (son) | Geç kazanç | Toplam kazanç | Geç istek gelen / yerleşen | proje · köşe · cephe · yenileme | Kiracı projesi |');
+    console.log('|---|---|---|---|---|---|---|---|---|---|');
+    const gl = (n: string, r: R) => console.log(`| ${n} | ${fmtT(r.full)} | ${pct(r.e2, base.e2)} | ${pct(r.r1, base.r1)} | ${pct(r.r3, base.r3)} | ${pct(r.eL, base.eL)} | ${pct(r.eEnd, base.eEnd)} | ${r.lateA.toFixed(1)} / ${r.lateOk.toFixed(1)} | ${['proj', 'kose', 'paint', 'renov'].map(k => (r.kinds[k] || 0).toFixed(1)).join(' · ')} | ${r.pjTen.toFixed(1)} |`);
+    const noLate = <T>(f: () => T): T => { const o = tenantSim.noLate; tenantSim.noLate = true; try { return f(); } finally { tenantSim.noLate = o; } };
+    gl('yok sayan (proje ve kiracı yok)', base);
+    gl('kiracılar yok sayılır (gelir, bakılmaz)', avg(false, 'passive'));
+    gl('kiracılar (aktif) · geç istek yok (önce)', noLate(() => avg(false, 'active')));
+    gl('kiracılar (aktif)', avg(false, 'active'));
+    gl('kiracılar yarı ilgili · geç istek yok (önce)', noLate(() => avg(false, 'half')));
+    gl('kiracılar yarı ilgili', avg(false, 'half'));
+    if (!env.SIM_GEC_SHORT) {
+      gl('kiracılar + projeler (aktif) · geç istek yok (önce)', noLate(() => avg(true, 'active')));
+      gl('kiracılar + projeler (aktif)', avg(true, 'active'));
+    }
+    console.log(''); (globalThis as any).process.exit(0);
+  }
   line('yok sayan (proje ve kiracı yok)', base);
   if (env.SIM_PJ_ROWS !== 'ten') line('projeler (aktif)', avg(true, 'off'));
   if (env.SIM_PJ_ONCE) { // geç oyun düşüşü: önce · karakterler · uyum kuralı (hepsi körü körüne oyuncu) · sonra (gerçekçi oyuncu)

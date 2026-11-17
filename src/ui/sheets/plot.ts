@@ -10,9 +10,9 @@ import { build, upgrade, skip, demolish, lotBoost, useToken, placeSpecial } from
 import { specialSvg, specialOf } from '../../specials';
 import { lienBlocks, closeLien, clearCost, clearObstacle, obstacleSvg, OBSTACLES } from '../../game/district';
 import { SKIN_COLORS, ROOFS, skinUnlocked, skinShown, skinStyle, setSkin } from '../../game/fun';
-import { t, tk, nm, pctTxt } from '../../i18n';
+import { t, tk, nm, pctTxt, lowTxt } from '../../i18n';
 import { Panel, STAY, openSheet, lv, lvBar, discBox, later } from './core';
-import { tenantAt, wishTargets, wishType, tName, wishShort, nbAsk, handKey, inProgress, bonusPct, Tenant } from '../../game/tenants';
+import { tenantAt, wishTargets, wishType, tName, wishShort, nbAsk, handKey, inProgress, bonusPct, paintName, Tenant } from '../../game/tenants';
 import { tenantBadge, tenantLook } from '../tenantFace';
 import { IH, koseOf } from '../../game/auccore';
 import { blocks, nearest, pjUnlocked, pjDistrictOk, pjName, styleOf, kindOf, typesAt, pjCost, pjMinLv, pjMax, pjLienWarn } from '../../game/project';
@@ -137,13 +137,16 @@ export const plot: Panel<PlotC> = {
 export const skin: Panel<{ p: Plot | null }> = {
   sig(s, _tn, c) {
     const p = c.p = lotsOf(S, s.key!)[s.i!];
-    return 'sk|' + JSON.stringify(p && p.sk) + S.ach.length + S.skinsU.join() + JSON.stringify(S.tdc || {});
+    const x = tenantAt(s.key!, s.i!);
+    return 'sk|' + JSON.stringify(p && p.sk) + S.ach.length + S.skinsU.join() + JSON.stringify(S.tdc || {}) + (x ? x.id + x.st : '');
   },
-  render(_s, _tn, { p }) {
+  render(s, _tn, { p }) {
     if (!p) return undefined;
     const sk = p.sk || {}, name = p.sp ? specialOf(p.sp).n : TYPES[p.t].n;
+    const tx = tenantAt(s.key!, s.i!), want = tx && tx.st === 'wait' && tx.w.k === 'paint' ? tx.w.c! : -1; // kiracının istediği renk
     return `<div class="sh-head k-${p.sp ? 'ozel' : p.t}"><div class="sh-art bpbg" style="${skinStyle(p)}">${svg(p.sp ? specialSvg(p.sp) : bld(p.t, Math.max(1, p.lvl)))}</div><div class="sh-t"><h3>${t('Görünümü seç')}</h3><p>${t(name)} · ${t('yalnızca görünüm, kira değişmez')}</p></div></div>
-        <p class="sec">${t('Cephe rengi')}</p><div class="skc">${SKIN_COLORS.map((cl, n) => !skinShown(n) ? '' : `<button class="sw2${(sk.c ?? -1) === n ? ' on' : ''}${skinUnlocked(n) ? '' : ' lk'}" data-a="sc" data-n="${n}" style="background:${cl.f}" aria-label="${t(cl.n)}${skinUnlocked(n) ? '' : ' (' + t('kilitli: {s}', { s: t(cl.lock!) }) + ')'}">${skinUnlocked(n) ? '' : I.lock}</button>`).join('')}<button class="sw2 none${sk.c == null ? ' on' : ''}" data-a="sc" data-n="-1" aria-label="${t('Varsayılan')}">×</button></div>
+        ${want >= 0 ? `<p class="note sk-want">${t('{n} bu binanın cephesi için {c} rengini istiyor', { n: tName(tx!.a, tx!.k)[0], c: lowTxt(paintName(want)) })}</p>` : ''}
+        <p class="sec">${t('Cephe rengi')}</p><div class="skc">${SKIN_COLORS.map((cl, n) => !skinShown(n) ? '' : `<button class="sw2${(sk.c ?? -1) === n ? ' on' : ''}${skinUnlocked(n) ? '' : ' lk'}${want === n ? ' want' : ''}" data-a="sc" data-n="${n}" style="background:${cl.f}" aria-label="${t(cl.n)}${skinUnlocked(n) ? '' : ' (' + t('kilitli: {s}', { s: t(cl.lock!) }) + ')'}${want === n ? ' · ' + t('kiracı istiyor') : ''}">${skinUnlocked(n) ? '' : I.lock}</button>`).join('')}<button class="sw2 none${sk.c == null ? ' on' : ''}" data-a="sc" data-n="-1" aria-label="${t('Varsayılan')}">×</button></div>
         ${p.t === 'ev' && !p.sp ? `<p class="sec">${t('Çatı')}</p><div class="skr">${ROOFS.map((r, n) => `<button class="rf2b${(sk.r || 0) === n ? ' on' : ''}" data-a="sr" data-n="${n}"><i style="background:${r.rf || 'var(--rf)'}"></i>${t(r.n)}</button>`).join('')}</div>` : ''}
         <div class="srow"><span>${t('Tabela')}</span><button class="sw${sk.s ? ' on' : ''}" role="switch" aria-checked="${!!(sk.s)}" data-a="ss" aria-label="${t('Tabela')}"></button></div>
         <p class="note">${t('Kilitli renkler tapu arşivinden ve tapu sezonundan açılır.')}</p>

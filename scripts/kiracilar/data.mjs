@@ -2,28 +2,28 @@
    Satır: [şehir, tip, ad, aile?, meslek{tr,en,de,ja}, trait, söz{tr,en,de,ja}, görünüm, ek istekler?]
    Görünüm: { s: ten 0–7, h: saç rengi, hs: saç biçimi, c: giysi rengi, a: aksesuarlar, g: gözlük, b: sakal/bıyık, e: küpe, hat: başlık, age } */
 
-/* ---------- trait'ler: p = kira bonusu (%), m = sözleşme (dk); bonus×süre / temel (%50×60) ±%5 içinde (gen denetler).
+/* ---------- trait'ler: p = kira bonusu (%), m = sözleşme (dk); late = geç oyun (dolu/olgun semt) istek çarpanları (proj, kose, paint, renov); bonus×süre / temel (%50×60) ±%5 içinde (gen denetler).
    v1'de p×m tam 1 (Coşkulu 75·40, Köklü 30·100, Gezgin 100·30) idi; 24/16 tohumlu sim'de uçlar pencereyi fazla kaydırdı → v2 daraltıldı. ---------- */
 export const TRAITS = {
-  uyumlu:    { bm: 1,   wish: {},                      n: { tr: 'Uyumlu', en: 'Easygoing', de: 'Unkompliziert', ja: 'おおらか' },
+  uyumlu:    { bm: 1,   wish: {}, late: {},                      n: { tr: 'Uyumlu', en: 'Easygoing', de: 'Unkompliziert', ja: 'おおらか' },
     d: { tr: 'Ne gelirse hoş karşılar: istekleri tipine göre karışık.', en: 'Takes things as they come: a mixed bag of wishes for their type.', de: 'Nimmt es, wie es kommt: gemischte Wünsche je nach Typ.', ja: '何でも気持ちよく受け入れる。要望はタイプ通りいろいろ。' } },
-  sabirsiz:  { bm: 1.2, wish: {},                      n: { tr: 'Sabırsız', en: 'Impatient', de: 'Ungeduldig', ja: 'せっかち' },
+  sabirsiz:  { bm: 1.2, wish: {}, late: { renov: 1.5, proj: 0.5 },                      n: { tr: 'Sabırsız', en: 'Impatient', de: 'Ungeduldig', ja: 'せっかち' },
     d: { tr: 'Çabuk heveslenir, çabuk taşınır: +{p} kira · {m} dk.', en: 'Quick to get excited, quick to move on: +{p} rent · {m} min.', de: 'Schnell begeistert, schnell weiter: +{p} Miete · {m} Min.', ja: '熱しやすく引っ越しも早い：家賃+{p}・{m}分。' } },
-  sadik:     { bm: 0.8, wish: {},                      n: { tr: 'Sadık', en: 'Loyal', de: 'Treu', ja: '義理堅い' },
+  sadik:     { bm: 0.8, wish: {}, late: { proj: 1.5 },                      n: { tr: 'Sadık', en: 'Loyal', de: 'Treu', ja: '義理堅い' },
     d: { tr: 'Az ister, uzun kalır: +{p} kira · {m} dk.', en: 'Asks for less, stays longer: +{p} rent · {m} min.', de: 'Will weniger, bleibt länger: +{p} Miete · {m} Min.', ja: '控えめで長く住む：家賃+{p}・{m}分。' } },
-  coskulu:   { bm: 1.3, p: 65, m: 46, wish: {},                      n: { tr: 'Coşkulu', en: 'Exuberant', de: 'Überschwänglich', ja: '情熱的' },
+  coskulu:   { bm: 1.3, p: 65, m: 46, wish: {}, late: { paint: 2 },                      n: { tr: 'Coşkulu', en: 'Exuberant', de: 'Überschwänglich', ja: '情熱的' },
     d: { tr: 'Parlak ama kısa bir dönem: +{p} kira · {m} dk.', en: 'A bright, short spell: +{p} rent · {m} min.', de: 'Kurz, aber glänzend: +{p} Miete · {m} Min.', ja: '短くても華やか：家賃+{p}・{m}分。' } },
-  koklu:     { bm: 0.7, p: 35, m: 86, wish: {},                      n: { tr: 'Köklü', en: 'Rooted', de: 'Verwurzelt', ja: '根っからの住人' },
+  koklu:     { bm: 0.7, p: 35, m: 86, wish: {}, late: { proj: 2 },                      n: { tr: 'Köklü', en: 'Rooted', de: 'Verwurzelt', ja: '根っからの住人' },
     d: { tr: 'Yerleşince kolay kalkmaz: +{p} kira · {m} dk.', en: 'Once settled, stays put: +{p} rent · {m} min.', de: 'Einmal eingezogen, bleibt er: +{p} Miete · {m} Min.', ja: '一度住んだら腰が重い：家賃+{p}・{m}分。' } },
-  gezgin:    { bm: 1.4, p: 70, m: 43, wish: {}, rare: true,          n: { tr: 'Gezgin', en: 'Wanderer', de: 'Weltenbummler', ja: '旅人' },
+  gezgin:    { bm: 1.4, p: 70, m: 43, wish: {}, late: { kose: 1.5, paint: 1.5 }, rare: true,          n: { tr: 'Gezgin', en: 'Wanderer', de: 'Weltenbummler', ja: '旅人' },
     d: { tr: 'Kısa kalır, defterine kartpostal bırakır: +{p} kira · {m} dk.', en: 'Stays briefly, leaves a postcard in your book: +{p} rent · {m} min.', de: 'Bleibt kurz, hinterlässt eine Postkarte im Buch: +{p} Miete · {m} Min.', ja: '短期滞在。帳面に絵はがきを残す：家賃+{p}・{m}分。' } },
-  titiz:     { bm: 1,   wish: { lvl: 2 },              n: { tr: 'Titiz', en: 'Meticulous', de: 'Penibel', ja: 'きちょうめん' },
+  titiz:     { bm: 1,   wish: { lvl: 2 }, late: { renov: 2 },              n: { tr: 'Titiz', en: 'Meticulous', de: 'Penibel', ja: 'きちょうめん' },
     d: { tr: 'Kat isteği daha sık: her şey yerli yerinde olsun.', en: 'Asks for a higher floor more often: everything just so.', de: 'Wünscht öfter ein höheres Stockwerk: alles an seinem Platz.', ja: '階数の要望が多め。何事もきっちり。' } },
-  sosyal:    { bm: 1,   wish: { nb: 2 },               n: { tr: 'Sosyal', en: 'Sociable', de: 'Gesellig', ja: '社交的' },
+  sosyal:    { bm: 1,   wish: { nb: 2 }, late: { kose: 1.5, proj: 1.5 },               n: { tr: 'Sosyal', en: 'Sociable', de: 'Gesellig', ja: '社交的' },
     d: { tr: 'Komşu isteği daha sık: yanında kafe, dükkân, kalabalık.', en: 'Asks for a neighbour more often: a café, a shop, a crowd.', de: 'Wünscht öfter Nachbarn: Café, Laden, Trubel.', ja: '隣の建物の要望が多め。カフェや店がそばに。' } },
-  manzaraci: { bm: 1,   wish: { new: 1.5, sea: 2 },    n: { tr: 'Manzara sever', en: 'View lover', de: 'Aussichtsliebhaber', ja: '眺め好き' },
+  manzaraci: { bm: 1,   wish: { new: 1.5, sea: 2 }, late: { kose: 2 },    n: { tr: 'Manzara sever', en: 'View lover', de: 'Aussichtsliebhaber', ja: '眺め好き' },
     d: { tr: 'Yeni bina ve kıyı/cephe sırası isteği daha sık.', en: 'Asks for new buildings and the front row more often.', de: 'Wünscht öfter Neubauten und die vordere Reihe.', ja: '新築と水辺・通り沿いの要望が多め。' } },
-  huzurlu:   { bm: 1,   wish: { quiet: 1.5 },          n: { tr: 'Huzur sever', en: 'Peace lover', de: 'Ruhesuchend', ja: '静か好き' },
+  huzurlu:   { bm: 1,   wish: { quiet: 1.5 }, late: { renov: 1.5 },          n: { tr: 'Huzur sever', en: 'Peace lover', de: 'Ruhesuchend', ja: '静か好き' },
     d: { tr: 'Ara sıra sessiz komşu ister (yanında ev, ofis olmasın).', en: 'Now and then asks for quiet neighbours (a house, no office).', de: 'Wünscht ab und zu ruhige Nachbarn (Haus ja, Büro nein).', ja: 'ときどき静かな隣人を希望（隣は家、オフィスはなし）。' } },
 };
 
