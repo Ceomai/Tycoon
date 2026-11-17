@@ -1,5 +1,6 @@
 /* Kaydı yazma: yerel (hemen) + bulut (seyrek, Cloud tarafından) */
 import { S } from '../state';
+import { totalRate } from '../economy';
 import { writeSave, writeSaveSync, flushSaves, onSaveFail } from '../storage';
 import { Time } from '../time';
 import { syncEnt } from '../prefs';
@@ -10,12 +11,14 @@ onSaveFail(() => toast(t('Kayıt yapılamadı: cihaz depolaması dolu')));
 
 export let dirty = false;
 /** Şehir seçilmeden (ilk açılış seçimleri bitmeden) kayıt yazılmaz: yarım kalan kurulum sonraki açılışı bozmasın. */
-export function persist() { syncEnt(S); if (!S.city) return; S.savedAt = Time.now(); dirty = true; void writeSave(S); }
-export function persistSync() { if (!S.city) return; S.savedAt = Time.now(); writeSaveSync(S); }
+/** Bankanın günlük hakkı ve bilanço için son taban kira (2x'siz) kayda yazılır: diğer bölgeler bu bölgeyi yüklemeden okur. */
+const snapRate = () => { if (S.bank) { const r = totalRate(false); if (Number.isFinite(r)) S.bank.rate = r; } };
+export function persist() { syncEnt(S); if (!S.city) return; snapRate(); S.savedAt = Time.now(); dirty = true; void writeSave(S); }
+export function persistSync() { if (!S.city) return; snapRate(); S.savedAt = Time.now(); writeSaveSync(S); }
 /** Kaydı yazar ve diske inene kadar bekler (sayfa yenilemeden önce). */
 export async function persistNow(): Promise<void> {
   syncEnt(S);
-  if (S.city) { S.savedAt = Time.now(); dirty = true; await writeSave(S); }
+  if (S.city) { snapRate(); S.savedAt = Time.now(); dirty = true; await writeSave(S); }
   await flushSaves();
 }
 export function clearDirty() { dirty = false; }

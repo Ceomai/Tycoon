@@ -1,9 +1,13 @@
 /* ANA EKRAN — üst bilgi, arsalar, birleşik parseller, yönlendirme balonu, dokunma (sokak hayatı: street.ts) */
 import { CFG, COLS, ROWS, N, TYPES, DMAP, CITIES, DistrictKey } from '../config';
-import { t, nm, upper, pctTxt } from '../i18n';
+import { t, nm, upper, pctTxt, lowTxt } from '../i18n';
 import { S, lotsOf } from '../state';
 import { fmt, fmtX, clock, esc } from '../format';
-import { now, totalRate, coinFill, fxMult, producing, buyableDistricts, pending } from '../economy';
+import { now, totalRate, coinFill, fxMult, producing, buyableDistricts, pending, pjOf, pjCells } from '../economy';
+import { Pj } from '../state';
+import { projSvg, projSite, psvg } from '../projdraw';
+import { pjName, styleOf, kindOf, typesAt, blocks } from '../game/project';
+import { openPjConfirm } from './pjcard';
 import { bld, site, emptyLot, svg } from '../draw';
 import { specialSvg, specialOf } from '../specials';
 import { season } from '../game/calendar';
@@ -17,6 +21,9 @@ import { pop } from './motion';
 import { openSheet, renderSheet } from './sheets';
 import { tasksClaimable } from '../game/tasks';
 import { canHolding } from '../game/collection';
+import { tenantAt, wishTargets, wishType, handKey, tName, Tenant } from '../game/tenants';
+import { IH, ihaleUnlocked, standing, prizeName, rvOf, rvName, koseOf } from '../game/auction';
+import { tenantBadge, tenantLook } from './tenantFace';
 
 export function render() {
   const tn = now(), k = S.cur, d = DMAP[k], boosted = S.boostUntil > tn;
@@ -49,6 +56,15 @@ export function render() {
     const ttl = t(o.title); if (op.dataset.v !== ttl) { op.dataset.v = ttl; op.innerHTML = `<span class="otl">${esc(ttl)}</span><i><b></b></i><span class="opg"></span><span class="ot"></span>`; }
     setFill(op.querySelector('i b'), o.prog / o.goal); setText(op.querySelector('.opg'), `${o.prog}/${o.goal}`); setText(op.querySelector('.ot'), clock(o.until - tn)); op.hidden = false;
   } else op.hidden = true;
+  { // ihale hapı: nokta yeşil = sen öndesin, kırmızı = rakip; kapanışa geri sayım
+    const ip = $('#ihalePill'), a = IH().cur;
+    if (a && !a.done && tn < a.close && ihaleUnlocked()) {
+      const st = standing(a, tn), v = a.id + st.lead;
+      if (ip.dataset.v !== v) { ip.dataset.v = v; ip.innerHTML = `<span class="ihd ${st.lead}"></span><span class="otl">${t('İhale')} · ${prizeName(a)}</span><span class="ot"></span>`;
+        ip.setAttribute('aria-label', (st.lead === 'me' ? t('İhale: {p} · öndesin', { p: prizeName(a, false) }) : t('İhale: {p} · {r} önde', { p: prizeName(a, false), r: rvName(rvOf(a), false) }))); }
+      setText(ip.querySelector('.ot'), clock(Math.max(0, a.close - tn))); ip.hidden = false;
+    } else ip.hidden = true;
+  }
   $('#taskDot').hidden = !tasksClaimable();
   $('#menuDot').hidden = !(canHolding() || seasonClaimable());
   // orta mühür: TOPLA (bekleyen kira + kumbara doluluğu) ya da OTO (saniyelik kira)
@@ -65,10 +81,17 @@ export function render() {
   const cs = $('#csub'); if (cs.textContent !== sub) cs.textContent = sub;
   $('#mapDot').hidden = !buyableDistricts().length;
   const lots = lotsOf(S, k), first = !S.own.some(o2 => lotsOf(S, o2).some(p => p)), hintI = first ? 5 : -1;
+  const tgts = wishTargets(k); // kiracıların istediği boş komşu arsalar
   for (let i = 0; i < N; i++) {
     const el = ui.tiles[i], p = lots[i];
     let sig: string;
+    const pq = pjOf(k, i);
+    if (pq) { renderPjTile(i, el, k, pq, tn); continue; } // büyük proje: sol üst karo 2×2 kaplar, diğer üçü gizli
+    if (el.dataset.pj) { delete el.dataset.pj; el.style.cssText = ''; el.removeAttribute('aria-hidden'); ui.tileSig[i] = ''; } // proje ayrıldı
     liveFill(i, el, p, k);
+    const tq = tenantAt(k, i), tg = tq ? undefined : tgts.get(i);
+    // kiracı rozeti: halka 20 sn adımla azalır (gereksiz yeniden çizim yok)
+    const tsig = tq ? tq.st + tq.a + (tq.st === 'live' ? '' : Math.ceil(Math.max(0, tq.dl - S.playMs) / 20e3)) : tg ? 'g' + wishType(tg) : '';
     const lockE = !p && lienBlocks(k);
     if (!p) sig = 'e' + (i === hintI ? 1 : 0) + (lockE ? 'L' : '');
     else if (p.ob) sig = 'ob|' + p.ob + (ui.teslim[i] && ui.teslim[i].at > performance.now() ? 1 : 0);
@@ -81,13 +104,17 @@ export function render() {
       const ts = ui.teslim[i] && ui.teslim[i].at > performance.now() ? 1 : 0;
       sig = [JSON.stringify(p.sk || ''), p.t, p.sp || '', p.lvl, p.until ? 1 : 0, prog, cd, ts, coin, lb, hot ? 1 : 0, mergeSides(i), d.v].join('|');
     }
+    const ks = koseOf(k) === i; // köşe başı damgası (ihale)
+    sig += '|' + tsig + (ks ? '|K' : '');
     if (sig === ui.tileSig[i]) continue;
     ui.tileSig[i] = sig;
     if (!p) {
       el.className = 'lot' + (i === hintI ? ' hint' : '') + (lockE ? ' lk' : ''); el.style.cssText = '';
       const tsl = ui.teslim[i] && ui.teslim[i].at > performance.now() ? `<span class="teslim"><b>${t('TEMİZ')}</b><small>${ui.teslim[i].txt}</small></span>` : '';
-      el.innerHTML = svg(emptyLot(i), 'art') + (lockE ? `<span class="lkb">${I.lock}</span>` : '') + tsl;
-      el.setAttribute('aria-label', lockE ? t('Kilitli arsa (kapora borcu)') : t('Boş arsa')); continue;
+      el.innerHTML = svg(emptyLot(i), 'art') + (ks ? KOSE_TAG : '') + (lockE ? `<span class="lkb">${I.lock}</span>` : '') + tsl + tenantHtml(tq)
+        + (tg ? `<span class="tgt"><b>${upper(t(TYPES[wishType(tg)!].n))}?</b></span>` : '');
+      if (tg) el.classList.add('tq');
+      el.setAttribute('aria-label', (lockE ? t('Kilitli arsa (kapora borcu)') : t('Boş arsa')) + (ks ? t(', köşe başı') : '') + tenantAria(tq) + (tg ? t(', kiracı burada {b} istiyor', { b: lowTxt(t(TYPES[wishType(tg)!].n)) }) : '')); continue;
     }
     if (p.ob) { el.className = 'lot ob'; el.style.cssText = ''; el.innerHTML = svg(obstacleSvg(p.ob), 'art') + `<span class="obn">${t(OBSTACLES[p.ob].n)}</span>`; el.setAttribute('aria-label', t('{name}: temizlenmesi gerekiyor', { name: t(OBSTACLES[p.ob].n) })); continue; }
     const prog = p.until ? Math.min(1, 1 - (p.until - tn) / p.dur) : 1;
@@ -100,19 +127,34 @@ export function render() {
     if (p.until && left <= CFG.SKIP_LEFT) { el.classList.add('final'); h += `<span class="cd"><small>${t('TESLİME')}</small><b>0:0${Math.max(0, Math.ceil(left / 1000))}</b><i><u style="width:${Math.round(prog * 100)}%"></u></i></span>`; }
     else if (p.until) h += `<span class="ff">${I.ff}</span>`;
     const tsl = ui.teslim[i];
-    if (tsl && tsl.at > performance.now()) h += `<span class="teslim"><b>${t('TESLİM')}</b><small>${tsl.txt}</small></span>`;
+    if (tsl && tsl.at > performance.now()) h += `<span class="teslim${tsl.b ? ' ts-tn' : ''}"><b>${tsl.b || t('TESLİM')}</b><small>${tsl.txt}</small></span>`;
     // para baloncuğu yok: ince doluluk çubuğu (tek tuş modunda) ve mülke özel 2x etiketi
     if (producing(p) && S.collectMode !== 'auto') { const f = coinFill(k, i); h += `<span class="fill${f >= .999 ? ' full' : ''}"><i style="transform:${fillTf(f)}"></i></span>`; }
     if ((p.bu || 0) > tn) h += '<span class="lb2">2x</span>';
+    h += tenantHtml(tq);
+    if (ks) h += KOSE_TAG;
     if (p.sk && p.sk.s && !p.until) h += `<span class="tab">${p.sp ? t('ÖZEL') : upper(t(TYPES[p.t].n))}</span>`;
     el.innerHTML = h; el.style.cssText = skinStyle(p);
-    el.setAttribute('aria-label', t('{name}, seviye {lvl}', { name: p.sp ? t(specialOf(p.sp).n) : t(TYPES[p.t].n), lvl: p.lvl }) + (p.until ? t(', inşaatta') : '') + ((p.bu || 0) > tn ? t(', 2x kazanıyor') : ''));
+    el.setAttribute('aria-label', t('{name}, seviye {lvl}', { name: p.sp ? t(specialOf(p.sp).n) : t(TYPES[p.t].n), lvl: p.lvl }) + (p.until ? t(', inşaatta') : '') + ((p.bu || 0) > tn ? t(', 2x kazanıyor') : '') + (ks ? t(', köşe başı') : '') + tenantAria(tq));
   }
   if (ui.pop.size) { for (const i of ui.pop) pop(ui.tiles[i] && ui.tiles[i].querySelector('svg.art')); ui.pop.clear(); } // inşaat başlangıcı / teslim
-  renderLinks(); renderBubble();
+  renderLinks(); renderBubble(); renderPjSelect();
   if (ui.sheet) renderSheet();
 }
+/** Köşe başı damgası: karonun köşesinde küçük kırmızı bayrak. */
+const KOSE_TAG = '<span class="kose" aria-hidden="true"><i></i></span>';
 let ringV = -1;
+/** Kiracı rozeti: yuvarlak yüz + kalan süre halkası (bekliyor: kırmızı, azalır), köşede "…" (bekliyor), altın anahtar
+ *  (teslime hazır: tek dokunuşla yerleşir), kalp (yerleşti). Dokunma hedefi karonun tamamı. */
+function tenantHtml(x: Tenant | null): string {
+  if (!x) return '';
+  const left = x.st === 'live' ? 1 : Math.max(0, Math.min(1, (x.dl - S.playMs) / CFG.TEN_WAIT));
+  const mark = x.st === 'ready' ? `<i class="tk">${KEY}</i>` : x.st === 'live' ? '<i class="th">♥</i>' : '<i class="td">…</i>';
+  return `<span class="tn s-${x.st}" style="--tp:${(left * 360).toFixed(0)}deg" aria-hidden="true">${(L => tenantBadge(L.p, x.st === 'wait' ? 'wait' : 'happy', L.id))(tenantLook(x))}${mark}</span>`;
+}
+const tenantAria = (x: Tenant | null) => !x ? '' : x.st === 'wait' ? t(', kiracı adayı bekliyor: {n}', { n: tName(x.a, x.k)[0] })
+  : x.st === 'ready' ? t(', anahtar hazır: dokununca {n} yerleşir', { n: tName(x.a, x.k)[0] }) : t(', kiracı: {n}', { n: tName(x.a, x.k)[0] });
+const KEY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="8" cy="12" r="4.5"/><path d="M12.5 12H21M18 12v3.5M21 12v2.5"/></svg>';
 const setText = (el: Element | null, v: string) => { if (el && el.textContent !== v) el.textContent = v; };
 /** Doluluk (0–1): tam genişlikteki dolgu taşmayı kesen kabın içinde translateX ile kayar (genişlik/boyama yok; scaleX
  *  taramalı kapora dolgusunu bozardı). Yalnızca değişince yazılır; geçiş compositor'da oynar. */
@@ -128,16 +170,17 @@ function liveFill(i: number, el: HTMLElement, p: ReturnType<typeof lotsOf>[numbe
 }
 /* aynı türden komşu arsalar tek parsel gibi görünür (komşuluk bonusu) */
 export function mergeSides(i: number): string {
-  const lots = lotsOf(S, S.cur), p = lots[i]; if (!p || p.lvl < 1 || p.until || p.sp) return '';
-  const same = (j: number) => { const q = lots[j]; return !!q && !q.sp && q.lvl >= 1 && q.t === p.t; }, c = i % COLS; let m = '';
+  const lots = lotsOf(S, S.cur), p = lots[i]; if (!p || p.lvl < 1 || p.until || p.sp || pjOf(S.cur, i)) return '';
+  const same = (j: number) => { const q = lots[j]; return !!q && !q.sp && q.lvl >= 1 && q.t === p.t && !pjOf(S.cur, j); }, c = i % COLS; let m = '';
   if (i >= COLS && same(i - COLS)) m += ' mN'; if (i + COLS < N && same(i + COLS)) m += ' mS'; if (c > 0 && same(i - 1)) m += ' mW'; if (c < COLS - 1 && same(i + 1)) m += ' mE';
   return m;
 }
 export function renderLinks() {
   const lots = lotsOf(S, S.cur), parts: [string, number, string][] = [];
-  const ok = (j: number, t: string) => { const q = lots[j]; return !!q && !q.sp && q.lvl >= 1 && q.t === t; };
+  // projedeki binalar birleşik parsel bağlantılarına katılmaz (proje tek karo)
+  const ok = (j: number, t: string) => { const q = lots[j]; return !!q && !q.sp && q.lvl >= 1 && q.t === t && !pjOf(S.cur, j); };
   for (let i = 0; i < N; i++) {
-    const p = lots[i]; if (!p || p.lvl < 1 || p.sp) continue; const c = i % COLS;
+    const p = lots[i]; if (!p || p.lvl < 1 || p.sp || pjOf(S.cur, i)) continue; const c = i % COLS;
     if (c < COLS - 1 && ok(i + 1, p.t)) parts.push(['r', i, p.t]);
     if (i + COLS < N && ok(i + COLS, p.t)) parts.push(['b', i, p.t]);
     if (c < COLS - 1 && i + COLS < N && [i + 1, i + COLS, i + COLS + 1].every(j => ok(j, p.t))) parts.push(['m', i, p.t]);
@@ -188,7 +231,7 @@ export function fit() {
   for (let c = 1; c < COLS; c++) { const e = document.createElement('span'); e.className = 'lane v'; e.style.cssText = `left:${c * (sw + g) - g / 2 - 1}px;top:0;height:${Ht}px`; grid.prepend(e); }
   for (let r = 1; r < ROWS; r++) { const e = document.createElement('span'); e.className = 'lane h'; e.style.cssText = `top:${r * (sh + g) - g / 2 - 1}px;left:0;width:${Wd}px`; grid.prepend(e); }
   placeOverlays(below);
-  if (S) renderLinks();
+  if (S) { renderLinks(); pjFrameSig = ''; renderPjSelect(); }
 }
 /** Bildirim alanı: Rıfkı, ipucu balonu, semt özeti, büyük mühür ve kısa bildirim (toast) arsaların üstüne binmesin diye
  *  hepsi aynı şeride yerleşir. Dikeyde tahtanın hemen üstü (üst bilginin alt kısmının üzerine, aşağıdan yukarı büyür);
@@ -210,6 +253,12 @@ function tileAt(x: number, y: number): number | null {
   return tl ? +tl.dataset.i! : null;
 }
 function tapTile(i: number) {
+  if (pjSel) { exitPjSelect(); return; } // seçim modunda çerçeve dışına dokunmak seçimi bırakır
+  const pq = pjOf(S.cur, i);
+  if (pq) { openSheet({ k: 'proj', key: S.cur, i: pq.a }); return; }
+  const x = tenantAt(S.cur, i);
+  if (x && x.st === 'ready' && handKey(x)) { render(); return; } // anahtar teslimi: tek dokunuş
+  if (x && x.st === 'wait') { openSheet({ k: 'kiraci', key: S.cur, i }); return; }
   openSheet({ k: 'plot', key: S.cur, i });
 }
 export function setupGrid() {
@@ -244,3 +293,75 @@ export function drawGuilloche() {
   $('#sheetGuil').innerHTML = h;
 }
 view.render = render;
+view.pjSelect = (k, i) => enterPjSelect(k, i);
+
+/* ---------- büyük projeler: 2×2 karo (grid span) ve seçim modu ---------- */
+function renderPjTile(i: number, el: HTMLElement, k: DistrictKey, q: Pj, tn: number) {
+  if (i !== q.a) { // bloğun diğer üç karosu gizli (çizim sol üst karoda 2×2 kaplar; ızgara kendiliğinden yerleşir)
+    if (ui.tileSig[i] !== 'pjh') { ui.tileSig[i] = 'pjh'; el.className = 'lot pjh'; el.innerHTML = ''; el.style.cssText = ''; el.dataset.pj = '1'; el.setAttribute('aria-hidden', 'true'); }
+    return;
+  }
+  const prog = q.until ? Math.max(0, Math.min(1, 1 - (q.until - tn) / q.dur)) : 1, step = q.until ? Math.floor(prog * 20) : 0;
+  const cd = q.until && q.until - tn <= CFG.SKIP_LEFT ? Math.ceil((q.until - tn) / 1000) : 0;
+  const ts = ui.teslim[i] && ui.teslim[i].at > performance.now() ? 1 : 0;
+  const cells = pjCells(q.a), auto = S.collectMode === 'auto', fill = auto ? -1 : cells.reduce((s2, j) => s2 + coinFill(k, j), 0) / 4;
+  const tq = cells.map(j => tenantAt(k, j)).find(x => x && x.st === 'live') || null; // proje tek bina: bir rozet
+  const sig = ['pj', q.kd, q.st, q.until ? 1 : 0, step, cd, ts, fill < 0 ? -1 : Math.round(fill * 50), styleOf(k), tq ? tq.id : ''].join('|');
+  if (sig === ui.tileSig[i]) return; ui.tileSig[i] = sig;
+  const r = Math.floor(i / COLS), c = i % COLS, name = pjName(k, q.kd);
+  el.dataset.pj = '1'; el.removeAttribute('aria-hidden');
+  el.className = 'lot pj ' + (q.until ? 'c' : 'b') + (cd ? ' final' : '') + (tq ? ' tnb' : '');
+  el.style.cssText = `grid-column:${c + 1} / span 2;grid-row:${r + 1} / span 2`;
+  let h = psvg(q.until ? projSite(q.kd, styleOf(k), q.st + 1, prog, 'pjc' + i) : projSvg(q.kd, styleOf(k), q.st), 'art');
+  if (cd) h += `<span class="cd"><small>${t('TESLİME')}</small><b>0:0${Math.max(0, cd)}</b><i><u style="width:${Math.round(prog * 100)}%"></u></i></span>`;
+  else if (q.until) h += `<span class="pjprog"><b>${q.st ? t('2. etap') : t('Proje inşaatı')}</b><i><u style="transform:${fillTf(prog)}"></u></i></span>`;
+  if (ts) h += `<span class="teslim"><b>${t('TESLİM')}</b><small>${esc(ui.teslim[i].txt)}</small></span>`;
+  if (!q.until && !ts) h += `<span class="pjn">${esc(name)}${q.st >= 2 ? ' <i>II</i>' : ''}</span>`;
+  if (fill >= 0) h += `<span class="fill${fill >= .999 ? ' full' : ''}"><i style="transform:${fillTf(fill)}"></i></span>`;
+  h += tenantHtml(tq);
+  el.innerHTML = h;
+  el.setAttribute('aria-label', t('{name}, büyük proje', { name }) + (q.until ? t(', inşaatta') : '') + tenantAria(tq));
+}
+
+/** Seçim modu: arsa panelinde "Projeye dönüştür" deyince bu binayı içeren uygun 2×2 bloklar tahtada kesik çizgili, nabız
+ *  gibi atan altın çerçeveyle gösterilir; diğer arsalar soluklaşır. Etiket (≥44 px) asıl dokunma hedefidir; bloklar üst üste
+ *  biniyorsa etiket bloğun kimseyle paylaşmadığı arsaların ortasına konur. Tek blok varsa doğrudan onay kartı açılır. */
+let pjSel: { k: DistrictKey; i: number } | null = null, pjFrameSig = '';
+export function enterPjSelect(k: DistrictKey, i: number) {
+  const opts = blocks(k, i); if (!opts.length) return;
+  pjSel = { k, i }; pjFrameSig = '';
+  if (opts.length === 1) { renderPjSelect(); openPjConfirm(k, opts[0], exitPjSelect, exitPjSelect); return; }
+  render();
+}
+export function exitPjSelect() { pjSel = null; renderPjSelect(); }
+export const pjSelecting = () => !!pjSel;
+function renderPjSelect() {
+  const g = $('#grid'), on = !!pjSel && pjSel.k === S.cur, opts = on ? blocks(pjSel!.k, pjSel!.i) : [];
+  if (pjSel && (!on || !opts.length) && !ui.modal) pjSel = null; // semt değişti ya da blok artık uygun değil: seçim düşer
+  const sig = on && opts.length ? opts.join(',') + '@' + ui.sw + 'x' + ui.sh + (ui.modal ? 'm' : '') : '';
+  if (sig === pjFrameSig) return; pjFrameSig = sig;
+  g.querySelectorAll('.pjframe').forEach((n: Element) => n.remove());
+  g.classList.toggle('pjsel', !!sig);
+  ui.tiles.forEach((tl, j) => tl.classList.toggle('pjin', !!sig && opts.some(a => pjCells(a).includes(j))));
+  let bar = document.getElementById('pjBar');
+  if (!sig) { if (bar) bar.hidden = true; return; }
+  const sw = ui.sw, sh = ui.sh, gp = ui.gap, k = pjSel!.k;
+  for (const a of opts) {
+    const r = Math.floor(a / COLS), c = a % COLS, e = document.createElement('div');
+    e.className = 'pjframe'; e.dataset.a = String(a);
+    e.style.cssText = `left:${c * (sw + gp) - 5}px;top:${r * (sh + gp) - 5}px;width:${2 * sw + gp + 10}px;height:${2 * sh + gp + 10}px`;
+    const nm2 = pjName(k, kindOf(typesAt(k, a)));
+    const mine = pjCells(a), uniq = mine.filter(j => !opts.some(o => o !== a && pjCells(o).includes(j))), use = uniq.length ? uniq : mine;
+    const cx = use.reduce((x, j) => x + (j % COLS) * (sw + gp) + sw / 2, 0) / use.length - (c * (sw + gp) - 5);
+    const cy = use.reduce((y, j) => y + Math.floor(j / COLS) * (sh + gp) + sh / 2, 0) / use.length - (r * (sh + gp) - 5);
+    e.innerHTML = `<button type="button" class="pjf-l" style="left:${Math.round(cx)}px;top:${Math.round(cy)}px" aria-label="${esc(t('{name} olarak birleştir', { name: nm2 }))}">${esc(nm2)}</button>`;
+    e.addEventListener('click', ev => { ev.stopPropagation(); openPjConfirm(k, a, exitPjSelect, () => { pjFrameSig = ''; renderPjSelect(); }); });
+    g.appendChild(e);
+  }
+  if (!bar) {
+    bar = document.createElement('div'); bar.id = 'pjBar'; bar.className = 'pjbar'; bar.setAttribute('role', 'status'); document.body.appendChild(bar);
+    bar.addEventListener('click', ev => { if ((ev.target as HTMLElement).closest('[data-pjx]')) exitPjSelect(); });
+  }
+  bar.innerHTML = `<span><b>${t('Büyük proje')}</b>${opts.length > 1 ? t('{n} blok uygun · birini seç', { n: opts.length }) : t('Çerçeveye dokun')}</span><button type="button" data-pjx>${t('Vazgeç')}</button>`;
+  bar.hidden = false;
+}

@@ -14,7 +14,7 @@ const dismiss=p=>dismissCards(p,{n:5,run:400,wait:200});
 async function closeAd(p){ if(await vis(p,'#ad:not([hidden])')){ await p.clock.runFor(5600); await p.click('#adX',{force:true}); await p.clock.runFor(300); } }
 const fill=(S,a)=>{ const T=['ev','kafe','dukkan','ofis']; S.d[a.k]=Array.from({length:20},(_,i)=>({t:a.t||T[i%4],lvl:a.lvl||2,buf:0,until:0,dur:1,up:false})); };
 // kart ve ipuçlarını sustur: yalnızca test edilen davranış görünsün
-const quiet=S=>{ const d=new Date(); S.daily.last=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); S.nextEvent=9e12; S.nextOffer=9e12; S.nextCivic=9e12; S.market='x'; S.collects=50; S.rifki=false; S.fest='x'; S.starter.at=1; };
+const quiet=S=>{ const d=new Date(); S.daily.last=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); S.nextEvent=9e12; S.nextOffer=9e12; S.nextCivic=9e12; S.market='x'; S.collects=50; S.rifki=false; S.fest='x'; S.starter.at=1; S.nextTen=9e15; S.ten=[]; }; // kiracı adayı da gelmesin (arsaya dokunuş kiracı kartını açmasın)
 
 (async()=>{
  const b=await chromium.launch(); URL=await serve();

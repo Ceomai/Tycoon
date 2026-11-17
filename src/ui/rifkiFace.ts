@@ -23,6 +23,18 @@ export const TIP_MOOD: Readonly<Record<string, Mood>> = {
   done: 'party',      // semt bitti (bütün arsalar dolu)      // ödül yakın: bir görev kaldı
   ozel: 'wow',        // haftanın özel tapusu
   ob: 'wow',          // hurdanın içinden ne çıkar
+  ten: 'wow',         // kiracı adayı geldi (tanıtır)
+  tennote: 'think',   // kiracı hâlâ bekliyor (hatırlatır)
+  tenready: 'happy',  // istek oldu: anahtarı verin
+  tenok: 'party',     // kiracı yerleşti (kutlar) · gidişte Rıfkı konuşmaz, kısa bildirim çıkar
+  pjintro: 'wow',     // büyük projeler açıldı (bir kez tanıtır)
+  pjnear: 'think',    // 2×2 blok projeye 1–2 kat uzak
+  project: 'party',   // proje (ya da 2. etap) teslim
+  pjlien: 'warn',     // kaporalı semtte ruhsat aranırsa
+  ihale: 'think',     // ihale günü: rakip ve ödül (ihale başına bir kez)
+  ihlate: 'warn',     // son düzlükte rakip öne geçti
+  ihcut: 'warn',      // kasa vekâleti karşılamadı, vekâlet indi
+  kur: 'wow',         // banka: başka bölgenin parası şu an ucuz (günde en fazla bir kez)
 };
 export const moodOf = (id: string): Mood => TIP_MOOD[id] || 'happy';
 

@@ -69,6 +69,8 @@ function unwrap(raw: string | null): unknown | null {
   } catch (e) { Analytics.error(e, 'save_parse'); return null; } // bozuk kayıt: yedeğe düşülür
 }
 
+/** Ham kayıt metnini (sağlamalı biçim) açar; bozuksa null (çok sekme: storage olayındaki yeni değer). */
+export const parseSave = (raw: string | null) => unwrap(raw);
 /** Ana kaydı, bozuksa yedeği, o da yoksa eski (v1) kaydı döner. */
 export async function loadRaw(): Promise<unknown | null> {
   const main = unwrap(await getRaw(keyNow()));

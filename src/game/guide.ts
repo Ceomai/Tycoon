@@ -6,11 +6,17 @@ import { SERVER_FEATURES, CFG, TYPES, ORDER, LV_INC, UP_COST, UP_TIME, MAXLV, TI
 import { S } from '../state';
 import { fmt, fmtTime } from '../format';
 import { LM, lmSvg } from '../landmarks';
+import { rivalFace } from '../ui/rivalFace';
+import { rivalHere, calText } from './auction';
+import { tenantFace, lookOf } from '../ui/tenantFace';
+import { charsOf } from './tenantChars';
+import { projSvg, psvg } from '../projdraw';
+import { styleOf } from './projcore';
 import { bld, svg } from '../draw';
 import { I } from '../icons';
 import { SPECIALS, specialSvg, weekSpecial } from '../specials';
-import { ACH, SEASON_LV, XP_PER } from './fun';
-import { t, nm, pctTxt, loc, lowTxt, LANG } from '../i18n';
+import { ACH, SEASON_LV, XP_PER, SKIN_COLORS, skinShown } from './fun';
+import { t, nm, pctTxt, loc, lowTxt, LANG, pn } from '../i18n';
 
 export interface Chapter { t: string; s: string; isNew?: boolean; art: () => string; body: string[]; facts: [string, string][]; tip?: string; }
 
@@ -160,7 +166,7 @@ export function chapters(): Chapter[] {
         t('<b>Tapu arşivi</b> (Menü) {n} mühürlük bir albüm: ilk ofis, 100. bina, üç il, altın mühür… Her 4 mühür tüm kiralara kalıcı +%1 verir.', { n: ACH.length }),
         t('Bir binaya dokunup <b>Görünümü değiştir</b> ile cephe rengini, evlerde çatıyı ve tabelayı seçebilirsin. Yalnızca görünümdür; bazı renkler arşivden ve tapu sezonundan açılır.'),
       ],
-      facts: [[t('Arşiv bonusu'), t('her 4 mühürde +%1')], [t('Cephe'), t('9 renk · 3 çatı · tabela')], [t('Kira etkisi'), t('yok (yalnızca görünüm)')]],
+      facts: [[t('Arşiv bonusu'), t('her 4 mühürde +%1')], [t('Cephe'), t('{n} renk · 3 çatı · tabela', { n: SKIN_COLORS.filter((_, i) => skinShown(i)).length })], [t('Kira etkisi'), t('yok (yalnızca görünüm)')]],
     },
     {
       t: t('Tapu sezonu'), s: t('Aylık {n} basamak · ücretsiz ve Altın Tapu yolu', { n: SEASON_LV }), isNew: true,
@@ -175,10 +181,39 @@ export function chapters(): Chapter[] {
       t: t('Tarihi yapılar'), s: t('Her biri +%5 · hepsi ek +%10'),
       art: () => svg(lmSvg(LM[0].id), 'art'),
       body: [
-        t('{n} tarihi yapı var: {list}.', { n: LM.length, list: LM.map(l => t(l.n)).join(', ') }),
+        t('{n} tarihi yapı var: {list}.', { n: LM.length, list: LM.map(l => pn(t(l.n))).join(', ') }),
         t('Etkinliklerden ve altın taksiden çıkarlar. Her yapı tüm kiralarını kalıcı olarak artırır; koleksiyon Holding kursan da silinmez.'),
       ],
       facts: [[t('Yapı başına'), t('+%5 kalıcı')], [t('Hepsini toplayana'), t('ek +%10')], [t('Şu an'), `${S.coll.length}/${LM.length}`]],
+    },
+    {
+      t: t('Kiracılar'), s: t('Her şehirde 6 karakter · istek karşılanınca kira +{p}', { p: pct(CFG.TEN_BONUS) }), isNew: true,
+      art: () => tenantFace(lookOf('ogrenci', charsOf(CITY_ORDER[0])[0] || null), 'happy', true, 'gd'),
+      body: [
+        t('Birkaç bina kira getirmeye başlayınca binalarına ara ara <b>kiracı adayı</b> gelir. Her birinin küçük bir isteği vardır: yanında kafe, bir kat daha, boş arsaya yeni ev… İstek karşılanınca arsada anahtar belirir; bir dokunuşla kiracı yerleşir.'),
+        t('Her şehrin 6 kiracısı var; aynı ad başka şehirde başka biri olabilir. Kişiliği kira bonusunu ve sözleşme süresini belirler: sabırsız kiracı kısa kalır ama fazla öder, köklü kiracı az öder ama uzun kalır.'),
+        t('Karşılamazsan ceza yok, kiracı başka yere bakar. <b>Kiracı defteri</b> (Menü) şehir rozetleri, ülke cephe renkleri ve kartpostallarla dolar; kiraya etkisi yok.'),
+      ],
+      facts: [[t('Kira bonusu'), t('+{p} · {m} dk (kişiliğe göre)', { p: pct(CFG.TEN_BONUS), m: Math.round(CFG.TEN_LIVE / 60e3) })], [t('Aday aralığı'), t('{a}–{b} dk', { a: Math.round(CFG.TEN_MIN / 60e3), b: Math.round(CFG.TEN_MAX / 60e3) })], [t('Bekleme'), dk(CFG.TEN_WAIT)], [t('Karşılamazsan'), t('ceza yok')]],
+    },
+    {
+      t: t('Büyük projeler'), s: t('2×2 dört bina tek proje · kira +{a}, 2. etap +{b}', { a: pct(CFG.PJ_X1), b: pct(CFG.PJ_X2) }), isNew: true,
+      art: () => psvg(projSvg('site', styleOf(dkey(CITY_ORDER[0], 0)), 1), 'art'),
+      body: [
+        t('İkinci semtin tapusunu alınca <b>büyük projeler</b> açılır. Dolu bir semtte yan yana 2×2 dört bina en az {lv}. kattaysa tek projeye birleşebilir; binalar kendi kiralarını korur, proje üstüne bonus verir.', { lv: CFG.PJ_MINLV }),
+        t('İlk etap dört binanın kirasını {a} artırır; 2. etap (kat ekle) toplamı {b} yapar. Semt başına en fazla {n} proje. Tür karışımı serbest: evler site, kafe ve dükkânlar çarşı, ofisler plaza olur.', { a: pct(CFG.PJ_X1), b: pct(CFG.PJ_X2), n: CFG.PJ_MAX }),
+      ],
+      facts: [[t('1. etap'), `+${pct(CFG.PJ_X1)}`], [t('2. etap'), t('toplam +{p}', { p: pct(CFG.PJ_X2) })], [t('Semt başına'), t('en fazla {n}', { n: CFG.PJ_MAX })], [t('Kiracılar'), t('proje tek bina sayılır')]],
+    },
+    {
+      t: t('Rakip ve ihale'), s: t('Pazartesi tarihi yapı · Perşembe nadir arsa'), isNew: true,
+      art: () => rivalFace(rivalHere().id, 'smug'),
+      body: [
+        t('İkinci semtin tapusunu alınca her şehrin rakip emlakçısıyla ihaleye girersin: {cal}. Vekâlet (en fazla ne vereceğin) verirsin; oyun senin yerine adım adım artırır.', { cal: calText() }),
+        t('Rakip kurallara uyar: tavanını ihale açılırken belirler ve değiştirmez, son saniyede kapmaz. Son {h} saatte tavanına kadar çıkar. Kazanırsan rakibin sınırının bir adım üstünü ödersin.', { h: Math.round(CFG.IH_LATE_MS / 3600e3) }),
+        t('Kasadan yalnızca önde olduğun fiyat ayrılır; geçilir ya da kaybedersen para kasana döner. Katılmamak hiçbir şey kaybettirmez. İhale ödülleri lig puanına sayılmaz.'),
+      ],
+      facts: [[t('Tarihi yapı'), t('İhale salonu · tüm kiralar +{p}', { p: pct(CFG.IH_LM_X) })], [t('Nadir arsa'), t('köşe başı · o arsa +{p}', { p: pct(CFG.IH_KOSE_X) })], [t('Kaybedersen'), t('ceza yok')]],
     },
     {
       t: t('Haftanın özel tapusu'), s: t('Her hafta bir nadir yapı'), isNew: true,

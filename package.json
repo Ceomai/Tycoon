@@ -12,7 +12,8 @@
     "test:unit": "vitest run",
     "test:e2e": "vite build --mode preview && node tests/qa.cjs",
     "test": "npm run typecheck && npm run test:unit && npm run test:e2e",
-    "sim": "rolldown -c scripts/rolldown.sim.mjs && node node_modules/.cache/tapu-sim.mjs",
+    "sim": "rolldown -c scripts/rolldown.sim.mjs && node .simcache/tapu-sim.mjs",
+    "sim:banka": "rolldown -c scripts/rolldown.banka.mjs && node .simcache/banka-sim.mjs",
     "cap:sync": "vite build && cap sync",
     "android": "vite build && cap sync android && cap open android",
     "ios": "vite build && cap sync ios && cap open ios",
@@ -21,6 +22,7 @@
     "test:gelir": "vite build --mode preview && node tests/gelir.cjs",
     "test:yerel": "vite build --mode preview && node tests/yerel.cjs",
     "i18n": "node scripts/i18n-extract.mjs && node scripts/i18n-build.mjs",
+    "kiracilar": "node scripts/kiracilar/gen.mjs && npm run i18n",
     "test:yon": "vite build --mode preview && node tests/yon.cjs",
     "test:iy": "vite build --mode preview && node tests/iyilestirme.cjs"
   },

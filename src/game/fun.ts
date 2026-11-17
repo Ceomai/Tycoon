@@ -14,8 +14,11 @@ import { addCash } from './actions';
 import { persist } from './persist';
 import { Analytics } from '../services/analytics';
 import { SPECIALS } from '../specials';
-import { t, tk, nm, upper, pctTxt } from '../i18n';
+import { t, tk, nm, upper, pctTxt, LANG } from '../i18n';
 import { deny } from '../ui/motion';
+import { stampsOf, ARCHS, countryDone, countryCities, Country } from './tenants';
+import { REGION, CUR_OF } from '../config';
+import { rate as fxRate, fxPair, refCur } from './bankcore';
 
 /* ---------- 2 · piyasa raporu kartı ---------- */
 export function showMarket() {
@@ -23,8 +26,14 @@ export function showMarket() {
   S.market = wk; persist();
   const rows = ORDER.map(ty => { const v = ty === m.up ? MARKET_UP : ty === m.down ? -MARKET_DOWN : 0; return `<div class="mkr"><b>${t(TYPES[ty].n)}</b><span class="mkb"><i></i><u class="${v > 0 ? 'up' : v < 0 ? 'dn' : ''}" style="width:${Math.abs(v) * 140}%"></u></span><em class="${v > 0 ? 'up' : v < 0 ? 'dn' : ''}">${v > 0 ? '+' : v < 0 ? '−' : ''}${pctTxt(Math.round(Math.abs(v) * 100))}</em></div>`; }).join('');
   openModal(`<div class="card mkcard"><p class="sec u-m0b-2">${t('Emlak piyasası · {n}. hafta', { n: m.n })}</p><h3>${t(m.head)}</h3><p>${t(m.why)}</p>
-    <div class="mkrows">${rows}</div><p class="note">${t('Her pazartesi yeni rapor; herkes için aynı, haftalık ligde de geçerli.')}</p>
+    <div class="mkrows">${rows}${fxRow()}</div><p class="note">${t('Her pazartesi yeni rapor; herkes için aynı, haftalık ligde de geçerli.')}</p>
     <div class="btns"><button class="btn" data-a="ok" data-back>${t('Anladım, yatırım zamanı')}</button></div></div>`, () => closeModal());
+}
+/** Piyasa raporunda kur satırı: oynanan paranın başvuru parasına kuru ve geçen haftaya (aynı saat) göre değişimi. */
+function fxRow(): string {
+  const tn = now(), my = CUR_OF[REGION], ref = refCur(my), v = fxRate(ref, my, tn), d = v / fxRate(ref, my, tn - 7 * 864e5) - 1;
+  const cls = d > 0.0005 ? 'up' : d < -0.0005 ? 'dn' : '', p = Math.abs(d * 100).toFixed(1).replace('.', LANG === 'tr' || LANG === 'de' ? ',' : '.');
+  return `<div class="mkr mkfx"><b>${t('Kur')}</b><span class="mkv">${fxPair(ref, my, v)}</span><em class="${cls}">${d >= 0 ? '▲' : '▼'} ${LANG === 'tr' ? '%' + p : p + '%'}</em></div>`;
 }
 export const marketChip = () => { const m = marketOf(curWeek()); return `${upper(t(TYPES[m.up].n))} ↑`; };
 
@@ -104,12 +113,28 @@ export const SKIN_COLORS: { n: string; f: string; s: string; t: string; lock?: s
   { n: tk('Mercan'), f: '#f2b7a0', s: '#d99a83', t: '#e8a993', lock: tk('Sezon · 20. basamak') },
   { n: tk('Altın'), f: '#e9c46a', s: '#c9a24a', t: '#dcb65c', lock: tk('Altın Tapu · 15. basamak') },
   { n: tk('Tuğla kırmızısı'), f: '#d98b6c', s: '#bf6f52', t: '#cf7e60', lock: tk('Başlangıç paketi') },
+  { n: tk('Kiracı yeşili'), f: '#a9c99a', s: '#8aae7b', t: '#9dbf8e', lock: tk('Kiracı defteri · 6 müdavim pulu') },
+  // kiracı defteri · ülke cephe renkleri: ülkenin bölgedeki tüm şehir rozetleri (game/tenants.ts countryDone; yalnızca görünüm)
+  { n: tk('Çini mavisi'), f: '#b9d3e3', s: '#9bb7ca', t: '#aac5d7', lock: tk('Kiracı defteri · Türkiye şehir rozetleri') },
+  { n: tk('Kumtaşı'), f: '#c8a283', s: '#ab8467', t: '#ba9375', lock: tk('Kiracı defteri · ABD şehir rozetleri') },
+  { n: tk('Sıra ev mavisi'), f: '#a3b8cf', s: '#869cb4', t: '#95aac2', lock: tk('Kiracı defteri · Birleşik Krallık şehir rozetleri') },
+  { n: tk('Altbau sarısı'), f: '#efdca0', s: '#d5c080', t: '#e2ce90', lock: tk('Kiracı defteri · Almanya şehir rozetleri') },
+  { n: tk('Sakura pembesi'), f: '#f2cfd6', s: '#d9b1ba', t: '#e6c0c8', lock: tk('Kiracı defteri · Japonya şehir rozetleri') },
 ];
+/** Kiracı defterinin ödülü (yalnızca görünüm): 6 tipin hepsinde müdavim pulu. */
+export const TENANT_SKIN = 10;
+/** Ülke cephe renkleri (SKIN_COLORS sırası). */
+export const COUNTRY_SKIN: Record<Country, number> = { tr: 11, us: 12, uk: 13, de: 14, jp: 15 };
+const SKIN_COUNTRY = Object.fromEntries(Object.entries(COUNTRY_SKIN).map(([c, n]) => [n, c])) as Record<number, Country>;
+/** Cephe rengi bu bölgede seçilebilir mi (ülke rengi yalnız o ülkenin şehri olan bölgede görünür; ör. Türkiye bölgesinde Çini mavisi, Global'de beşi). */
+export const skinShown = (c: number) => !SKIN_COUNTRY[c] || countryCities(SKIN_COUNTRY[c]).length > 0;
 export const ROOFS = [{ n: tk('Kiremit') }, { n: tk('Arduvaz'), rf: '#4f5b6b', rf2: '#3d4855' }, { n: tk('Yeşil'), rf: '#5f8a4c', rf2: '#476a38' }];
 export function skinUnlocked(c: number) {
   if (c < 4) return true;
   if (c === 4) return S.ach.length >= 8;
   if (c === 5) return S.ach.length >= 16;
+  if (c === TENANT_SKIN) return stampsOf() >= ARCHS.length;
+  if (SKIN_COUNTRY[c]) return countryDone(SKIN_COUNTRY[c]);
   return S.skinsU.includes(c);
 }
 /** Binanın inline stil değişkenleri (render'da kullanılır). */

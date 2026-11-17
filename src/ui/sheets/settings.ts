@@ -25,6 +25,7 @@ export const settings: Panel<{ acct: ReturnType<typeof Cloud.account> }> = {
     return `<p class="sec">${t('Dil ve bölge')}</p>
         <div class="langs">${LANGS.map(l => `<button class="chip${l.id === LANG ? ' on' : ''}" data-a="lang" data-l="${l.id}" lang="${l.id}" aria-pressed="${l.id === LANG}">${l.n}</button>`).join('')}</div>
         <div class="cmode">${REGION_ORDER.map(regRow).join('')}</div>
+        <div class="btns u-pull"><button class="btn soft" data-a="banka">${t('Banka: bölgeler arası aktarım ve bilanço')}</button></div>
         <p class="note">${t('Her bölgenin ilerlemesi, tapuları ve sırası ayrıdır. Dil yalnızca metinleri değiştirir; şehirleri ve para birimini bölge belirler. Satın aldığın paketler tüm bölgelerde geçerli.')}</p>
         <p class="sec u-mt-7">${t('Nasıl oynanır')}</p>
         <ul class="rules">
@@ -61,6 +62,7 @@ export const settings: Panel<{ acct: ReturnType<typeof Cloud.account> }> = {
   /** Bekleyen işlem (hesap bağlama, reklam izinleri, silme, sıfırlama) söz döner; diğerlerinden sonra panel hemen yeniden çizilir. */
   action(a, btn, s) {
     if (a === 'guide') { openSheet({ k: 'guide' }); return STAY; }
+    if (a === 'banka') { openSheet({ k: 'banka' }); return STAY; }
     if (a === 'lang') { switchLang(btn.dataset.l!); return STAY; }
     if (a === 'region') { switchRegion(btn.dataset.r as RegionId); return STAY; }
     if (a === 'sound') toggleSound();

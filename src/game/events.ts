@@ -2,8 +2,8 @@
 import { CFG, COLS, N, DMAP, BuildingType } from '../config';
 import { S, lotsOf } from '../state';
 import { fmt, fmtTime } from '../format';
-import { t, nm, pctTxt } from '../i18n';
-import { now, totalRate, producing, baseRate } from '../economy';
+import { t, nm, pctTxt, pn, pt } from '../i18n';
+import { now, totalRate, producing, baseRate, withoutTenants } from '../economy';
 import { I } from '../icons';
 import { Snd } from '../sound';
 import { svg } from '../draw';
@@ -28,7 +28,7 @@ function pickEvent(): Ev {
   if (any('ev')) list.push({ w: 2, e: () => ({ ic: I.spark, title: t('Öğrenci sezonu'), text: t('Üniversiteler açıldı, herkes kiralık ev arıyor.'), rw: m => t('{n} dk evler 2x', { n: 3 * m }), apply: m => { S.fx.push({ k: 'type', t: 'ev', x: 2, until: now() + 3 * 60e3 * m }); } }) });
   if (any('dukkan')) list.push({ w: 1, e: () => ({ ic: I.spark, title: t('Alışveriş çılgınlığı'), text: t('Çarşı kalabalık, dükkânlar rekor kırıyor.'), rw: m => t('{n} dk dükkânlar 3x', { n: 2 * m }), apply: m => { S.fx.push({ k: 'type', t: 'dukkan', x: 3, until: now() + 2 * 60e3 * m }); } }) });
   const left = lmLeft();
-  if (left.length) list.push({ w: 1, e: () => { const l = left[Math.floor(Math.random() * left.length)]; return { art: lmSvg(l.id), title: t('Tarihi yapı bulundu'), text: t('Tapu arşivinde {name} kaydı çıktı. Koleksiyonuna eklenince tüm kiralar %5 artar.', { name: t(l.n) }), rw: m => m > 1 ? t('yapı + {amt}', { amt: fmt(Math.max(1000, totalRate(false) * 600)) }) : t('Yapıyı al'), apply: m => { if (!S.coll.includes(l.id)) S.coll.push(l.id); if (m > 1) addCash(Math.max(1000, totalRate(false) * 600)); toast(t('{name} koleksiyonda', { name: t(l.n) })); } }; } });
+  if (left.length) list.push({ w: 1, e: () => { const l = left[Math.floor(Math.random() * left.length)]; return { art: lmSvg(l.id), title: t('Tarihi yapı bulundu'), text: t('Tapu arşivinde {name} kaydı çıktı. Koleksiyonuna eklenince tüm kiralar %5 artar.', { name: pn(t(l.n)) }), rw: m => m > 1 ? t('yapı + {amt}', { amt: fmt(Math.max(1000, totalRate(false) * 600)) }) : t('Yapıyı al'), apply: m => { if (!S.coll.includes(l.id)) S.coll.push(l.id); if (m > 1) addCash(Math.max(1000, totalRate(false) * 600)); toast(t('{name} koleksiyonda', { name: pt(t(l.n)) })); } }; } });
   if (!S.disc) list.push({ w: 2, e: () => ({ ic: I.tag, title: t('Müteahhit indirimi'), text: t('Tanıdık bir müteahhit sonraki inşaatın için indirim yapacak.'), rw: m => t('{pct} indirim', { pct: pctTxt(25 * m) }), apply: m => { S.disc = 0.25 * m; } }) });
   let r = Math.random() * list.reduce((s, x) => s + x.w, 0);
   for (const x of list) { if ((r -= x.w) <= 0) return x.e(); }
@@ -46,8 +46,10 @@ export function showEvent() {
     });
 }
 
-/** Uygulama dışında geçen süre: kumbaralar dolar; 2 dk'dan uzunsa yokken kazanç kartı. */
-export function catchUp(ms: number) {
+/** Uygulama dışında geçen süre: kumbaralar dolar; 2 dk'dan uzunsa yokken kazanç kartı.
+ *  Kiracı bonusu sayılmaz: sözleşme oyun süresiyle işler, oyuncu yokken azalmaz (economy.ts withoutTenants). */
+export function catchUp(ms: number) { withoutTenants(() => catchUpRaw(ms)); }
+function catchUpRaw(ms: number) {
   if (!(ms > 0)) return;
   for (const k of S.own) for (let i = 0; i < N; i++) {
     const p = lotsOf(S, k)[i]; if (!producing(p)) continue;

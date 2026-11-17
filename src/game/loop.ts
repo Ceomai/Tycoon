@@ -3,7 +3,7 @@ import { CFG, N, CITIES, CITY_ORDER, CityId, dkey, TYPES, REGIONS, REGION_ORDER,
 import { t, nm, LANGS, setLang, LANG } from '../i18n';
 import { P, savePrefs } from '../prefs';
 import { S, setS, newState, lotsOf } from '../state';
-import { rand, dayKey, weekKey } from '../format';
+import { rand, dayKey, weekKey, fmt } from '../format';
 import { now, producing, rate, pending, curWeek, tickMemo, freezeRates, isFull } from '../economy';
 import { Snd, buzz } from '../sound';
 import { $, ui, view } from '../ui/ctx';
@@ -24,6 +24,10 @@ import { checkAch, showMarket, maybeCivic } from './fun';
 import { payLien, showDistrictCard } from './district';
 import { maybeTip, sayEvent } from './rifki';
 import { maybeStarter, clubTick } from './monetize';
+import { tenantTick } from './tenants';
+import { tickProjects } from './project';
+import { ihaleTick } from './auction';
+import { bankBoot } from './bank';
 
 let lastT = performance.now(), lastGoals = 0, teslimOf = '';
 const anyProducing = () => S.own.some(k => lotsOf(S, k).some(producing));
@@ -60,10 +64,11 @@ function step(pt: number, dt: number) {
     }
     if (built && isFull(k)) sayEvent('done', k); // son arsa da doldu: Rıfkı kutlar
   }
+  tickProjects(tn, pt); // büyük projeler: biten etap teslim
   if (doneAny) { Snd.done(); if (doneHere) buzz.success(); ui.sheetSig = ''; }
   if (S.fx.length) S.fx = S.fx.filter(f => f.until > tn);
   if (S.boostUntil && S.boostUntil <= tn) { S.boostUntil = 0; toast(t('Tüm mülklere 2x bitti')); }
-  if (!ui.ad) S.playMs += dt;
+  if (!ui.ad) { S.playMs += dt; if (S.city) tenantTick(dt); } // kiracılar oyun süresiyle (reklam ve arka plan saymaz)
   S.lastSeen = tn;
   if (S.offer && !S.offer.done && S.offer.until <= tn) { toast(t('{title}: süre doldu', { title: t(S.offer.title) })); S.offer = null; }
   if (!ui.ad && S.playMs >= S.nextTaxi) { S.nextTaxi = S.playMs + (S.offer && S.offer.k === 'taxi' ? rand(CFG.TAXI_OFFER_MIN, CFG.TAXI_OFFER_MAX) : rand(CFG.TAXI_MIN, CFG.TAXI_MAX)); Street.spawn('taxi'); }
@@ -81,6 +86,7 @@ function step(pt: number, dt: number) {
   else if (free && !S.offer && S.playMs >= S.nextOffer) { S.nextOffer = S.playMs + rand(CFG.OFFER_MIN, CFG.OFFER_MAX); if (anyProducing()) showOffer(); }
   else Ads.tickInterstitial(pt, !!free); // geçiş reklamı: zamanı gelince doğal durakta
   if (pt - lastGoals > 2000) { lastGoals = pt; checkGoals(); checkAch(); clubTick(); }
+  if (S.city) ihaleTick(tn); // rakip emlakçı ve ihale: emanet, kapanış, yeni ihale (sonuç kartı oyun serbestken)
   maybeTip(pt);
   if (S.collectMode === 'auto') autoCollect(pt);
   // kumbaralar dolunca TOPLA mührü hafifçe sallanır (dakikada en fazla bir kez)
@@ -122,6 +128,8 @@ export function pickCity(onDone?: () => void) {
       const fresh = newState(now(), weekKey(new Date(now())), c);
       Object.assign(S, { city: c, own: fresh.own, cur: fresh.cur, d: fresh.d });
       ui.tileSig = []; ui.linkSig = ''; persist(); view.render(); Snd.unlock();
+      // başlanmamış bölgeye bankadan bırakılan emanet: başlangıç sermayesi (kazanç sayılmaz)
+      void bankBoot().then(got => { if (got) toast(t('Bankadaki emanet kasana geçti: {m} başlangıç sermayesi', { m: fmt(got) })); }).catch(e => Analytics.error(e, 'bank_claim'));
       Analytics.log('start_city', { city: c });
       showDistrictCard(fresh.cur, onDone); // şehir kartpostalı + başlangıç semtinin kuralı
     });

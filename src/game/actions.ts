@@ -2,7 +2,7 @@
 import { CFG, MAXLV, ORDER, TYPES, BuildingType, DistrictKey, DMAP } from '../config';
 import { t } from '../i18n';
 import { S, lotsOf, Plot } from '../state';
-import { now, withDisc, buildCost, buildTime, upCost, upTime, producing, unlockInfo, totalRate, pending } from '../economy';
+import { pjOf, ihaleLotMult, leagueShare, now, withDisc, buildCost, buildTime, upCost, upTime, producing, unlockInfo, totalRate, pending } from '../economy';
 import { Snd, buzz } from '../sound';
 import { ui, $, reduceMotion, view } from '../ui/ctx';
 import { toast, bump, flyTo, countUp, showGain, bigStamp } from '../ui/modal';
@@ -19,19 +19,21 @@ import { kaporaOf, lienBlocks, placeObstacles, showDistrictCard, showSummary } f
 import { lmLeft } from './collection';
 import type { Landmark } from '../landmarks';
 
-export function addCash(a: number) {
+/** Kasaya para. lg: haftalık lig sayacına yazılacak pay (ihale ödülleri lig kazancına sayılmaz: verilmezse a × leagueShare). */
+export function addCash(a: number, lg?: number) {
   if (!Number.isFinite(a) || a <= 0) return;
   S.cash += a; S.earned += a;
   const wk = weekKey(new Date(now()));
   if (S.week.key !== wk) S.week = { key: wk, earned: 0 };
-  S.week.earned += a; track('earn', a);
+  const w = lg === undefined ? a * leagueShare() : lg;
+  S.week.earned += Number.isFinite(w) ? Math.max(0, Math.min(a, w)) : a; track('earn', a);
   for (const bt of ORDER) if (!S.seen[bt] && S.earned >= TYPES[bt].unlock) { S.seen[bt] = true; toast(t('Yeni bina: {type}', { type: t(TYPES[bt].n) })); Snd.unlock(); }
 }
 export function addBoost(ms: number) { S.boostUntil = Math.min(Math.max(S.boostUntil, now()) + ms, now() + CFG.BOOST_MAX); }
 
 export function collect(k: DistrictKey, i: number) {
   const p = lotsOf(S, k)[i]; if (!p || p.buf <= 0) return;
-  const a = p.buf; p.buf = 0; addCash(a); S.collects++; track('collect');
+  const a = p.buf; p.buf = 0; addCash(a, a / ihaleLotMult(k, i)); S.collects++; track('collect');
   ui.lastCollect[i] = performance.now();
   const t = performance.now(); ui.combo = t - ui.comboT < 500 ? ui.combo + 1 : 0; ui.comboT = t;
   Snd.collect(ui.combo); buzz.light(); bump();
@@ -58,6 +60,7 @@ export function upgrade(k: DistrictKey, i: number) {
   Snd.build(); buzz.light(); persist(); ui.sheetSig = ''; view.render();
 }
 export function demolish(k: DistrictKey, i: number) {
+  if (pjOf(k, i)) { deny(); return; } // projedeki bina tek başına yıkılamaz: önce proje ayrılır
   const p = lotsOf(S, k)[i]; if (p && p.buf > 0) collect(k, i);
   if (p && p.sp) { S.inv.push(p.sp); toast(t('{name} depoya kaldırıldı', { name: t(specialOf(p.sp).n) })); } // özel yapı kaybolmaz
   lotsOf(S, k)[i] = null; persist(); view.closeSheet(); Snd.wreck(); view.render();
@@ -98,13 +101,13 @@ export function collectAll(from?: Element | null) {
   const full = pending().fill >= .999;
   // bu semtte kirası olan binalardan (en çok 7) mühre para uçar
   const src = lotsOf(S, S.cur).map((p, i) => ({ p, i })).filter(x => x.p && x.p.buf >= 1).sort((a, b) => b.p!.buf - a.p!.buf).slice(0, 7);
-  let a = 0;
-  for (const k of S.own) for (const p of lotsOf(S, k)) if (p && p.buf > 0) { a += p.buf; p.buf = 0; }
+  let a = 0, lg = 0;
+  for (const k of S.own) lotsOf(S, k).forEach((p, i) => { if (p && p.buf > 0) { a += p.buf; lg += p.buf / ihaleLotMult(k, i); p.buf = 0; } });
   if (a < 1) { toast(t('Toplanacak kira yok, biraz bekle')); deny(from || $('#collectBtn')); return; }
   const before = S.cash;
-  addCash(a); S.collects++; track('collect'); addXp(5);
+  addCash(a, lg); S.collects++; track('collect'); addXp(5);
   // paralar binalardan kasaya uçar; sonuncusu varınca kasa vurgulanır ve sayaç saymaya başlar
-  const cash = $('#cash'), flights = from ? src.map((x, n) => { const el = ui.tiles[x.i]; return el ? flyTo(el, cash, n * 45) : Promise.resolve(); }) : [];
+  const cash = $('#cash'), flights = from ? src.map((x, n) => { const q = pjOf(S.cur, x.i), el = ui.tiles[q ? q.a : x.i]; return el ? flyTo(el, cash, n * 45) : Promise.resolve(); }) : [];
   const landed = Promise.all(flights).then(() => bump());
   countUp(before, S.cash, landed); showGain(`+${fmt(a)} ↑`);
   if (full) bigStamp(t('DOLU KASA!'), t('KUMBARALAR TAŞMADAN'));
@@ -114,9 +117,9 @@ export function collectAll(from?: Element | null) {
 let autoAcc = 0, autoT = 0;
 /** Otomatik toplama: her döngüde kumbaralar sessizce kasaya akar; görev ilerlemesi 10 sn'de bir sayılır. */
 export function autoCollect(pt: number) {
-  let a = 0;
-  for (const k of S.own) for (const p of lotsOf(S, k)) if (p && p.buf > 0) { a += p.buf; p.buf = 0; }
-  if (a > 0) { addCash(a); autoAcc += a; }
+  let a = 0, lg = 0;
+  for (const k of S.own) lotsOf(S, k).forEach((p, i) => { if (p && p.buf > 0) { a += p.buf; lg += p.buf / ihaleLotMult(k, i); p.buf = 0; } });
+  if (a > 0) { addCash(a, lg); autoAcc += a; }
   if (pt - autoT > 10e3) { autoT = pt; if (autoAcc > 0) { autoAcc = 0; S.collects++; track('collect'); } }
 }
 /** Bu mülke 2x: ödüllü reklam başına +1 saat, en fazla 4 saat. */

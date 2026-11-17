@@ -52,6 +52,13 @@ export function nm(name: string): string {
 /** Büyük harf: dilin kuralıyla (Türkçede i → İ). */
 export const upper = (s: string) => s.toLocaleUpperCase(LANG === 'tr' ? 'tr-TR' : LANG);
 
+/** Özel ad (ihale yapısı, rakip): kaynakta [köşeli parantez] yabancı özel adı işaretler. pt: düz metin (bildirim, aria, toast).
+ *  pn: HTML; Türkçe arayüzde yabancı kısım lang="en" ile sarılır, büyük harfe çevrilince "BİG BEN" olmasın (CSS text-transform). */
+export const pt = (s: string) => s.replace(/[[\]]/g, '');
+export function pn(s: string): string {
+  const esc = (x: string) => x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return LANG === 'tr' ? esc(s).replace(/\[([^\]]+)\]/g, '<span lang="en">$1</span>') : esc(pt(s));
+}
 /** "…’de / in … / in … / …で": yer bildiren ek. */
 export function loc(name: string): string {
   if (LANG === 'en') return `in ${name}`;

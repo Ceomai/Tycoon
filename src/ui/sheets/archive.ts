@@ -2,17 +2,30 @@
 import { S } from '../../state';
 import { collBonus } from '../../economy';
 import { svg } from '../../draw';
-import { LM, lmSvg } from '../../landmarks';
+import { LM, lmSvg, IHALE_LM } from '../../landmarks';
+import { CFG, REGION } from '../../config';
+import { IH, lmPool, ihaleUnlocked } from '../../game/auccore';
+import { pctTxt } from '../../i18n';
 import { ACH } from '../../game/fun';
 import { ui } from '../ctx';
-import { t } from '../../i18n';
+import { t, pn } from '../../i18n';
 import { Panel, STAY } from './core';
 
+/** İhale salonu: rakip emlakçıyla ihaleyle alınan yapılar (bölge başına 4; Global'de hangi ülkeden olursa). */
+function salon(): string {
+  const got = IH().got, max = Math.max(0, Math.floor(CFG.IH_LM_N));
+  if (!got.length && !ihaleUnlocked()) return '';
+  const pool = REGION === 'gl' ? [...got.map(id => IHALE_LM.find(l => l.id === id)!).filter(Boolean), ...lmPool(S.cur.split('-')[0]).filter(l => !got.includes(l.id))].slice(0, max) : lmPool('');
+  return `<p class="sec ih-salh">${t('İhale salonu')} · ${Math.min(got.length, max)}/${max}</p>
+    <p class="note u-m0b-6">${t('Rakip emlakçıyla ihaleden alınır. Her yapı tüm kiraları kalıcı {p} artırır; lig puanına sayılmaz.', { p: pctTxt(Math.round(CFG.IH_LM_X * 100)) })}</p>
+    <div class="coll salon">${pool.map(l => { const has = got.includes(l.id); return `<div class="lmc bpbg${has ? '' : ' no'}">${svg(lmSvg(l.id))}<b>${has ? pn(t(l.n)) : t('İhalede')}</b></div>`; }).join('')}</div>`;
+}
 export const coll: Panel = {
-  sig: () => 'co|' + S.coll.join(),
+  sig: () => 'co|' + S.coll.join() + '|' + IH().got.join() + ihaleUnlocked(),
   render: () => `<p class="sec">${t('Tarihi yapılar')} · ${S.coll.length}/${LM.length}</p>
         <p class="note u-m0b-6">${t('Her yapı tüm kiraları kalıcı %5 artırır, hepsini toplayana ek %10. Etkinliklerden ve altın taksiden çıkar. Şu an <b>+%{p}</b>.', { p: Math.round(collBonus() * 100) })}</p>
-        <div class="coll">${LM.map(l => { const has = S.coll.includes(l.id); return `<div class="lmc bpbg${has ? '' : ' no'}">${svg(lmSvg(l.id))}<b>${has ? t(l.n) : t('Bulunmadı')}</b></div>`; }).join('')}</div>`,
+        <div class="coll">${LM.map(l => { const has = S.coll.includes(l.id); return `<div class="lmc bpbg${has ? '' : ' no'}">${svg(lmSvg(l.id))}<b>${has ? pn(t(l.n)) : t('Bulunmadı')}</b></div>`; }).join('')}</div>
+        ${salon()}`,
 };
 
 export const arsiv: Panel = {

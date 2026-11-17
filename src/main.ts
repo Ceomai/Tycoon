@@ -25,7 +25,7 @@ import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { Capacitor } from '@capacitor/core';
 import { CFG } from './config';
 import { S, setS, newState, migrate } from './state';
-import { weekKey } from './format';
+import { weekKey, fmt } from './format';
 import { now, totalRate } from './economy';
 import { Time, guardRollback } from './time';
 import { loadRaw } from './storage';
@@ -34,7 +34,7 @@ import { $, ui, hist, syncHistory, histSettled } from './ui/ctx';
 import { onModalClick, justOpened, modalBack, bigStamp } from './ui/modal';
 import { openSheet, closeSheet, sheetBack, onSheetAction } from './ui/sheets';
 import { bindSheetDrag } from './ui/sheetdrag';
-import { render, fit, setupGrid, drawGuilloche } from './ui/board';
+import { render, fit, setupGrid, drawGuilloche, pjSelecting, exitPjSelect } from './ui/board';
 import { Street } from './ui/street';
 import { ensureTasks } from './game/tasks';
 import { catchUp } from './game/events';
@@ -55,6 +55,10 @@ import { Ads } from './services/ads';
 import { Notify } from './services/notify';
 import { showLeagueResult } from './game/league';
 import { onTipClick, showTip } from './game/rifki';
+import { spawnTenant, handKey, tenantTick, tenants } from './game/tenants';
+import * as Ihale from './game/auction';
+import * as Bank from './game/bank';
+const { openIhale } = Ihale;
 import { showSummary } from './game/district';
 
 let hiddenAt = 0;
@@ -96,6 +100,7 @@ function handleBack(): boolean {
   if (ui.ad) return true;
   if (ui.modal) { modalBack(); return true; }
   if (ui.sheet) { sheetBack(); return true; }
+  if (pjSelecting()) { exitPjSelect(); return true; } // büyük proje seçim modu
   return false;
 }
 
@@ -104,7 +109,7 @@ function bindUi() {
   // başarısız işlemde sallanacak öğe: son basılan düğme (motion.ts deny)
   document.addEventListener('click', e => { const b = (e.target as Element | null)?.closest?.('button,[role="button"]') as HTMLElement | null; if (b) { ui.lastPress = b; ui.lastPressAt = performance.now(); } }, { capture: true });
   // Esc (masaüstü): kartı kapatılabiliyorsa kapatır; paneli iç içe olsa da tümden kapatır (geri tuşu/tarayıcı geri bir önceki panele döner)
-  document.addEventListener('keydown', e => { ui.lastInput = performance.now(); if (e.key !== 'Escape') return; if (ui.modal) modalBack(); else if (ui.sheet) closeSheet(); });
+  document.addEventListener('keydown', e => { ui.lastInput = performance.now(); if (e.key !== 'Escape') return; if (ui.modal) modalBack(); else if (ui.sheet) closeSheet(); else if (pjSelecting()) exitPjSelect(); });
   $('#collectBtn').addEventListener('click', () => {
     if (S.collectMode === 'auto') toast(t('Kiralar otomatik toplanıyor · Ayarlar’dan değiştirebilirsin'));
     else collectAll($('#collectBtn .core'));
@@ -113,6 +118,7 @@ function bindUi() {
   $('#taskBtn').addEventListener('click', () => openSheet({ k: 'tasks' }));
   $('#collBtn').addEventListener('click', () => openSheet({ k: 'coll' }));
   $('#offerPill').addEventListener('click', () => openSheet({ k: 'tasks' }));
+  $('#ihalePill').addEventListener('click', () => openIhale());
   $('#mapBtn').addEventListener('click', () => openSheet({ k: 'map' }));
   $('#rifki').addEventListener('click', onTipClick);
   $('#distBar').addEventListener('click', () => openSheet({ k: 'map' }));
@@ -206,7 +212,7 @@ async function boot() {
   // satın alınan paketler tüm bölgelerde geçerli
   S.premium = S.premium || P.ent.premium; S.noAds = S.noAds || P.ent.noAds; S.club = S.club || P.ent.club;
 
-  if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult, totalRate: () => totalRate(true), showTip, toast, showSummary, bigStamp, switchDistrict }; } // uçtan uca testler için (yalnızca önizleme paketi)
+  if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult, totalRate: () => totalRate(true), showTip, toast, showSummary, bigStamp, switchDistrict, spawnTenant, handKey, tenantTick, tenants, ihale: Ihale, bank: Bank, openSheet }; } // uçtan uca testler için (yalnızca önizleme paketi)
   setupGrid(); Street.init(); ensureTasks(); drawGuilloche(); bindUi(); fit();
   ui.lastInput = performance.now();
   render();
@@ -220,6 +226,9 @@ async function boot() {
   else if (!P.news && (migrated || P.region === 'tr')) setTimeout(() => { if (!ui.modal) showRegionNews(); }, 1200); // mevcut oyuncuya bir kez
   else { catchUp(awayMs()); S.lastSeen = now(); }
   void loadRegionInfo();
+  // banka: diğer bölgelerden gelen emanetler ve yoldaki havalelerin teslimi; web'de başka sekmeden yazılan havale
+  if (S.city) void Bank.bankBoot().then(got => { if (got) toast(t('Banka havalesi geldi: {m}', { m: fmt(got) })); }).catch(e => Analytics.error(e, 'bank_boot'));
+  Bank.watchTabs(got => toast(t('Banka havalesi geldi: {m}', { m: fmt(got) })));
   await cloud;
   void Purchases.init(Cloud.uid());
   void Ads.init();

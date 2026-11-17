@@ -1,19 +1,34 @@
 /* sayı, süre ve tarih biçimleri (Türkçe kısaltmalar) */
-import { currency } from './config';
+import { REGION, REGIONS, RegionId, dispScale } from './config';
 import { units, LANG, t, loc as locI } from './i18n';
 const one = (x: number, dec: string) => (Math.floor(x * 10) / 10).toFixed(1).replace('.', dec).replace(new RegExp('\\' + dec + '0$'), '');
 
-/** Para: bölgenin simgesi + dilin kısa birimleri (₺1,5Mn · $1.5M · €1,5Mio · ¥150万). */
-export function fmt(n: number, dec = false): string {
-  const c = currency(), U = units();
-  n = Math.max(0, n || 0);
-  if (!Number.isFinite(n)) return c + '∞';
-  if (n < U.base) return c + (dec && n < 100 ? one(n, U.dec) : Math.floor(n));
+/** Ekrandaki tutarı (ölçeklenmiş) simgeyle biçimler: dilin kısa birimleri (₺1,5Mn · $1.5M · €1,5Mio · ¥150万).
+ *  cents: küçük birimli paralar ($, €, £): 100'ün altı kuruşlu ($3.49), 1'in altı en az iki anlamlı haneyle ($0.012).
+ *  Kuruşsuz paralarda (₺, ¥) eski davranış: tamsayı, dec ise 100'ün altı tek ondalık. */
+export function money(v: number, c: string, cents = false, dec = false, fuzz = false): string {
+  const U = units(), k = fuzz ? 1 + 1e-9 : 1; // fuzz: ölçekli tutarda kayan nokta payı ($59.999… → $60.00)
+  v = Math.max(0, v || 0);
+  if (!Number.isFinite(v)) return c + '∞';
+  if (cents && v < 100) {
+    if (!v) return c + '0';
+    const d = v >= 1 ? 2 : Math.min(6, Math.max(2, 1 - Math.floor(Math.log10(v)))), p = Math.pow(10, d);
+    return c + (Math.floor(v * p * k) / p).toFixed(d).replace('.', U.dec);
+  }
+  if (v < U.base) return c + (dec && v < 100 ? one(v * k, U.dec) : Math.floor(v * k));
   let i = -1;
-  while (n >= U.base && i < U.u.length - 1) { n /= U.base; i++; }
-  if (n >= U.base) return c + n.toExponential(1).replace('.', U.dec).replace('e+', 'e') + U.u[i];
-  return c + (n < 100 ? one(n, U.dec) : Math.floor(n)) + U.u[i];
+  while (v >= U.base && i < U.u.length - 1) { v /= U.base; i++; }
+  if (v >= U.base) return c + v.toExponential(1).replace('.', U.dec).replace('e+', 'e') + U.u[i];
+  return c + (v < 100 ? one(v * k, U.dec) : Math.floor(v * k)) + U.u[i];
 }
+/** Kuruşlu gösterim: ölçeği küçük paralar (1 birim iç birimden en az iki kat değerli). */
+export const centsOf = (r: RegionId) => dispScale(r) < 0.5;
+/** Para (iç birim): bölgenin simgesi ve gösterim ölçeğiyle. dec: kira/sn gibi küçük değerlerde ondalık. */
+export function fmt(n: number, dec = false): string { return fmtIn(n, REGION, dec); }
+/** Para (iç birim) başka bir bölgenin parasıyla (banka, bilanço). */
+export function fmtIn(n: number, r: RegionId, dec = false): string { const sc = dispScale(r); return money(n * sc, REGIONS[r].cur, sc < 0.5, dec, sc !== 1); }
+/** Ondalık sayı (kur): dilin ayırıcısıyla, d hane. */
+export const fmtNum = (x: number, d = 2) => (Number.isFinite(x) ? x : 0).toFixed(d).replace('.', units().dec);
 export function fmtTime(ms: number): string {
   let s = Math.max(0, Math.ceil(ms / 1000) || 0); const h = Math.floor(s / 3600); s %= 3600; const m = Math.floor(s / 60); s %= 60;
   const H = t('sa'), M = t('dk'), Sn = t('sn');

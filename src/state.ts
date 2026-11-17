@@ -1,8 +1,30 @@
-import { BuildingType, CityId, DistrictKey, N, SCHEMA, dkey, CFG, DMAP, TYPES, MAXLV, CITY_ORDER, OBSTACLE_IDS } from './config';
+import { BuildingType, CityId, DistrictKey, N, COLS, ROWS, SCHEMA, dkey, CFG, DMAP, TYPES, MAXLV, CITY_ORDER, OBSTACLE_IDS, REGION, CITIES } from './config';
+import { IHALE_IDS, migrateColl } from './landmarks';
+import type { Tenant } from './game/tenants';
+import { CHAR, charFor, liveOf, maxLive } from './game/tenantChars';
+import { newBank, newEp, trimIn, BANK_LOG, type BankState } from './game/bankcore';
 
 export interface Skin { c?: number; r?: number; s?: boolean; }
 export interface Plot { t: BuildingType; lvl: number; buf: number; until: number; dur: number; up: boolean; bu?: number; sp?: string; ob?: string; sk?: Skin; } // bu: bu mülke 2x bitişi · sp: özel yapı · ob: engel (gecekondu, hurda…)
 export type Lot = Plot | null;
+/** Büyük proje (game/project.ts): 2×2 blok, a: sol üst arsa. st: tamamlanan etap (0 = ilk inşaat sürüyor, 2 = son).
+ *  until/dur: süren etabın bitişi (oyun saati, binalar gibi) ve süresi; until 0 = inşaat yok. kd: tür (yalnızca ad/görünüm). */
+export interface Pj { a: number; kd: PjKind; st: number; until: number; dur: number; }
+export type PjKind = 'site' | 'carsi' | 'plaza' | 'karma';
+export const PJ_KINDS: readonly PjKind[] = ['site', 'carsi', 'plaza', 'karma'];
+/** İhale (game/auccore.ts). kind: lm tarihi yapı · arsa köşe başı. Tutarlar oyun parası; rv: rakip (şehrin emlakçısı).
+ *  my: oyuncunun vekâleti (0 = katılmadı) · held: kasadan ayrılan emanet (önde olunan fiyat) · log: son teklifler (görünüm). */
+export type AucKind = 'lm' | 'arsa';
+export interface Bid { who: 'me' | 'rv'; v: number; at: number }
+export interface Auction {
+  id: string; kind: AucKind; prize: string; city: CityId; rv: string; open: number; close: number;
+  start: number; step: number; cap: number; capLo: number; capHi: number; early: number;
+  my: number; held: number; log: Bid[]; done?: 'won' | 'lost'; paid?: number;
+  seen?: boolean; tip?: boolean; lateSaid?: boolean; cutSaid?: boolean;
+}
+/** rm: rakip → son sonucun ruh hali (+1 hırslı, −1 kasası boşalmış) · got: İhale salonu yapıları · kose: "semt:arsa" köşe başı
+ *  damgaları · kp: vurulmayı bekleyen damga · intro: Rıfkı rakibi tanıttı mı · skip: ödülsüz geçen pencere. */
+export interface IhaleState { cur: Auction | null; rm: Record<string, number>; got: string[]; kose: string[]; kp: number; intro: boolean; wins: number; losses: number; skip?: string }
 export interface Fx { k: 'row' | 'type'; d?: DistrictKey; r?: number; t?: BuildingType; x: number; until: number; }
 export interface Task { k: string; goal: number; prog: number; claimed: boolean; }
 export interface Offer { k: string; goal: number; prog: number; until: number; title: string; rw: number; done: boolean; }
@@ -53,6 +75,14 @@ export interface State {
   starter: { at: number; bought: boolean }; // başlangıç paketi: gösterildiği an, alındı mı
   seasonFirst: boolean;            // Altın Tapu ilk sezon indirimi kullanıldı mı
   adCredit: number;                // bu oyun süresine (playMs) kadar geçiş reklamı yok
+  ten: Tenant[];                   // kiracılar (game/tenants.ts): bekleyen adaylar, anahtar bekleyenler ve yerleşenler
+  tdef: Record<string, { met: number; ok: number }>; // kiracı defteri: tip → tanışılan / yerleşen (yalnızca görünüm)
+  tdc: Record<string, { met: number; ok: number }>;  // kiracı defteri: karakter ("izm.emekli") → tanışılan / yerleşen (pul, şehir rozeti, ülke cephe rengi, kartpostal; yalnızca görünüm)
+  nextTen: number;                 // sonraki kiracı adayı (oyun süresi, ms; 0 = henüz açılmadı)
+  pj: Record<DistrictKey, Pj[]>;   // büyük projeler (arsa birleştirme), semt başına en fazla CFG.PJ_MAX
+  pjIntro: boolean;                // Rıfkı projeleri bir kez tanıttı mı
+  ihale: IhaleState;               // rakip emlakçı ve ihale (game/auccore.ts)
+  bank: BankState;                 // banka (game/bank.ts): son taban kira, kayıt kimliği, gelen/yoldaki havaleler, bugünkü hak, hareketler
   clubDay: string;                 // Kulüp günlük jetonunun verildiği gün // tapu sezonu // lig (kaynak sunucu; bu önbellek), last = gösterilen son hafta sonucu
 }
 
@@ -77,6 +107,9 @@ export function newState(now: number, weekKey: string, city: CityId | null = nul
     offer: null, premium: false, clockFlag: 0, league: { tier: 0, seals: 0, last: '' }, guideHint: false, collectMode: 'tap', stars: {}, inv: [], ozel: { week: '', bought: false }, rifki: true, lien: {}, lienT: {}, dEarn: {}, cards: [],
     market: '', ach: [], cnt: { ob: 0, civic: 0, skin: 0, kapora: 0 }, civic: {}, nextCivic: 12 * 60e3, night: true, vib: true, tokens: 0, skinsU: [], season: { id: '', xp: 0, got: [], ggot: [], gold: false },
     noAds: false, club: false, starter: { at: 0, bought: false }, seasonFirst: false, adCredit: 0, clubDay: '',
+    ten: [], tdef: {}, tdc: {}, nextTen: 0, pj: {}, pjIntro: false,
+    ihale: { cur: null, rm: {}, got: [], kose: [], kp: 0, intro: false, wins: 0, losses: 0 },
+    bank: newBank(),
   };
 }
 
@@ -110,9 +143,9 @@ const strs = (x: unknown) => (Array.isArray(x) ? x.filter(v => typeof v === 'str
 const nums = (x: unknown) => (Array.isArray(x) ? x.filter(v => typeof v === 'number' && Number.isFinite(v)) : []);
 const isD = (k: unknown): k is DistrictKey => typeof k === 'string' && Object.prototype.hasOwnProperty.call(DMAP, k);
 const MAX_CASH = 1e300; // taşmayı (Infinity) önler
-function rec<T>(x: unknown, f: (v: unknown) => T | undefined): Record<string, T> {
+function rec<T>(x: unknown, f: (v: unknown, k: DistrictKey) => T | undefined): Record<string, T> {
   const o: Record<string, T> = {};
-  if (isObj(x)) for (const k of Object.keys(x)) { if (!isD(k)) continue; const v = f(x[k]); if (v !== undefined) o[k] = v; }
+  if (isObj(x)) for (const k of Object.keys(x)) { if (!isD(k)) continue; const v = f(x[k], k); if (v !== undefined) o[k] = v; }
   return o;
 }
 function cleanLot(q: unknown): Lot {
@@ -125,6 +158,105 @@ function cleanLot(q: unknown): Lot {
   return p;
 }
 const cleanLots = (x: unknown): Lot[] => { const a = Array.isArray(x) ? x.slice(0, N).map(cleanLot) : []; while (a.length < N) a.push(null); return a; };
+/* kiracılar: game/tenants.ts ile aynı listeler (döngüsel içe aktarma olmasın diye burada; birim testi eşitliği denetler) */
+export const TEN_ARCHS = ['ogrenci', 'aile', 'sanatci', 'yazilimci', 'emekli', 'esnaf'];
+const TEN_WISH = ['nb', 'quiet', 'lvl', 'new'], TEN_ST = ['wait', 'ready', 'live'], TEN_MAX_N = 24;
+const int = (x: unknown, min: number, max: number) => typeof x === 'number' && Number.isInteger(x) && x >= min && x <= max;
+/** Kiracı listesi: bozuk / bilinmeyen kayıtlar düşer; süreler oyun süresine göre makul aralığa çekilir (elle uzatılamaz).
+ *  Karakter (c): bilinen kimlik, semtin şehri ve tipi tutuyorsa korunur, değilse silinir (eski kayıtta yok: karakter semtten türetilir).
+ *  Sözleşme tavanı karakterin kişiliğine göre (Köklü 86 dk; karakter bulunamazsa en uzun kişilik). */
+function cleanTenants(x: unknown, own: DistrictKey[], playMs: number): Tenant[] {
+  if (!Array.isArray(x)) return [];
+  const out: Tenant[] = [], seen = new Set<string>(), fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+  for (const q of x) {
+    if (out.length >= TEN_MAX_N) break;
+    if (!isObj(q) || !TEN_ARCHS.includes(q.a) || !isD(q.k) || !own.includes(q.k) || !int(q.i, 0, N - 1) || !TEN_ST.includes(q.st) || !fin(q.id) || !fin(q.dl) || !fin(q.end)) continue;
+    const w = q.w; if (!isObj(w) || !TEN_WISH.includes(w.k)) continue;
+    const wt = w.t === undefined ? undefined : TYPES[w.t as BuildingType] ? (w.t as BuildingType) : null;
+    if (wt === null || ((w.k === 'nb' || w.k === 'new') && !wt) || (w.k === 'lvl' && !int(w.n, 1, MAXLV))) continue;
+    const key = q.k + ':' + q.i; if (seen.has(key)) continue; seen.add(key);
+    const wish: Tenant['w'] = { k: w.k }; if (wt) wish.t = wt; if (w.k === 'lvl') wish.n = w.n; if (w.k === 'new' && w.sea === true) wish.sea = true;
+    const c0 = typeof q.c === 'string' ? CHAR[q.c] : undefined, d = DMAP[q.k as DistrictKey];
+    const ch = c0 && d && c0.city === d.city && c0.a === q.a ? c0 : null, ch2 = ch || charFor(q.k, q.a), live = ch2 ? liveOf(ch2) : maxLive();
+    const t: Tenant = { id: q.id, a: q.a, k: q.k, i: q.i, w: wish, st: q.st,
+      dl: Math.min(q.dl, playMs + Math.max(CFG.TEN_WAIT, CFG.TEN_READY)), end: q.st === 'live' ? Math.min(q.end, playMs + live) : 0 };
+    if (q.noted === true) t.noted = true;
+    if (ch) t.c = ch.id;
+    out.push(t);
+  }
+  return out;
+}
+/** Karakter defteri: yalnız bilinen karakter kimlikleri, sayılar 0–1e6 tam sayı. */
+function cleanTdc(x: unknown): Record<string, { met: number; ok: number }> {
+  const o: Record<string, { met: number; ok: number }> = {};
+  if (isObj(x)) for (const id of Object.keys(x)) { const r = x[id]; if (CHAR[id] && isObj(r)) o[id] = { met: Math.floor(num(r.met, 0, 0, 1e6)), ok: Math.floor(num(r.ok, 0, 0, 1e6)) }; }
+  return o;
+}
+function cleanTdef(x: unknown): Record<string, { met: number; ok: number }> {
+  const o: Record<string, { met: number; ok: number }> = {};
+  if (isObj(x)) for (const a of TEN_ARCHS) { const r = x[a]; if (isObj(r)) o[a] = { met: Math.floor(num(r.met, 0, 0, 1e6)), ok: Math.floor(num(r.ok, 0, 0, 1e6)) }; }
+  return o;
+}
+/** Büyük projeler: geçerli 2×2 (sağ ve alt kenarı taşmaz), sahip olunan semtte, dört arsası da bina (özel yapı / engel değil),
+ *  çakışmayan; etap 0–2, süren inşaat makul (elle uzatılamaz, 2. etaptan sonra inşaat olmaz). Bozuk proje düşer: binalar yerinde kalır. */
+const PJ_DUR_MAX = 48 * 3600e3, PJ_N_MAX = 4; // 4×5 ızgarada en fazla 4 ayrık 2×2
+function cleanPj(x: unknown, own: DistrictKey[], d: Record<string, Lot[]>, now: number): Record<DistrictKey, Pj[]> {
+  return rec(x, (v, k) => {
+    if (!Array.isArray(v) || !own.includes(k)) return undefined;
+    const lots = d[k] || [], used = new Set<number>(), out: Pj[] = [];
+    for (const q of v) {
+      if (out.length >= PJ_N_MAX) break;
+      if (!isObj(q) || !int(q.a, 0, N - 1) || q.a % COLS >= COLS - 1 || Math.floor(q.a / COLS) >= ROWS - 1 || !PJ_KINDS.includes(q.kd)) continue;
+      const cells = [q.a, q.a + 1, q.a + COLS, q.a + COLS + 1];
+      if (cells.some(j => used.has(j) || !lots[j] || lots[j]!.sp || lots[j]!.ob || lots[j]!.lvl < 1)) continue;
+      cells.forEach(j => used.add(j));
+      const st = Math.round(num(q.st, 0, 0, 2)), dur = num(q.dur, 1, 1, PJ_DUR_MAX);
+      let until = num(q.until, 0, 0); if (until) until = Math.min(until, now + dur);
+      if (st >= 2) until = 0;
+      out.push({ a: q.a, kd: q.kd, st: until || st ? st : 1, until, dur }); // etap 0 ve inşaat yok: bozuk kayıt, ilk etap bitmiş sayılır
+    }
+    return out.length ? out : undefined;
+  });
+}
+/** İhale: bilinmeyen yapı / bozuk damga düşer; süren ihale alan alan doğrulanır (bozuksa düşer, emaneti kasaya döner). */
+const IH_LEN_MAX = 26 * 3600e3, MAX_RM = 64;
+function cleanAuction(q: unknown): Auction | null {
+  const f = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
+  if (!isObj(q) || typeof q.id !== 'string' || (q.kind !== 'lm' && q.kind !== 'arsa') || typeof q.prize !== 'string' || typeof q.rv !== 'string' || typeof q.city !== 'string' || !CITIES[q.city]) return null;
+  if (q.kind === 'lm' && !IHALE_IDS.includes(q.prize)) return null;
+  if (![q.open, q.close, q.start, q.step, q.cap, q.capLo, q.capHi, q.early, q.my, q.held].every(f)) return null;
+  if (!(q.close > q.open) || q.close - q.open > IH_LEN_MAX || !(q.step > 0) || !(q.start > 0) || q.cap < q.start || q.my < 0 || q.held < 0 || q.held > MAX_CASH) return null;
+  const a: Auction = { id: q.id, kind: q.kind, prize: q.prize, city: q.city, rv: q.rv, open: q.open, close: q.close, start: q.start, step: q.step, cap: q.cap,
+    capLo: q.capLo, capHi: q.capHi, early: Math.min(0.95, Math.max(0.3, q.early)), my: q.my, held: q.held,
+    log: Array.isArray(q.log) ? q.log.filter((b: any) => isObj(b) && (b.who === 'me' || b.who === 'rv') && f(b.v) && f(b.at)).slice(-12).map((b: any) => ({ who: b.who, v: b.v, at: b.at })) : [] };
+  if (q.done === 'won' || q.done === 'lost') { a.done = q.done; a.held = 0; if (f(q.paid)) a.paid = q.paid; }
+  for (const k of ['seen', 'tip', 'lateSaid', 'cutSaid'] as const) if (q[k] === true) a[k] = true;
+  return a;
+}
+function cleanIhale(x: unknown, own: DistrictKey[], out: any): IhaleState {
+  const q = isObj(x) ? x : {};
+  const cur = cleanAuction(q.cur);
+  if (!cur && isObj(q.cur) && typeof q.cur.held === 'number' && Number.isFinite(q.cur.held) && q.cur.held > 0 && !q.cur.done) out.cash = Math.min(MAX_CASH, out.cash + Math.min(q.cur.held, MAX_CASH)); // bozuk ihale: emanet kaybolmasın
+  const rm: Record<string, number> = {};
+  if (isObj(q.rm)) for (const k of Object.keys(q.rm).slice(0, MAX_RM)) { const v = q.rm[k]; if (v === 1 || v === -1) rm[k] = v; }
+  const got = [...new Set(strs(q.got).filter(id => IHALE_IDS.includes(id)))];
+  const kose: string[] = [], used = new Set<string>();
+  for (const v of strs(q.kose)) { const [k, i] = v.split(':'); if (!own.includes(k) || used.has(k) || !/^\d+$/.test(i || '') || +i >= N) continue; used.add(k); kose.push(k + ':' + +i); }
+  const r: IhaleState = { cur, rm, got, kose, kp: Math.floor(num(q.kp, 0, 0, 64)), intro: q.intro === true, wins: Math.floor(num(q.wins, 0, 0, 1e6)), losses: Math.floor(num(q.losses, 0, 0, 1e6)) };
+  if (typeof q.skip === 'string') r.skip = q.skip;
+  return r;
+}
+/** Banka: bozuk havale/hareket düşer. Yoldaki havaleler (emanet dahil) korunur: kaybolursa para kaybolur. */
+const REG_IDS = ['tr', 'us', 'uk', 'de', 'jp', 'gl'];
+function cleanBank(x: unknown): BankState {
+  const b = isObj(x) ? x : {}, pos = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= MAX_CASH;
+  const out = Array.isArray(b.out) ? b.out.filter((o: any) => isObj(o) && typeof o.id === 'string' && o.id.length < 64 && REG_IDS.includes(o.to) && pos(o.a)).slice(0, 64)
+    .map((o: any) => ({ id: o.id, to: o.to, a: o.a, at: num(o.at, 0, 0), ...(typeof o.s === 'number' && Number.isFinite(o.s) ? { s: o.s } : {}), ...(typeof o.ep === 'string' ? { ep: o.ep } : {}) })) : [];
+  const log = Array.isArray(b.log) ? b.log.filter((l: any) => isObj(l) && REG_IDS.includes(l.r) && (l.dir === 'in' || l.dir === 'out')).slice(0, BANK_LOG)
+    .map((l: any) => ({ at: num(l.at, 0, 0), dir: l.dir, r: l.r, a: num(l.a, 0, 0, MAX_CASH), b: num(l.b, 0, 0, MAX_CASH), ...(typeof l.id === 'string' ? { id: l.id } : {}) })) : [];
+  return { rate: num(b.rate, 0, 0, MAX_CASH), ep: typeof b.ep === 'string' && b.ep && b.ep.length < 40 ? b.ep : newEp(), in: trimIn(strs(b.in).filter(v => v.length < 64)), out, log,
+    day: isObj(b.day) && typeof b.day.k === 'string' ? { k: b.day.k, got: num(b.day.got, 0, 0, MAX_CASH) } : { k: '', got: 0 }, tip: typeof b.tip === 'string' ? b.tip : '' };
+}
 function sanitize(s: any, now: number, weekKey: string): State {
   const own = [...new Set(strs(s.own).filter(isD))].filter(k => CITY_ORDER.includes(DMAP[k].city)); // yalnızca etkin bölgenin semtleri
   // city: null = şehir henüz seçilmemiş (ilk açılış yarım kaldı): semtlerden türetilmez, oyuncu şehir seçer.
@@ -152,7 +284,7 @@ function sanitize(s: any, now: number, weekKey: string): State {
   out.cash = num(s.cash, 0, 0, MAX_CASH); out.earned = num(s.earned, 0, 0, MAX_CASH);
   out.disc = num(s.disc, 0, 0, 0.9); out.shares = Math.floor(num(s.shares, 0, 0, 1e6)); out.tokens = Math.floor(num(s.tokens, 0, 0, 1e6));
   out.fx = Array.isArray(s.fx) ? s.fx.filter((f: any) => isObj(f) && (f.k === 'row' || f.k === 'type') && Number.isFinite(f.x) && Number.isFinite(f.until)) : [];
-  out.inv = strs(s.inv); out.coll = strs(s.coll); out.cards = strs(s.cards); out.ach = strs(s.ach); out.skinsU = nums(s.skinsU);
+  out.inv = strs(s.inv); out.coll = migrateColl(strs(s.coll), REGION); out.cards = strs(s.cards); out.ach = strs(s.ach); out.skinsU = nums(s.skinsU);
   out.stars = rec(s.stars, v => (Array.isArray(v) ? nums(v) : undefined));
   out.lien = rec(s.lien, v => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined));
   out.lienT = rec(s.lienT, v => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined));
@@ -164,6 +296,10 @@ function sanitize(s: any, now: number, weekKey: string): State {
   const o = s.offer, fin = (x: unknown) => typeof x === 'number' && Number.isFinite(x);
   out.offer = isObj(o) && typeof o.k === 'string' && fin(o.until) && fin(o.goal) && o.goal > 0 && fin(o.prog) && typeof o.title === 'string' && fin(o.rw) && o.rw >= 0
     ? { k: o.k, goal: o.goal, prog: Math.max(0, o.prog), until: o.until, title: o.title, rw: o.rw, done: o.done === true } : null;
+  out.pj = cleanPj(s.pj, out.own, out.d, now); out.pjIntro = s.pjIntro === true;
+  out.ten = cleanTenants(s.ten, out.own, out.playMs); out.tdef = cleanTdef(s.tdef); out.tdc = cleanTdc(s.tdc); out.nextTen = num(s.nextTen, 0, 0);
+  out.ihale = cleanIhale(s.ihale, out.own, out);
+  out.bank = cleanBank(s.bank);
   if (!out.ref.code || typeof out.ref.code !== 'string') out.ref = base.ref;
   if (out.collectMode !== 'auto') out.collectMode = 'tap';
   return out as State;
