@@ -3,7 +3,7 @@
    kendi gösterim ölçeğiyle yazılır (format.ts fmtIn / money). */
 import { REGIONS, REGION, REGION_ORDER, RegionId, CITIES, CFG, CurId, CUR_SYM, tryPer } from '../../config';
 import { S } from '../../state';
-import { fmtIn, money, esc } from '../../format';
+import { fmtIn, moneySigned, esc } from '../../format';
 import { now } from '../../economy';
 import { I } from '../../icons';
 import { t, nm, LANG, units } from '../../i18n';
@@ -13,7 +13,7 @@ import { rifkiFace } from '../rifkiFace';
 import { Snd } from '../../sound';
 import { switchRegion } from '../../game/loop';
 import { CURS, CUR_OF, CUR_N, idx, quote, fxPair, rnum, curWord, hist, valueOf, type Sheet } from '../../game/bankcore';
-import { REG, loadAll, capLeft, maxSend, transfer, bankOpen, cheapCur } from '../../game/bank';
+import { REG, loadAll, capLeft, maxSend, transfer, bankOpen, cheapCur, pendingTo } from '../../game/bank';
 import { Panel, STAY, lv, openSheet } from './core';
 
 const regName = (r: RegionId) => t(REGIONS[r].n);
@@ -28,7 +28,7 @@ const pair = fxPair;
 /** İç birimdeki tutarı (r bölgesinin) c para birimine çevirip yazar: o anki orta kurla. */
 const cents = (c: CurId) => 1 / tryPer(c) < 0.5;
 const inCur = (x: number, r: RegionId, c: CurId, tn: number) => x * idx(CUR_OF[r], tn) / idx(c, tn) / tryPer(c);
-const fmtC = (v: number, c: CurId) => money(v, CUR_SYM[c], cents(c), false, true);
+const fmtC = (v: number, c: CurId) => moneySigned(v, CUR_SYM[c], cents(c), false, true); // net eksi olabilir (kapora borcu)
 
 let loading = false;
 /** Diğer bölgelerin kayıtları panel açıkken en geç 15 sn'de bir diskten okunur (önbellek değil: başka sekme / yeni kayıt). */
@@ -58,7 +58,7 @@ function tabSend(s: any): string {
     <p class="sec">${t('Tutar')}</p>
     <div class="seg bk-pick" role="radiogroup" aria-label="${t('Tutar')}">${PICKS.map(p => `<button class="chip${p === pick ? ' on' : ''}" role="radio" aria-checked="${p === pick}" data-a="pick" data-v="${p}">${p >= 1 ? t('En çok') : (LANG === 'tr' ? '%' + Math.round(p * 100) : Math.round(p * 100) + '%')}</button>`).join('')}</div>
     <div class="bk-slip">
-      <div class="bk-l"><span>${t('Gönderilen')}</span><b>${fmtIn(amt, REGION)}</b></div>
+      <div class="bk-l"><span>${t('Gönderilen')}</span><b>${fmtIn(amt, REGION, false, true)}</b></div>
       <div class="bk-l"><span>${t('Kur (şimdi)')}</span><b>${pair(CUR_OF[REGION], CUR_OF[to], q.show)}</b></div>
       <div class="bk-l"><span>${q.spread ? t('Makas %{m} · komisyon %{k}', { m: Math.round(q.spread * 100), k: Math.round(q.fee * 100) }) : t('Komisyon %{k}', { k: Math.round(q.fee * 100) })}</span><b>−${fmtIn(Math.max(0, amt * q.mid - got), to)}</b></div>
       <div class="bk-l bk-tot"><span>${started(to) ? t('{r} kasasına varacak', { r: regName(to) }) : t('Emanette bekleyecek')}</span><b>${fmtIn(got, to)}</b></div>
@@ -125,20 +125,23 @@ if (typeof document !== 'undefined') { document.addEventListener('pointermove', 
 /* ---------- sekme: bilanço ---------- */
 function tabSheet(s: any): string {
   const tn = now(), cur: CurId = CURS.includes(s.cur) ? s.cur : CUR_OF[REGION];
-  const rows = REGION_ORDER.map(r => { const v = valueOf(REG.saves[r] || (r === REGION ? S : null)); return { r, v, net: v ? inCur(v.net, r, cur, tn) : 0 }; });
-  const act = rows.filter(x => x.v), tot = act.reduce((a, x) => a + x.net, 0), share = (x: number) => (tot > 0 ? Math.max(0, x) / tot : 0);
-  const sum = (f: (v: Sheet) => number) => act.reduce((a, x) => a + inCur(f(x.v!), x.r, cur, tn), 0);
+  // başlanmamış bölgeye yolda bekleyen emanet: o bölgenin satırında ve toplamda (para kaybolmuş görünmesin)
+  const rows = REGION_ORDER.map(r => { const v = valueOf(REG.saves[r] || (r === REGION ? S : null)), held = v ? 0 : pendingTo(r); return { r, v, held, net: v ? inCur(v.net, r, cur, tn) : inCur(held, r, cur, tn) }; });
+  const act = rows.filter(x => x.v || x.held > 0), tot = act.reduce((a, x) => a + x.net, 0), share = (x: number) => (tot > 0 ? Math.max(0, x) / tot : 0);
+  const sum = (f: (v: Sheet) => number) => act.reduce((a, x) => a + (x.v ? inCur(f(x.v), x.r, cur, tn) : 0), 0);
+  const heldSum = act.reduce((a, x) => a + (x.v ? 0 : x.net), 0);
   const bar = act.map(x => `<i style="width:${(share(x.net) * 100).toFixed(2)}%;background:${RCOL[x.r]}" title="${esc(regName(x.r))}"></i>`).join('');
   const row = (x: typeof rows[number]) => {
     const cs = REGIONS[x.r].cities.map(c => nm(CITIES[c].n)).slice(0, 3).join(' · ');
+    if (!x.v && x.held > 0) return `<div class="bk-reg off"><span class="bk-cur" style="--rc:${RCOL[x.r]}">${symOf(x.r)}</span><span class="di"><b>${regName(x.r)}</b><small>${t('başlanmadı')} · ${t('emanette {m}', { m: fmtIn(x.held, x.r) })}</small></span><span class="bk-q"><b>${fmtC(x.net, cur)}</b><small>${LANG === 'tr' ? '%' + Math.round(share(x.net) * 100) : Math.round(share(x.net) * 100) + '%'}</small></span></div>`;
     if (!x.v) return `<div class="bk-reg off"><span class="bk-cur" style="--rc:var(--line)">${symOf(x.r)}</span><span class="di"><b>${regName(x.r)}</b><small>${cs} · ${t('başlanmadı')}</small></span><span class="bk-q"><b>—</b></span></div>`;
     return `<div class="bk-reg"><span class="bk-cur" style="--rc:${RCOL[x.r]}">${symOf(x.r)}</span><span class="di"><b>${regName(x.r)}${x.r === REGION ? ` <em>${t('burada')}</em>` : ''}</b><small>${t('kasa {k} · mülk {m}', { k: fmtIn(x.v.cash + x.v.rent, x.r), m: fmtIn(x.v.prop, x.r) })}${x.v.debt ? ' · ' + t('borç {b}', { b: fmtIn(x.v.debt, x.r) }) : ''}</small></span><span class="bk-q"><b>${fmtC(x.net, cur)}</b><small>${LANG === 'tr' ? '%' + Math.round(share(x.net) * 100) : Math.round(share(x.net) * 100) + '%'}</small></span></div>`;
   };
   return `<div class="seg bk-curs" role="radiogroup" aria-label="${t('Para birimi')}">${CURS.map(c => `<button class="chip${c === cur ? ' on' : ''}" role="radio" aria-checked="${c === cur}" data-a="cur" data-v="${c}" aria-label="${esc(t(CUR_N[c]))}">${CUR_SYM[c]}</button>`).join('')}</div>
-    <div class="bk-big"><small>${t('Toplam net varlık · {c}', { c: t(CUR_N[cur]) })}</small><b>${fmtC(tot, cur)}</b><span>${t('{n} bölge · şimdiki orta kurla', { n: act.length })}</span></div>
+    <div class="bk-big"><small>${t('Toplam net varlık · {c}', { c: t(CUR_N[cur]) })}</small><b>${fmtC(tot, cur)}</b><span>${t('{n} bölge · şimdiki orta kurla', { n: act.filter(x => x.v).length })}</span></div>
     <div class="bk-share" role="img" aria-label="${t('Bölgelere göre pay')}">${bar}</div>
     <div class="bk-regs">${rows.map(row).join('')}</div>
-    <div class="bk-sum"><div><span>${t('Kasa ve toplanmamış kira')}</span><b>${fmtC(sum(v => v.cash + v.rent), cur)}</b></div><div><span>${t('Mülkler (semt, bina, proje, ihale)')}</span><b>${fmtC(sum(v => v.prop), cur)}</b></div><div><span>${t('Kapora borcu')}</span><b>−${fmtC(sum(v => v.debt), cur)}</b></div><div class="bk-tot"><span>${t('Net')}</span><b>${fmtC(tot, cur)}</b></div></div>
+    <div class="bk-sum"><div><span>${t('Kasa ve toplanmamış kira')}</span><b>${fmtC(sum(v => v.cash + v.rent), cur)}</b></div><div><span>${t('Mülkler (semt, bina, proje, ihale)')}</span><b>${fmtC(sum(v => v.prop), cur)}</b></div>${heldSum > 0 ? `<div><span>${t('Emanette (başlanmamış bölgeler)')}</span><b>${fmtC(heldSum, cur)}</b></div>` : ''}<div><span>${t('Kapora borcu')}</span><b>−${fmtC(sum(v => v.debt), cur)}</b></div><div class="bk-tot"><span>${t('Net')}</span><b>${fmtC(tot, cur)}</b></div></div>
     <p class="note">${t('Mülk değeri: tapu bedeli ve yapım maliyetinin %{p}’i. Bilanço yalnızca gösterir; kira ve lig puanı değişmez, paylaşılmaz.', { p: Math.round(CFG.BANK_VALUE_X * 100) })}</p>`;
 }
 
@@ -164,7 +167,11 @@ export const banka: Panel = {
       const to = s.to as RegionId, amt = amountOf(to, s.pick ?? 1);
       btn.setAttribute('disabled', '');
       const r = await transfer(to, amt);
-      if (!r.ok) { toast(r.why === 'cap' ? t('Bugünkü hak doldu') : t('Aktarım yapılamadı')); ui.sheetSig = ''; return; }
+      if (!r.ok) {
+        toast(r.why === 'cap' ? t('Bugünkü hak doldu') : r.why === 'save' ? t('Aktarım yapılamadı: kayıt yazılamadı, para kasanda kaldı')
+          : r.why === 'busy' ? t('Yolda çok havale var: teslim edilince yeniden dene') : t('Aktarım yapılamadı'));
+        ui.sheetSig = ''; return;
+      }
       Snd.unlock(); ui.sheetSig = '';
       const m = `<b>${fmtIn(r.got, to)}</b>`;
       openModal(`<div class="card bk-done"><div class="bk-stamp">${t('HAVALE')}</div><h3>${r.held ? t('Emanete alındı') : t('{r} kasasına geçti', { r: regName(to) })}</h3>

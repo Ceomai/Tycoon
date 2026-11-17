@@ -10,7 +10,7 @@
    anahtar bekleyen (isteği olmuş) kiracı projeye yerleşir, isteği artık karşılanamayan aday bildirimle ayrılır
    (onay kartı bunu önceden söyler).
    ========================================================= */
-import { CFG, COLS, ROWS, MAXLV, TYPES, UP_COST, DistrictKey, BuildingType } from '../config';
+import { CFG, COLS, ROWS, MAXLV, TYPES, UP_COST, DistrictKey, BuildingType, pjMinLv } from '../config';
 import { S, lotsOf, Pj, PjKind } from '../state';
 import { costM, isFull, upTime, pjCells, pjOf, producing, now } from '../economy';
 import { tenants, excludeTenantLots, satisfied, handKey, tenantHooks, countryOf, Tenant, Country } from './tenants';
@@ -39,7 +39,7 @@ export const KIND_N: Record<PjKind, string> = { site: tk('konut projesi'), carsi
 export const pjName = (k: DistrictKey, kind: PjKind) => t((PJ_NAMES[kind] || PJ_NAMES.site)[styleOf(k)]);
 
 /* Remote Config sayıları kesirli gelebilir: tamsayı ve makul aralık. */
-export const pjMinLv = () => Math.max(1, Math.min(MAXLV, Math.round(CFG.PJ_MINLV)));
+export { pjMinLv };
 export const pjMax = () => Math.max(1, Math.floor(CFG.PJ_MAX));
 /** Oyunun bu aşamasında projeler açık mı (2. semt tapusu alınmış). */
 export const pjUnlocked = () => S.own.length >= Math.max(1, Math.floor(CFG.PJ_UNLOCK_OWN));

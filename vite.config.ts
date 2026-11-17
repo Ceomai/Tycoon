@@ -14,8 +14,8 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       target: 'es2020',
       assetsInlineLimit: preview ? 100_000_000 : 4096,
-      chunkSizeWarningLimit: 800, // ana paket ~710 kB (ihale: 74 yapı çizimi, 15 rakip portresi, 4 dil)
+      chunkSizeWarningLimit: 700, // ana paket ~500 kB; en/de/ja sözlükleri ayrı parça (i18n.ts loadLang), Firebase ayrı parça
     },
-    test: { include: ['tests/unit/**/*.test.ts'], environment: 'node' },
+    test: { include: ['tests/unit/**/*.test.ts'], environment: 'node', setupFiles: ['tests/unit/setup.ts'] },
   };
 });

@@ -791,7 +791,14 @@
   "{r} kasasına geçti": "Now in your {r} cash",
   "{r} kasasına varacak": "Arrives in {r}",
   "Şu an {c} ucuz efendim, haftalık ortalamasının {p} altında. {r} kasasına para göndermenin tam zamanı; kur saat saat değişir.": "The {c} is cheap right now, sir: {p} below its weekly average. A good moment to send money to your {r} cash; rates change every hour.",
-  "Şu an {c} ucuz efendim. {r} kasasına biraz para gönderecekseniz tam zamanı; kur saat saat değişir.": "The {c} is cheap right now, sir. If you're sending some money to your {r} cash, now's the time; rates change every hour."
+  "Şu an {c} ucuz efendim. {r} kasasına biraz para gönderecekseniz tam zamanı; kur saat saat değişir.": "The {c} is cheap right now, sir. If you're sending some money to your {r} cash, now's the time; rates change every hour.",
+  "Oyun başka bir sekmede açık": "The game is open in another tab",
+  "Tapu aynı anda yalnız bir sekmede oynanır. Burada devam edersen diğer sekmedeki oyun durur.": "Tapu runs in one tab at a time. If you continue here, the game in the other tab stops.",
+  "Burada devam et": "Continue here",
+  "Aktarım yapılamadı: kayıt yazılamadı, para kasanda kaldı": "Transfer failed: the game could not be saved, the money stayed in your cash",
+  "Yolda çok havale var: teslim edilince yeniden dene": "Too many transfers on the way: try again once they arrive",
+  "emanette {m}": "{m} waiting at the bank",
+  "Emanette (başlanmamış bölgeler)": "Held at the bank (regions not started)"
  },
  "de": {
   "Dil ve bölge": "Sprache & Region",
@@ -1585,7 +1592,14 @@
   "{r} kasasına geçti": "Jetzt in deiner Kasse in {r}",
   "{r} kasasına varacak": "Kommt in {r} an",
   "Şu an {c} ucuz efendim, haftalık ortalamasının {p} altında. {r} kasasına para göndermenin tam zamanı; kur saat saat değişir.": "Die Währung {c} ist gerade günstig, mein Herr: {p} unter dem Wochenschnitt. Ein guter Moment, Geld in die Kasse in {r} zu schicken; die Kurse ändern sich stündlich.",
-  "Şu an {c} ucuz efendim. {r} kasasına biraz para gönderecekseniz tam zamanı; kur saat saat değişir.": "Die Währung {c} ist gerade günstig, mein Herr. Wenn Sie Geld in die Kasse in {r} schicken wollen, dann jetzt; die Kurse ändern sich stündlich."
+  "Şu an {c} ucuz efendim. {r} kasasına biraz para gönderecekseniz tam zamanı; kur saat saat değişir.": "Die Währung {c} ist gerade günstig, mein Herr. Wenn Sie Geld in die Kasse in {r} schicken wollen, dann jetzt; die Kurse ändern sich stündlich.",
+  "Oyun başka bir sekmede açık": "Das Spiel ist in einem anderen Tab geöffnet",
+  "Tapu aynı anda yalnız bir sekmede oynanır. Burada devam edersen diğer sekmedeki oyun durur.": "Tapu läuft immer nur in einem Tab. Wenn du hier weiterspielst, hält das Spiel im anderen Tab an.",
+  "Burada devam et": "Hier weiterspielen",
+  "Aktarım yapılamadı: kayıt yazılamadı, para kasanda kaldı": "Überweisung fehlgeschlagen: Spielstand nicht gespeichert, das Geld bleibt in deiner Kasse",
+  "Yolda çok havale var: teslim edilince yeniden dene": "Zu viele Überweisungen unterwegs: versuch es erneut, wenn sie angekommen sind",
+  "emanette {m}": "{m} wartet bei der Bank",
+  "Emanette (başlanmamış bölgeler)": "Bei der Bank (nicht begonnene Regionen)"
  },
  "ja": {
   "Dil ve bölge": "言語と地域",
@@ -2379,6 +2393,13 @@
   "{r} kasasına geçti": "{r}の資金に入りました",
   "{r} kasasına varacak": "{r}に着金",
   "Şu an {c} ucuz efendim, haftalık ortalamasının {p} altında. {r} kasasına para göndermenin tam zamanı; kur saat saat değişir.": "今は{c}が安いですよ、週平均より{p}低いです。{r}の資金に送金する好機です。為替は1時間ごとに変わります。",
-  "Şu an {c} ucuz efendim. {r} kasasına biraz para gönderecekseniz tam zamanı; kur saat saat değişir.": "今は{c}が安いですよ。{r}の資金に送金するなら今がチャンス。為替は1時間ごとに変わります。"
+  "Şu an {c} ucuz efendim. {r} kasasına biraz para gönderecekseniz tam zamanı; kur saat saat değişir.": "今は{c}が安いですよ。{r}の資金に送金するなら今がチャンス。為替は1時間ごとに変わります。",
+  "Oyun başka bir sekmede açık": "ゲームは別のタブで開いています",
+  "Tapu aynı anda yalnız bir sekmede oynanır. Burada devam edersen diğer sekmedeki oyun durur.": "TAPUは同時に1つのタブでしか遊べません。ここで続けると、もう一方のタブのゲームは止まります。",
+  "Burada devam et": "ここで続ける",
+  "Aktarım yapılamadı: kayıt yazılamadı, para kasanda kaldı": "送金できませんでした：保存できなかったため、お金は手元に残っています",
+  "Yolda çok havale var: teslim edilince yeniden dene": "送金中の取引が多すぎます：届いてからもう一度お試しください",
+  "emanette {m}": "{m}を銀行で保管中",
+  "Emanette (başlanmamış bölgeler)": "銀行で保管中（未開始の地域）"
  }
 }

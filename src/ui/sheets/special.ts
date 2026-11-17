@@ -1,7 +1,7 @@
 /* HAFTANIN ÖZEL TAPUSU PANELİ (tasarım F5) */
 import { CFG } from '../../config';
 import { S } from '../../state';
-import { fmt, weekKey } from '../../format';
+import { fmtCost, weekKey } from '../../format';
 import { svg } from '../../draw';
 import { buySpecial, specialPrice } from '../../game/actions';
 import { specialSvg, weekSpecial } from '../../specials';
@@ -20,7 +20,7 @@ export const ozel: Panel = {
         <div class="spart bpbg">${svg(specialSvg(sp.id), 'art')}</div>
         <p class="gdp">${t('{d}. Boş bir arsaya yerleştirilir; kat çıkılmaz ama tek başına çok kazandırır.', { d: t(sp.d) })}</p>
         <div class="lgrw"><div><span>${t('Kira')}</span><b>${t('semtteki en iyi binanın 3 katı')}</b></div><div><span>${t('Komşularına')}</span><b>${t('her yöne +%{n}', { n: Math.round(CFG.SP_ADJ * 100) })}</b></div><div><span>${t('Kat çıkma')}</span><b>${t('yok · tek seviye')}</b></div><div><span>${t('Holding kurunca')}</span><b>${t('depoda kalır')}</b></div></div>
-        <div class="btns">${got ? `<button class="btn" disabled>${t('Bu haftanın tapusu alındı')}</button>` : `<button class="btn lotb" data-a="buyozel" ${S.cash >= price ? '' : 'disabled'}><span class="lbl">${t('Tapuyu al')} · ${fmt(price)}</span><small>${t('sonra boş bir arsaya yerleştir')}</small></button>`}</div>
+        <div class="btns">${got ? `<button class="btn" disabled>${t('Bu haftanın tapusu alındı')}</button>` : `<button class="btn lotb" data-a="buyozel" ${S.cash >= price ? '' : 'disabled'}><span class="lbl">${t('Tapuyu al')} · ${fmtCost(price)}</span><small>${t('sonra boş bir arsaya yerleştir')}</small></button>`}</div>
         ${S.inv.length ? `<p class="note">${t('Depoda {n} özel yapı var: boş bir arsaya dokunup yerleştir.', { n: S.inv.length })}</p>` : ''}
         <p class="note u-tc">${t('Her hafta farklı bir yapı: Han, Pasaj, Yalı Köşkü, Bahçeli Köşk.')}</p>`;
   },

@@ -1,6 +1,7 @@
 node_modules
 .simcache/
 tests/out/
+tests/soak/out/
 www/
 dist-preview/
 functions/lib/

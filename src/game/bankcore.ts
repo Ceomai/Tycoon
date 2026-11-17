@@ -85,6 +85,9 @@ export interface BankLog { at: number; dir: 'out' | 'in'; r: RegionId; a: number
  *  out: yoldaki giden havaleler (emanet dahil) · day: bugünkü hak kullanımı · tip: Rıfkı'nın kur notu günü */
 export interface BankState { rate: number; ep: string; in: string[]; out: BankOut[]; day: { k: string; got: number }; log: BankLog[]; tip: string }
 export const BANK_KEEP_IN = 20, BANK_LOG = 12;
+/** Gönderende yoldaki havale sınırı: başlanmamış bölgeye giden emanetler tek kayıtta birleşir; birleşemeyenler bu sayıya gelince
+ *  yeni aktarım reddedilir (kayıt temizliği teslim edilmemiş havaleyi asla kırpmaz). */
+export const BANK_OUT_MAX = 64;
 /** Rastgele kısa kimlik: crypto ile (Math.random dizisini tüketmez; tohumlu simülasyonlar yeni alanla değişmesin). */
 export function rid(): string {
   const c: any = (globalThis as any).crypto;
@@ -153,4 +156,51 @@ export function valueOf(save: any | null): Sheet | null {
   const held = ih.cur && !ih.cur.done && Number.isFinite(ih.cur.held) ? Math.max(0, ih.cur.held) : 0; // ihale emaneti: oyuncunun parası
   const cash = Math.max(0, +save.cash || 0) + held;
   return { cash, rent, prop, debt, net: cash + rent + prop - debt, own: save.own.length, rate: rt };
+}
+
+/* ---------- bulut paketi uzlaştırması ----------
+   Paket, yüklendiği andaki bölge kayıtlarını değiştirir; pakette olmayan (başlanmamış sayılan) bölgelerin yerel kayıtları kalır.
+   Paketteki bölge R'nin anlık görüntüsünden (R.savedAt) SONRA R ile yerelde kalan bölge K arasında yapılmış havaleler iki
+   tarafta tutarsız kalır; havale ya hiç olmamış ya tamamlanmış sayılacak şekilde düzeltilir:
+     (a) R → K (paketteki R ödemeyi bilmiyor, K almış): K aldığını geri verir (kasadan düşer, hareket silinir).
+     (b) K → R (K ödemiş, paketteki R almamış): R'ye yeniden teslim edilir; K'de "teslim edildi" görünen havale yeniden yola çıkar.
+   Hareket kayıtları (son BANK_LOG) üzerinden çalışır. Dönen: değişen yerel (kept) ve paket (bundle) bölgeleri. */
+export function reconcileBundle(bundle: Partial<Record<RegionId, any>>, kept: Partial<Record<RegionId, any>>): { kept: RegionId[]; bundle: RegionId[] } {
+  const ch = { kept: [] as RegionId[], bundle: [] as RegionId[] };
+  const mark = (L: RegionId[], r: RegionId) => { if (!L.includes(r)) L.push(r); };
+  const arr = (x: any) => (Array.isArray(x) ? x : []);
+  for (const K of Object.keys(kept) as RegionId[]) {
+    const kv = kept[K]; if (!kv || !kv.city || !kv.bank || typeof kv.bank !== 'object') continue;
+    const kb = kv.bank;
+    for (const R of Object.keys(bundle) as RegionId[]) {
+      const rv = bundle[R]; if (R === K || !rv || !rv.city) continue;
+      if (!rv.bank || typeof rv.bank !== 'object') rv.bank = newBank();
+      const rb = rv.bank, T = +rv.savedAt || 0;
+      rb.in = arr(rb.in); rb.out = arr(rb.out); rb.log = arr(rb.log);
+      // (a) R → K: paketteki R'de yolda değil ve anlık görüntüden sonra yapılmış
+      const back = arr(kb.log).filter((l: any) => l && l.dir === 'in' && l.r === R && typeof l.id === 'string' && +l.at > T && +l.a > 0
+        && !rb.out.some((o: any) => o && o.id === l.id));
+      if (back.length) {
+        const sum = back.reduce((a: number, l: any) => a + (+l.a || 0), 0);
+        kv.cash = Math.max(0, (+kv.cash || 0) - sum);
+        kb.log = arr(kb.log).filter((l: any) => !back.includes(l));
+        mark(ch.kept, K);
+      }
+      // (b) K → R: K'de hâlâ "teslim edildi" görünen havale yeniden yola çıkar (açılışta paketteki R'ye teslim edilir)
+      for (const o of arr(kb.out)) if (o && o.to === R && o.s && +o.at > T && !rb.in.includes(o.id)) { delete o.s; delete o.ep; mark(ch.kept, K); }
+      //     onaylanıp K'den silinmiş olan: hareket kaydından R'ye doğrudan teslim
+      const due = new Map<string, { b: number; at: number }>();
+      for (const l of arr(kb.log)) {
+        if (!l || l.dir !== 'out' || l.r !== R || typeof l.id !== 'string' || !(+l.at > T) || !(+l.b > 0)) continue;
+        if (rb.in.includes(l.id) || arr(kb.out).some((o: any) => o && o.id === l.id)) continue;
+        const d = due.get(l.id) || { b: 0, at: +l.at }; d.b += +l.b; d.at = Math.min(d.at, +l.at); due.set(l.id, d); // birleşmiş emanet: aynı kimlik
+      }
+      for (const [id, d] of due) {
+        rv.cash = (+rv.cash || 0) + d.b; rb.in = trimIn([...rb.in, id]);
+        rb.log = [{ at: d.at, dir: 'in', r: K, a: d.b, b: 0, id }, ...rb.log].slice(0, BANK_LOG);
+        mark(ch.bundle, R);
+      }
+    }
+  }
+  return ch;
 }

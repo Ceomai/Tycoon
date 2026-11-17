@@ -5,7 +5,7 @@ import { POST2 } from '../postcards';
 import { CFG, N, TYPES, DMAP, CITIES, DistrictKey, DRULES, OBSTACLE_IDS, currency } from '../config';
 import { t, tk, nm, pctTxt, lowTxt } from '../i18n';
 import { S, lotsOf, Plot } from '../state';
-import { fmt, loc } from '../format';
+import { fmt, fmtCost, loc } from '../format';
 import { now, costM, unlockInfo, filled } from '../economy';
 import { Snd, buzz } from '../sound';
 import { $, ui } from '../ui/ctx';
@@ -108,7 +108,7 @@ export function showDistrictCard(k: DistrictKey, onDone?: () => void) {
     <div class="post"><div class="pimg">${postcard(d.city)}<span class="pst">TAPU<br>${new Date(now()).getFullYear()}</span></div>
       <b>${nm(d.n)}</b><small>${nm(c.n)} · ${t(c.tagline)}</small></div>
     ${r ? `<div class="prule"><span class="pr">${r.kind === 'type' || r.kind === 'row' ? '+' + pctTxt(Math.round(r.x * 100)) : r.kind === 'pair' ? '+' + pctTxt(Math.round((CFG.PAIR + r.x) * 100)) : pctTxt(Math.round(r.x * 100))}</span><span><small>${t('Semtin kuralı')}</small><b>${t(r.n)}: ${lowTxt(t(r.t))}</b></span></div>` : ''}
-    ${S.lien[k] ? `<p class="note">${t('Kapora ile alındı: {n} arsa açık. Kalan {debt} borç {d} kirasının yarısıyla kendiliğinden ödenir.', { n: CFG.KAPORA_LOTS, debt: fmt(S.lien[k]), d: nm(d.n) })}</p>` : ''}
+    ${S.lien[k] ? `<p class="note">${t('Kapora ile alındı: {n} arsa açık. Kalan {debt} borç {d} kirasının yarısıyla kendiliğinden ödenir.', { n: CFG.KAPORA_LOTS, debt: fmtCost(S.lien[k]), d: nm(d.n) })}</p>` : ''}
     <div class="btns"><button class="btn gold" data-a="ok" data-back>${t('Semte git')}</button></div></div>`, () => { closeModal(); onDone && onDone(); });
 }
 
@@ -135,10 +135,10 @@ export function progressInfo(k: DistrictKey) {
   let sub = '';
   if (nk) {
     const fee = unlockInfo(nk).fee, kap = Math.ceil(fee * CFG.KAPORA), dn = nm(DMAP[nk].n), full = f >= N && !lien;
-    if (!full) sub = S.cash >= kap ? t('Sonraki semt {d}: kapora hazır · burayı doldurunca açılır', { d: dn }) : t('Sonraki semt {d}: kaporaya {amt} kaldı', { d: dn, amt: fmt(kap - S.cash) });
+    if (!full) sub = S.cash >= kap ? t('Sonraki semt {d}: kapora hazır · burayı doldurunca açılır', { d: dn }) : t('Sonraki semt {d}: kaporaya {amt} kaldı', { d: dn, amt: fmtCost(kap - S.cash) });
     else if (S.cash >= fee) sub = t('{d} tapusu alınabilir', { d: dn });
-    else if (S.cash >= kap) sub = t('{d} kaporası verilebilir · tapuya {amt} kaldı', { d: dn, amt: fmt(fee - S.cash) });
-    else sub = t('{d} kaporasına {amt} kaldı', { d: dn, amt: fmt(kap - S.cash) });
+    else if (S.cash >= kap) sub = t('{d} kaporası verilebilir · tapuya {amt} kaldı', { d: dn, amt: fmtCost(fee - S.cash) });
+    else sub = t('{d} kaporasına {amt} kaldı', { d: dn, amt: fmtCost(kap - S.cash) });
   }
   return { f, pct, lien, sub, nk };
 }

@@ -216,12 +216,16 @@ const fillFn=(S,a)=>{ const T=['ev','kafe','dukkan','ofis']; S.d[a.k]=Array.from
  { const s=await S(p); ok(s.cash===0&&!s.d['ist-0'][0],'E3 parasız inşaat yapılamadı'); } await closeSheet(p);
  await tap(p,'#mapBtn'); for(const e of await p.$$('#sheet [data-a="buy"],#sheet [data-a="kapora"]')) await e.click({force:true}).catch(()=>{}); await p.clock.runFor(400);
  ok((await S(p)).own.length===1,'E3 parasız semt alınamadı'); await closeSheet(p); await sane(p,'E3'); await p.context().close();
- log('E4 aynı anda iki sekme (eşzamanlılık)');
+ log('E4 aynı anda iki sekme (tek sekme kilidi)');
  { const ctx=await b.newContext({viewport:{width:390,height:844}}); await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true}));`); const a=await ctx.newPage(); await a.goto(URL); await a.waitForTimeout(800);
    if(await a.isVisible('#modal .citycard')){ await a.click('#modal .cityopt[data-a="ist"]',{force:true}); await a.waitForTimeout(600); }
    const c=await ctx.newPage(); const errs=[]; c.on('pageerror',e=>errs.push(e.message)); a.on('pageerror',e=>errs.push(e.message));
-   await c.goto(URL); await c.waitForTimeout(1500); await a.waitForTimeout(500);
-   ok(errs.length===0,'E4 iki sekme açıkken hata yok'); metrics.twoTabs='son yazan kazanır (aynı cihaz, sekmeler arası kilit yok)'; await ctx.close(); }
+   await c.goto(URL); await c.waitForTimeout(2000); await a.waitForTimeout(500);
+   // oyun aynı anda tek sekmede (src/tabs.ts): ikinci sekme bekler, "Burada devam et" ilkini durdurur
+   ok(await c.isVisible('.tabwait')&&!(await a.isVisible('.tabwait')),'E4 ikinci sekme "Oyun başka bir sekmede açık" ekranında, ilk sekme oynuyor');
+   await c.click('.tabwait button'); await c.waitForTimeout(2500);
+   ok(await a.isVisible('.tabwait')&&!(await c.isVisible('.tabwait'))&&await c.isVisible('.lot'),'E4 "Burada devam et": ilk sekme durdu, ikinci sekme oyunu açtı');
+   ok(errs.length===0,'E4 iki sekme açıkken hata yok'); metrics.twoTabs='tek sekme kilidi (navigator.locks; yoksa localStorage kalp atışı)'; await ctx.close(); }
 
  /* ---------------- EKRAN BOYUTLARI × TEMA ---------------- */
  section='ui';

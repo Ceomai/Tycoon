@@ -1,7 +1,7 @@
 /* ARSA PANELİ (boş arsa, engel, inşaat, bina) ve CEPHE paneli (tasarım H6) */
 import { COLS, N, CFG, DRULES, MAXLV, ORDER, TYPES, LV_INC, DMAP, BuildingType } from '../../config';
 import { S, lotsOf, Plot } from '../../state';
-import { fmt, fmtTime, clock } from '../../format';
+import { fmt, fmtCost, fmtTime, clock } from '../../format';
 import { PAIRS, ruleMult, neighborBonus, pairAdj, spAdj, districtMult, withDisc, buildCost, buildTime, upCost, upTime, adj, rate, incM, permMult, fxMult } from '../../economy';
 import { bld, site, svg } from '../../draw';
 import { I } from '../../icons';
@@ -48,8 +48,8 @@ export const plot: Panel<PlotC> = {
     const { k, i, p } = c;
     if (!p) {
       if (lienBlocks(k)) return `<div class="sh-head"><div class="sh-t"><h3>${t('Kilitli arsa')}</h3><p>${nm(DMAP[k].n)} · ${t('kaporalı semt')}</p></div></div>
-          <p class="gdp">${t('Kapora ile alınan semtte {lots} arsa açık. Kalan {debt} borç {semt} kirasının yarısıyla kendiliğinden ödeniyor; bitince 20 arsanın hepsi açılır.', { lots: CFG.KAPORA_LOTS, debt: lv('ld' + k, () => fmt(S.lien[k] || 0)), semt: nm(DMAP[k].n) })}</p>
-          <div class="btns"><button class="btn" data-a="payoff" ${S.cash >= S.lien[k] ? '' : 'disabled'}>${t('Borcu şimdi kapat')} · ${lv('ld' + k, () => fmt(S.lien[k] || 0))}</button></div>`;
+          <p class="gdp">${t('Kapora ile alınan semtte {lots} arsa açık. Kalan {debt} borç {semt} kirasının yarısıyla kendiliğinden ödeniyor; bitince 20 arsanın hepsi açılır.', { lots: CFG.KAPORA_LOTS, debt: lv('ld' + k, () => fmtCost(S.lien[k] || 0)), semt: nm(DMAP[k].n) })}</p>
+          <div class="btns"><button class="btn" data-a="payoff" ${S.cash >= S.lien[k] ? '' : 'disabled'}>${t('Borcu şimdi kapat')} · ${lv('ld' + k, () => fmtCost(S.lien[k] || 0))}</button></div>`;
       const short = ORDER.some(b => S.seen[b] && S.cash < withDisc(buildCost(k, b)));
       const inv = S.inv.length ? `<p class="sec">${t('Depodaki özel yapılar')}</p><div class="cards spcards">${S.inv.map(id => `<button class="bcard bpbg k-ozel" data-a="place" data-id="${id}">${svg(specialSvg(id))}<span class="bn">${t(specialOf(id).n)}</span><span class="bm">${t('Komşularına +%{n}', { n: Math.round(CFG.SP_ADJ * 100) })}</span><span class="bp">${t('Yerleştir')}</span></button>`).join('')}</div><p class="sec">${t('Yeni bina')}</p>` : '';
       const tx = tenOf(k, i), want = tx && tx.st === 'wait' ? wishType(tx) : undefined;
@@ -58,14 +58,14 @@ export const plot: Panel<PlotC> = {
         if (!S.seen[b]) return `<div class="bcard locked bpbg k-${b}">${svg(bld(b, 1))}<span class="bn">${t(T.n)}</span><span class="bl">${t('{m} kazanınca', { m: fmt(T.unlock) })}</span><span class="lk">${I.lock}</span></div>`;
         const cst = withDisc(buildCost(k, b)), nb = neighborBonus(k, i, b);
         return `<button class="bcard bpbg k-${b}${want === b ? ' want' : ''}" data-a="build" data-t="${b}" ${S.cash >= cst ? '' : 'disabled'}>${want === b ? `<span class="wtag">${t('KİRACI İSTİYOR')}</span>` : ''}${svg(bld(b, 1))}
-            <span class="bn">${t(T.n)}</span><span class="bm">${t('{v}/sn', { v: fmt(T.inc * incM(k) * (1 + nb) * permMult() * districtMult(k), true) })} · ${fmtTime(buildTime(k, b))}</span><span class="bp">${fmt(cst)}</span>${nb ? `<span class="chain" title="${t('Komşu bonusu')}">+${pctTxt(Math.round(nb * 100))}</span>` : ''}</button>`;
+            <span class="bn">${t(T.n)}</span><span class="bm">${t('{v}/sn', { v: fmt(T.inc * incM(k) * (1 + nb) * permMult() * districtMult(k), true) })} · ${fmtTime(buildTime(k, b))}</span><span class="bp">${fmtCost(cst)}</span>${nb ? `<span class="chain" title="${t('Komşu bonusu')}">+${pctTxt(Math.round(nb * 100))}</span>` : ''}</button>`;
       }).join('')}</div>${short ? `<p class="note">${t('Kira toplamak için ortadaki TOPLA mührüne bas.')}</p>` : ''}`;
     }
     if (p.ob) {
       const ob = OBSTACLES[p.ob];
       return `<div class="sh-head"><div class="sh-art bpbg">${svg(obstacleSvg(p.ob))}</div><div class="sh-t"><h3>${t(ob.n)}</h3><p>${nm(DMAP[k].n)} · ${t('engelli arsa')}</p></div></div>
           <p class="gdp">${t(ob.d)} ${t('Temizlenmeden bina kurulamaz. Molozun arasından bazen eski eşyalar, nadiren tarihi bir kalıntı çıkar.')}</p>
-          <div class="btns"><button class="btn lotb" data-a="clear" ${S.cash >= c.cc ? '' : 'disabled'}><span class="lbl">${t('Temizle')} · ${fmt(c.cc)}</span><small>${t('anında · kasaya ufak bir sürpriz')}</small></button></div>`;
+          <div class="btns"><button class="btn lotb" data-a="clear" ${S.cash >= c.cc ? '' : 'disabled'}><span class="lbl">${t('Temizle')} · ${fmtCost(c.cc)}</span><small>${t('anında · kasaya ufak bir sürpriz')}</small></button></div>`;
     }
     if (p.until) {
       return `<div class="sh-head k-${p.t}"><div class="sh-art bpbg" data-art></div><div class="sh-t"><h3>${t(TYPES[p.t].n)}</h3><p data-pt></p></div></div>
@@ -96,7 +96,7 @@ export const plot: Panel<PlotC> = {
             ${S.boostUntil > tn ? `<div><span>${t('Tüm mülklere 2x')}</span><i></i><b class="red">${t('{s} kaldı', { s: fmtTime(S.boostUntil - tn) })}</b></div>` : ''}
             ${canUp ? `<div><span>${t('Sv {l} olunca', { l: p.lvl + 1 })}</span><i></i><b>${t('{v}/sn', { v: fmt(next, true) })}</b></div>` : ''}
           </div>${sp ? '' : pjOffer(k, i)}${sp ? '' : nbDiagram(k, i)}${canUp ? discBox() : ''}
-          <div class="btns">${canUp ? `<button class="btn" data-a="up" ${afford ? '' : 'disabled'}>${t('Kat çık')} · ${fmt(uc)} <small>${fmtTime(upTime(k, p))}</small></button>` : sp ? '' : `<button class="btn" disabled>${t('Son seviye')}</button>`}
+          <div class="btns">${canUp ? `<button class="btn" data-a="up" ${afford ? '' : 'disabled'}>${t('Kat çık')} · ${fmtCost(uc)} <small>${fmtTime(upTime(k, p))}</small></button>` : sp ? '' : `<button class="btn" disabled>${t('Son seviye')}</button>`}
           <button class="btn gold lotb" data-a="lotboost" ${lbLeft > CFG.LOT_BOOST_MAX - CFG.LOT_BOOST / 2 ? 'disabled' : ''}><span class="lbl">${I.play} ${t('İzle · bu mülke 2x')}</span><small>${t('+1 saat')}${lbLeft ? ' · ' + t('en fazla 4 saat') : ''}</small></button>
           ${S.tokens > 0 ? `<button class="btn soft" data-a="token" ${lbLeft > CFG.LOT_BOOST_MAX - CFG.LOT_BOOST / 2 ? 'disabled' : ''}>${t('2x jetonu kullan · {n} jeton', { n: S.tokens })}</button>` : ''}
           ${IH().kp > 0 && koseOf(k) < 0 ? `<button class="btn soft" data-a="kose">${t('Köşe başı damgası vur · kira +{p}', { p: pctTxt(Math.round(CFG.IH_KOSE_X * 100)) })}</button>` : ''}
@@ -186,7 +186,7 @@ function pjOffer(k: string, i: number) {
   if (b.length) {
     const kind = kindOf(typesAt(k, b[0]));
     return `<div class="pjoffer"><span class="pjo-ic bpbg">${psvg(projSvg(kind, styleOf(k), 1))}</span><span class="pjo-t"><b>${t('Büyük proje')}</b><small>${b.length > 1 ? t('{n} blok uygun', { n: b.length }) + ' · ' : pjName(k, kind) + ' · '}${t('Bu bina ve yanındaki üç bina tek projeye dönüşebilir · kira +{p}', { p: pctTxt(Math.round(CFG.PJ_X1 * 100)) })}</small></span>
-      <button class="btn soft pjo-b" data-a="pj">${t('Projeye dönüştür')}${b.length === 1 ? ` <small>${fmt(pjCost(k, b[0]))}</small>` : ''}</button></div>`;
+      <button class="btn soft pjo-b" data-a="pj">${t('Projeye dönüştür')}${b.length === 1 ? ` <small>${fmtCost(pjCost(k, b[0]))}</small>` : ''}</button></div>`;
   }
   if (why === 'lien') { if (p.lvl >= pjMinLv()) pjLienWarn(k); return p.lvl >= 4 ? `<p class="note pjnote">${t('Büyük proje: borç bitmeden ruhsat çıkmaz')}</p>` : ''; }
   if (why === 'max') return `<p class="note pjnote">${t('Büyük proje: bu semtte ruhsat dolu ({n}/{n})', { n: pjMax() })}</p>`;

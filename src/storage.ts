@@ -59,7 +59,9 @@ export function checksum(str: string): string {
   for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
   return (h >>> 0).toString(36);
 }
-const wrap = (json: string) => JSON.stringify({ c: checksum(json), j: json });
+/** Bu sayfa oturumunun kimliği: her kayıt yazan oturumu taşır (w). Web'de başka sekmenin kayda yazdığı buradan anlaşılır (tabs.ts). */
+export const SESSION_ID = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+const wrap = (json: string) => JSON.stringify({ c: checksum(json), j: json, w: SESSION_ID });
 function unwrap(raw: string | null): unknown | null {
   if (!raw) return null;
   try {
@@ -69,8 +71,6 @@ function unwrap(raw: string | null): unknown | null {
   } catch (e) { Analytics.error(e, 'save_parse'); return null; } // bozuk kayıt: yedeğe düşülür
 }
 
-/** Ham kayıt metnini (sağlamalı biçim) açar; bozuksa null (çok sekme: storage olayındaki yeni değer). */
-export const parseSave = (raw: string | null) => unwrap(raw);
 /** Ana kaydı, bozuksa yedeği, o da yoksa eski (v1) kaydı döner. */
 export async function loadRaw(): Promise<unknown | null> {
   const main = unwrap(await getRaw(keyNow()));
@@ -82,44 +82,61 @@ export async function loadRaw(): Promise<unknown | null> {
 }
 
 let lastGood = '', lastGoodKey = '';
-let locked = false;
-interface Job { json: string; key: string; bkey: string }
+let locked = false, halted = false;
+interface Job { json: string; key: string; bkey: string; done: ((ok: boolean) => void)[] }
 let running: Promise<void> | null = null, pending: Job | null = null;
+const drop = (j: Job | null) => { if (j) for (const f of j.done) f(false); };
 /** Bulut kaydı yüklenip sayfa yenilenirken / bölge değişirken eski durumun üstüne yazılmasını engeller. */
-export function lockSaves() { locked = true; pending = null; }
+export function lockSaves() { locked = true; drop(pending); pending = null; }
 export function unlockSaves() { locked = false; }
+/** Bu sekme artık yazmaz (oyun başka sekmede devam ediyor ya da kayda başka sekme yazdı): unlockSaves açmaz, sayfa yenilenince biter. */
+export function haltSaves() { halted = true; lockSaves(); }
+export const savesHalted = () => halted;
+/** Banka işleri (game/bank.ts) gibi kayıt yazan arka plan işlerinin bitmesini bekleyen bariyer: wipeAllSaves ve bulut kaydı
+ *  yükleme önce kilitler, sonra bunu bekler (kuyruktaki iş kilit yüzünden yazamaz, süren iş biter). */
+let barrier: () => Promise<void> = async () => {};
+export function onSaveBarrier(f: () => Promise<void>) { barrier = f; }
+export const saveBarrier = () => barrier();
 /** Hedef anahtar çağrı anında yakalanır (yazma sürerken bölge değişse de kayıt doğru yere gider). */
-const job = (state: object): Job => ({ json: JSON.stringify(state), key: keyNow(), bkey: backupNow() });
-async function doWrite(j: Job) {
+const job = (state: object): Job => ({ json: JSON.stringify(state), key: keyNow(), bkey: backupNow(), done: [] });
+async function doWrite(j: Job): Promise<boolean> {
   if (lastGood && lastGoodKey === j.key) await setRaw(j.bkey, lastGood); // önce bir önceki sağlam kayıt yedeğe
   const w = wrap(j.json);
-  if (await setRaw(j.key, w)) { lastGood = w; lastGoodKey = j.key; } else failed();
+  if (await setRaw(j.key, w)) { lastGood = w; lastGoodKey = j.key; return true; }
+  failed(); return false;
 }
-/** Kayıt sırayla yazılır; yazma sürerken gelen istekten yalnızca sonuncusu bekletilir.
- *  Dönen söz, bu çağrının durumu diske yazılınca (ya da kilit yüzünden atlanınca) tamamlanır. */
-export function writeSave(state: object): Promise<void> {
-  if (locked) return Promise.resolve();
+/** Kayıt sırayla yazılır; yazma sürerken gelen istekten yalnızca sonuncusu bekletilir (öncekiler onun sonucunu paylaşır).
+ *  Dönen söz, bu çağrının durumu diske yazılınca true; kilit yüzünden atlanınca ya da depolama yazamayınca false. */
+export function writeSave(state: object): Promise<boolean> {
+  if (locked || halted) return Promise.resolve(false);
   const j = job(state);
-  if (running) { pending = j; return running; }
+  const p = new Promise<boolean>(res => j.done.push(res));
+  if (running) { if (pending) j.done.unshift(...pending.done); pending = j; return p; }
   running = (async () => {
-    try { let n: Job | null = j; while (n) { await doWrite(n); n = locked ? null : pending; pending = null; } }
-    finally { running = null; }
+    try {
+      let n: Job | null = j;
+      while (n) {
+        let ok = false; try { ok = await doWrite(n); } finally { for (const f of n.done) f(ok); }
+        n = locked || halted ? null : pending; if (locked || halted) drop(pending); pending = null;
+      }
+    } finally { running = null; }
   })();
-  return running;
+  return p;
 }
 /** Süren ve bekleyen yazmalar bitene kadar bekler. */
 export async function flushSaves() { while (running) await running; }
 /** Kilidi aşar: bekleyen kuyruğu atar, süren yazmanın bitmesini bekler ve bu durumu doğrudan yazar (bulut kaydı yükleme).
  *  Yalnızca lockSaves() sonrasında çağrılmalı: kuyruk zincirine bağlanmaz, kilitsiz bir çağrıda normal writeSave ile iç içe geçebilir. */
-export async function writeSaveForce(state: object): Promise<void> {
-  pending = null;
+export async function writeSaveForce(state: object): Promise<boolean> {
+  if (halted) return false;
+  drop(pending); pending = null;
   const j = job(state);
   await flushSaves();
-  await doWrite(j);
+  return doWrite(j);
 }
 /** Senkron yedek yol: sayfa kapanırken (web) son durumu kaybetmemek için. */
 export function writeSaveSync(state: object) {
-  if (locked) return;
+  if (locked || halted) return;
   if (native()) { void writeSave(state); return; }
   dropCache(keyNow());
   try { localStorage.setItem(keyNow(), wrap(JSON.stringify(state))); } catch (e) { Analytics.error(e, 'storage_set_sync'); failed(); }
@@ -128,7 +145,7 @@ export async function clearSave() { await removeRaw(keyNow()); await removeRaw(b
 /** Hesap silme: bu cihazdaki tüm bölgelerin kayıtları, yedekleri ve eski (v1) kayıt silinir. Kayıtlar kilitli kalır
  *  (yeni oyun akışı bölge seçilince kilidi açar), böylece eski durum yeniden yazılmaz. */
 export async function wipeAllSaves() {
-  lockSaves(); await flushSaves();
+  lockSaves(); await saveBarrier(); await flushSaves();
   for (const r of REGION_ORDER) { await removeRaw(saveKeyOf(r)); await removeRaw(saveKeyOf(r) + ':backup'); }
   await removeRaw(LEGACY_SAVE_KEY);
   try { if (typeof localStorage !== 'undefined') localStorage.removeItem(LEGACY_SAVE_KEY); } catch (e) { Analytics.error(e, 'storage_remove'); }
@@ -147,9 +164,12 @@ export async function cachedRegionSave(r: RegionId): Promise<any | null> {
   cacheValid(); const key = saveKeyOf(r);
   return regionCache.has(key) ? regionCache.get(key) : readRegionSave(r);
 }
-export async function writeRegionSave(r: RegionId, state: object) {
+/** Bölge kaydını yazar (banka teslimi, bulut paketi). Kilitliyken yazmaz (force: kilidi koyan bulut yüklemesi). Yazıldıysa true. */
+export async function writeRegionSave(r: RegionId, state: object, force = false): Promise<boolean> {
+  if (halted || (locked && !force)) return false;
   const key = saveKeyOf(r), json = JSON.stringify(state);
-  if (await setRaw(key, wrap(json))) { cacheValid(); regionCache.set(key, JSON.parse(json)); }
+  if (await setRaw(key, wrap(json))) { cacheValid(); regionCache.set(key, JSON.parse(json)); return true; }
+  return false;
 }
 /** Ayarlar ekranı için: her bölgede kaç semt var (kayıt yoksa bölge listede "başlanmadı"). */
 export const REGION_INFO: Partial<Record<RegionId, { own: number }>> = {};

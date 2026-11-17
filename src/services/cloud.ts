@@ -15,7 +15,8 @@ import { Time } from '../time';
 import { I } from '../icons';
 import { fmt } from '../format';
 import { openModal, closeModal, toast } from '../ui/modal';
-import { writeSaveForce, lockSaves, unlockSaves, cachedRegionSave, writeRegionSave } from '../storage';
+import { writeSaveForce, lockSaves, unlockSaves, cachedRegionSave, readRegionSave, writeRegionSave, saveBarrier, savesHalted } from '../storage';
+import { reconcileBundle } from '../game/bankcore';
 import { REGION, REGION_ORDER, RegionId } from '../config';
 import { Snd } from '../sound';
 import { Analytics } from './analytics';
@@ -100,7 +101,7 @@ export const Cloud = {
   },
 
   async pushSave() {
-    if (!be || !isReady || !S.city || S.savedAt === lastPushed) return; // değişmemiş kayıt tekrar yazılmaz
+    if (!be || !isReady || !S.city || S.savedAt === lastPushed || savesHalted()) return; // değişmemiş kayıt tekrar yazılmaz; oyun başka sekmeye geçtiyse bu sekme göndermez
     const at = S.savedAt;
     try { const b = await bundle(); await be.pushSave(b.json, at || now(), Math.floor(b.earned)); lastPushed = at; } catch (e) { Analytics.error(e, 'cloud_save'); }
   },
@@ -166,18 +167,28 @@ async function bundle(): Promise<{ json: string; earned: number }> {
   }
   return { json: JSON.stringify({ b: 1, saves }), earned };
 }
-/** Bulut kaydını yükler: önce kayıtlar kilitlenir (oyunun periyodik yazmaları yüklenen kaydı ezmesin),
- *  yüklenen kayıt kilidi aşarak doğrudan yazılır, yazma bitince sayfa yenilenir. */
-async function adopt(json: string) {
+/** Bulut kaydını yazar (sayfa yenilemeden): önce kayıtlar kilitlenir (oyunun periyodik yazmaları ve banka işleri yüklenen kaydı
+ *  ezmesin), süren banka işi beklenir, pakette olmayan bölgelerle havaleler uzlaştırılır (bankcore reconcileBundle), yüklenen
+ *  kayıtlar kilidi aşarak doğrudan yazılır. Kayıtlar kilitli kalır (ardından sayfa yenilenir). Başarılıysa true. */
+export async function adoptBundle(json: string): Promise<boolean> {
   let obj: any;
-  try { obj = JSON.parse(json); } catch (e) { Analytics.error(e, 'cloud_adopt'); toast(t('Bulut kaydı açılamadı')); return; }
+  try { obj = JSON.parse(json); } catch (e) { Analytics.error(e, 'cloud_adopt'); toast(t('Bulut kaydı açılamadı')); return false; }
   lockSaves();
   try {
-    if (obj && obj.b === 1 && obj.saves) {   // çok bölgeli paket
-      for (const r of REGION_ORDER) if (obj.saves[r] && r !== REGION) await writeRegionSave(r as RegionId, obj.saves[r]);
-      if (obj.saves[REGION]) await writeSaveForce(obj.saves[REGION]);
-    } else if (REGION === 'tr') await writeSaveForce(obj); // eski tek kayıt biçimi = Türkiye
-    else await writeRegionSave('tr', obj);
-  } catch (e) { unlockSaves(); Analytics.error(e, 'cloud_adopt'); toast(t('Bulut kaydı açılamadı')); return; }
-  location.reload();
+    await saveBarrier();
+    const src: any = obj && obj.b === 1 && obj.saves ? obj.saves : { tr: obj }; // eski tek kayıt biçimi = Türkiye
+    const bundle: Partial<Record<RegionId, any>> = {}, kept: Partial<Record<RegionId, any>> = {};
+    for (const r of REGION_ORDER) {
+      if (src[r] && typeof src[r] === 'object') { bundle[r] = src[r]; continue; }
+      const v: any = r === REGION ? (S.city ? JSON.parse(JSON.stringify(S)) : null) : await readRegionSave(r);
+      if (v && v.city) kept[r] = v;
+    }
+    const ch = reconcileBundle(bundle, kept);
+    for (const r of REGION_ORDER) {
+      const v = bundle[r] || (ch.kept.includes(r) ? kept[r] : null); if (!v) continue;
+      if (r === REGION) await writeSaveForce(v); else await writeRegionSave(r, v, true);
+    }
+  } catch (e) { unlockSaves(); Analytics.error(e, 'cloud_adopt'); toast(t('Bulut kaydı açılamadı')); return false; }
+  return true;
 }
+async function adopt(json: string) { if (await adoptBundle(json)) location.reload(); }

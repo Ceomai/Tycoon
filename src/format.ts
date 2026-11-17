@@ -1,32 +1,44 @@
 /* sayı, süre ve tarih biçimleri (Türkçe kısaltmalar) */
 import { REGION, REGIONS, RegionId, dispScale } from './config';
 import { units, LANG, t, loc as locI } from './i18n';
-const one = (x: number, dec: string) => (Math.floor(x * 10) / 10).toFixed(1).replace('.', dec).replace(new RegExp('\\' + dec + '0$'), '');
+const one = (x: number, dec: string, up = false) => ((up ? ceil(x * 10) : Math.floor(x * 10)) / 10).toFixed(1).replace('.', dec).replace(new RegExp('\\' + dec + '0$'), '');
+/** Yukarı yuvarlama (kayan nokta artığı bir üst basamağa taşımasın). */
+const ceil = (x: number) => Math.ceil(x * (1 - 1e-12) - 1e-9);
 
 /** Ekrandaki tutarı (ölçeklenmiş) simgeyle biçimler: dilin kısa birimleri (₺1,5Mn · $1.5M · €1,5Mio · ¥150万).
  *  cents: küçük birimli paralar ($, €, £): 100'ün altı kuruşlu ($3.49), 1'in altı en az iki anlamlı haneyle ($0.012).
- *  Kuruşsuz paralarda (₺, ¥) eski davranış: tamsayı, dec ise 100'ün altı tek ondalık. */
-export function money(v: number, c: string, cents = false, dec = false, fuzz = false): string {
-  const U = units(), k = fuzz ? 1 + 1e-9 : 1; // fuzz: ölçekli tutarda kayan nokta payı ($59.999… → $60.00)
+ *  Kuruşsuz paralarda (₺, ¥) eski davranış: tamsayı, dec ise 100'ün altı tek ondalık.
+ *  up: bedel/fiyat gösterimi — yukarı yuvarlanır, ekrandaki fiyat gerçek tutarın altında görünmez (kasa/kazanç aşağı). */
+export function money(v: number, c: string, cents = false, dec = false, fuzz = false, up = false): string {
+  const U = units(), k = fuzz && !up ? 1 + 1e-9 : 1; // fuzz: ölçekli tutarda kayan nokta payı ($59.999… → $60.00)
+  const R = (x: number) => (up ? ceil(x) : Math.floor(x * k));
   v = Math.max(0, v || 0);
   if (!Number.isFinite(v)) return c + '∞';
   if (cents && v < 100) {
     if (!v) return c + '0';
     const d = v >= 1 ? 2 : Math.min(6, Math.max(2, 1 - Math.floor(Math.log10(v)))), p = Math.pow(10, d);
-    return c + (Math.floor(v * p * k) / p).toFixed(d).replace('.', U.dec);
+    return c + (R(v * p) / p).toFixed(d).replace('.', U.dec);
   }
-  if (v < U.base) return c + (dec && v < 100 ? one(v * k, U.dec) : Math.floor(v * k));
   let i = -1;
   while (v >= U.base && i < U.u.length - 1) { v /= U.base; i++; }
   if (v >= U.base) return c + v.toExponential(1).replace('.', U.dec).replace('e+', 'e') + U.u[i];
-  return c + (v < 100 ? one(v * k, U.dec) : Math.floor(v * k)) + U.u[i];
+  const small = i < 0 ? dec && v < 100 : v < 100;
+  if (up && !small && R(v) >= U.base && i < U.u.length - 1) return c + '1' + U.u[i + 1]; // 999,6Mn → 1Mr (taşma)
+  return c + (small ? one(v * k, U.dec, up) : R(v)) + (i < 0 ? '' : U.u[i]);
+}
+/** İşaretli tutar (bilanço neti): eksi değer "−" ile; yuvarlanınca sıfır görünen artık işaretsiz. */
+export function moneySigned(v: number, c: string, cents = false, dec = false, fuzz = false): string {
+  const a = money(Math.abs(v || 0), c, cents, dec, fuzz);
+  return v < 0 && a !== money(0, c, cents, dec, fuzz) ? '−' + a : a;
 }
 /** Kuruşlu gösterim: ölçeği küçük paralar (1 birim iç birimden en az iki kat değerli). */
 export const centsOf = (r: RegionId) => dispScale(r) < 0.5;
 /** Para (iç birim): bölgenin simgesi ve gösterim ölçeğiyle. dec: kira/sn gibi küçük değerlerde ondalık. */
 export function fmt(n: number, dec = false): string { return fmtIn(n, REGION, dec); }
 /** Para (iç birim) başka bir bölgenin parasıyla (banka, bilanço). */
-export function fmtIn(n: number, r: RegionId, dec = false): string { const sc = dispScale(r); return money(n * sc, REGIONS[r].cur, sc < 0.5, dec, sc !== 1); }
+export function fmtIn(n: number, r: RegionId, dec = false, up = false): string { const sc = dispScale(r); return money(n * sc, REGIONS[r].cur, sc < 0.5, dec, sc !== 1, up); }
+/** Bedel / fiyat (iç birim): yukarı yuvarlanır — ekrandaki fiyat ödenecek tutarın altında görünmez. */
+export function fmtCost(n: number): string { return fmtIn(n, REGION, false, true); }
 /** Ondalık sayı (kur): dilin ayırıcısıyla, d hane. */
 export const fmtNum = (x: number, d = 2) => (Number.isFinite(x) ? x : 0).toFixed(d).replace('.', units().dec);
 export function fmtTime(ms: number): string {

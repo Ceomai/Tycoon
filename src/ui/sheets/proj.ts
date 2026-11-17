@@ -2,7 +2,7 @@
    2. etap (kat ekle) ve "Projeyi ayır" (iki dokunuşla). Proje inşaatında reklamla hızlandırma ve 2x yok. */
 import { CFG, DMAP } from '../../config';
 import { S, Pj } from '../../state';
-import { fmt, fmtTime, clock, esc } from '../../format';
+import { fmt, fmtCost, fmtTime, clock, esc } from '../../format';
 import { pjOf, pjCells, pjX, rate, tenantMult } from '../../economy';
 import { projSvg, projSite, psvg } from '../../projdraw';
 import { pjName, styleOf, pjCost, pjTime, upgradeProject, splitProject, KIND_N, pjMinLv } from '../../game/project';
@@ -50,7 +50,7 @@ export const proj: Panel<{ q: Pj | null }> = {
         <div><span>${t('Komşuluk ve semt kuralı')}</span><i></i><b>${t('aynen sayılır')}</b></div>
         ${can2 ? `<div><span>${t('2. etap olunca')}</span><i></i><b>${t('{v}/sn', { v: fmt(after2, true) })} · +${pctTxt(Math.round(CFG.PJ_X2 * 100))}</b></div>` : ''}
       </div>
-      <div class="btns">${can2 ? `<button class="btn" data-a="pj2" ${S.cash >= c2 ? '' : 'disabled'}>${t('2. etap · kat ekle')} · ${fmt(c2)} <small>${fmtTime(pjTime(k, q.a, 2))}</small></button>` : `<button class="btn" disabled>${t('Son etap')}</button>`}</div>`;
+      <div class="btns">${can2 ? `<button class="btn" data-a="pj2" ${S.cash >= c2 ? '' : 'disabled'}>${t('2. etap · kat ekle')} · ${fmtCost(c2)} <small>${fmtTime(pjTime(k, q.a, 2))}</small></button>` : `<button class="btn" disabled>${t('Son etap')}</button>`}</div>`;
   },
   live(s, tn) {
     const q = pjOf(s.key!, s.i!); if (!q || !q.until) return;
