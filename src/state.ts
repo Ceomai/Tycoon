@@ -1,6 +1,7 @@
 import { BuildingType, CityId, DistrictKey, N, COLS, ROWS, SCHEMA, dkey, CFG, DMAP, TYPES, MAXLV, CITY_ORDER, OBSTACLE_IDS, REGION, CITIES } from './config';
 import { IHALE_IDS, migrateColl } from './landmarks';
 import type { Tenant } from './game/tenants';
+import { CHAR, charFor, liveOf, maxLive } from './game/tenantChars';
 
 export interface Skin { c?: number; r?: number; s?: boolean; }
 export interface Plot { t: BuildingType; lvl: number; buf: number; until: number; dur: number; up: boolean; bu?: number; sp?: string; ob?: string; sk?: Skin; } // bu: bu mülke 2x bitişi · sp: özel yapı · ob: engel (gecekondu, hurda…)
@@ -75,6 +76,7 @@ export interface State {
   adCredit: number;                // bu oyun süresine (playMs) kadar geçiş reklamı yok
   ten: Tenant[];                   // kiracılar (game/tenants.ts): bekleyen adaylar, anahtar bekleyenler ve yerleşenler
   tdef: Record<string, { met: number; ok: number }>; // kiracı defteri: tip → tanışılan / yerleşen (yalnızca görünüm)
+  tdc: Record<string, { met: number; ok: number }>;  // kiracı defteri: karakter ("izm.emekli") → tanışılan / yerleşen (pul, şehir rozeti, ülke cephe rengi, kartpostal; yalnızca görünüm)
   nextTen: number;                 // sonraki kiracı adayı (oyun süresi, ms; 0 = henüz açılmadı)
   pj: Record<DistrictKey, Pj[]>;   // büyük projeler (arsa birleştirme), semt başına en fazla CFG.PJ_MAX
   pjIntro: boolean;                // Rıfkı projeleri bir kez tanıttı mı
@@ -103,7 +105,7 @@ export function newState(now: number, weekKey: string, city: CityId | null = nul
     offer: null, premium: false, clockFlag: 0, league: { tier: 0, seals: 0, last: '' }, guideHint: false, collectMode: 'tap', stars: {}, inv: [], ozel: { week: '', bought: false }, rifki: true, lien: {}, lienT: {}, dEarn: {}, cards: [],
     market: '', ach: [], cnt: { ob: 0, civic: 0, skin: 0, kapora: 0 }, civic: {}, nextCivic: 12 * 60e3, night: true, vib: true, tokens: 0, skinsU: [], season: { id: '', xp: 0, got: [], ggot: [], gold: false },
     noAds: false, club: false, starter: { at: 0, bought: false }, seasonFirst: false, adCredit: 0, clubDay: '',
-    ten: [], tdef: {}, nextTen: 0, pj: {}, pjIntro: false,
+    ten: [], tdef: {}, tdc: {}, nextTen: 0, pj: {}, pjIntro: false,
     ihale: { cur: null, rm: {}, got: [], kose: [], kp: 0, intro: false, wins: 0, losses: 0 },
   };
 }
@@ -157,7 +159,9 @@ const cleanLots = (x: unknown): Lot[] => { const a = Array.isArray(x) ? x.slice(
 export const TEN_ARCHS = ['ogrenci', 'aile', 'sanatci', 'yazilimci', 'emekli', 'esnaf'];
 const TEN_WISH = ['nb', 'quiet', 'lvl', 'new'], TEN_ST = ['wait', 'ready', 'live'], TEN_MAX_N = 24;
 const int = (x: unknown, min: number, max: number) => typeof x === 'number' && Number.isInteger(x) && x >= min && x <= max;
-/** Kiracı listesi: bozuk / bilinmeyen kayıtlar düşer; süreler oyun süresine göre makul aralığa çekilir (elle uzatılamaz). */
+/** Kiracı listesi: bozuk / bilinmeyen kayıtlar düşer; süreler oyun süresine göre makul aralığa çekilir (elle uzatılamaz).
+ *  Karakter (c): bilinen kimlik, semtin şehri ve tipi tutuyorsa korunur, değilse silinir (eski kayıtta yok: karakter semtten türetilir).
+ *  Sözleşme tavanı karakterin kişiliğine göre (Köklü 86 dk; karakter bulunamazsa en uzun kişilik). */
 function cleanTenants(x: unknown, own: DistrictKey[], playMs: number): Tenant[] {
   if (!Array.isArray(x)) return [];
   const out: Tenant[] = [], seen = new Set<string>(), fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -169,12 +173,21 @@ function cleanTenants(x: unknown, own: DistrictKey[], playMs: number): Tenant[] 
     if (wt === null || ((w.k === 'nb' || w.k === 'new') && !wt) || (w.k === 'lvl' && !int(w.n, 1, MAXLV))) continue;
     const key = q.k + ':' + q.i; if (seen.has(key)) continue; seen.add(key);
     const wish: Tenant['w'] = { k: w.k }; if (wt) wish.t = wt; if (w.k === 'lvl') wish.n = w.n; if (w.k === 'new' && w.sea === true) wish.sea = true;
+    const c0 = typeof q.c === 'string' ? CHAR[q.c] : undefined, d = DMAP[q.k as DistrictKey];
+    const ch = c0 && d && c0.city === d.city && c0.a === q.a ? c0 : null, ch2 = ch || charFor(q.k, q.a), live = ch2 ? liveOf(ch2) : maxLive();
     const t: Tenant = { id: q.id, a: q.a, k: q.k, i: q.i, w: wish, st: q.st,
-      dl: Math.min(q.dl, playMs + Math.max(CFG.TEN_WAIT, CFG.TEN_READY)), end: q.st === 'live' ? Math.min(q.end, playMs + CFG.TEN_LIVE) : 0 };
+      dl: Math.min(q.dl, playMs + Math.max(CFG.TEN_WAIT, CFG.TEN_READY)), end: q.st === 'live' ? Math.min(q.end, playMs + live) : 0 };
     if (q.noted === true) t.noted = true;
+    if (ch) t.c = ch.id;
     out.push(t);
   }
   return out;
+}
+/** Karakter defteri: yalnız bilinen karakter kimlikleri, sayılar 0–1e6 tam sayı. */
+function cleanTdc(x: unknown): Record<string, { met: number; ok: number }> {
+  const o: Record<string, { met: number; ok: number }> = {};
+  if (isObj(x)) for (const id of Object.keys(x)) { const r = x[id]; if (CHAR[id] && isObj(r)) o[id] = { met: Math.floor(num(r.met, 0, 0, 1e6)), ok: Math.floor(num(r.ok, 0, 0, 1e6)) }; }
+  return o;
 }
 function cleanTdef(x: unknown): Record<string, { met: number; ok: number }> {
   const o: Record<string, { met: number; ok: number }> = {};
@@ -270,7 +283,7 @@ function sanitize(s: any, now: number, weekKey: string): State {
   out.offer = isObj(o) && typeof o.k === 'string' && fin(o.until) && fin(o.goal) && o.goal > 0 && fin(o.prog) && typeof o.title === 'string' && fin(o.rw) && o.rw >= 0
     ? { k: o.k, goal: o.goal, prog: Math.max(0, o.prog), until: o.until, title: o.title, rw: o.rw, done: o.done === true } : null;
   out.pj = cleanPj(s.pj, out.own, out.d, now); out.pjIntro = s.pjIntro === true;
-  out.ten = cleanTenants(s.ten, out.own, out.playMs); out.tdef = cleanTdef(s.tdef); out.nextTen = num(s.nextTen, 0, 0);
+  out.ten = cleanTenants(s.ten, out.own, out.playMs); out.tdef = cleanTdef(s.tdef); out.tdc = cleanTdc(s.tdc); out.nextTen = num(s.nextTen, 0, 0);
   out.ihale = cleanIhale(s.ihale, out.own, out);
   if (!out.ref.code || typeof out.ref.code !== 'string') out.ref = base.ref;
   if (out.collectMode !== 'auto') out.collectMode = 'tap';

@@ -18,6 +18,7 @@ import { setLang } from '../../src/i18n';
 import { baseRate, rate, tenantMult, withoutTenants, totalRate } from '../../src/economy';
 import { sane, applyValues } from '../../src/services/remote';
 import { addCash } from '../../src/game/actions';
+import { CHAR, liveOf } from '../../src/game/tenantChars';
 import {
   tenantTick, spawnTenant, handKey, tenants, tenantAt, candidates, satisfied, inProgress, tenantsOpen, tenantHooks, tenantReset,
   ARCHS, NAMES, COUNTRIES, tName, countryOf, seaLabel, excludeTenantLots, wishTargets, targetLot, stampsOf, quote, wishShort, tenantSay, Tenant,
@@ -168,7 +169,7 @@ describe('kayıt: sanitize ve bulut paketi', () => {
     }), T, WK)!;
     expect(s.ten.map(x => x.i)).toEqual([3, 8, 9]);
     expect(s.ten[0]).toEqual(ok);
-    expect(s.ten[1].end).toBe(10e3 + CFG.TEN_LIVE); expect(s.ten[1].dl).toBeLessThanOrEqual(10e3 + CFG.TEN_WAIT);
+    expect(s.ten[1].end).toBe(10e3 + liveOf(CHAR['ist.aile'])); // karakteri semtten (Yılmaz ailesi, Sadık: 75 dk) expect(s.ten[1].dl).toBeLessThanOrEqual(10e3 + CFG.TEN_WAIT);
     expect(s.ten[2].w).toEqual({ k: 'new', t: 'ev', sea: true });
     expect(s.tdef).toEqual({ aile: { met: 4, ok: 0 }, ogrenci: { met: 2, ok: 1 } });
     expect(s.nextTen).toBe(0);
@@ -193,7 +194,7 @@ describe('adlar, metinler, CFG', () => {
     for (const r of ['us', 'uk', 'de', 'jp'] as const) for (const city of REGIONS[r].cities) expect(countryOf(city + '-0')).toBe(r);
   });
   it('dile göre: meslek çevrilir, aile adı kalıbı dile uyar, Japoncada adlar yerel yazımla', () => {
-    setLang('de'); expect(tName('aile', 'muc-0')).toEqual(['Familie Schneider', 'Familie mit zwei Kindern']);
+    setLang('de'); expect(tName('aile', 'muc-0')).toEqual(['Familie Schneider', 'Bergsteigerfamilie']);
     setLang('en'); expect(tName('emekli', 'lon-0')).toEqual(['Mrs Hughes', 'retired librarian']);
     setLang('ja'); expect(tName('ogrenci', 'tyo-0')[0]).toBe('結衣'); expect(tName('aile', 'ist-0')[0]).toBe('ユルマズ一家');
   });
@@ -204,7 +205,7 @@ describe('adlar, metinler, CFG', () => {
     expect(quote(x)).toMatch(/^Sahil sırası!/); expect(wishShort(x)).toBe('Sahil sırası: yeni ev');
   });
   it('TEN_* sabitleri CFG\'de ve Remote Config sınır denetiminden geçer; MIN/MAX çifti ters düşerse varsayılan', () => {
-    const keys = Object.keys(DEF).filter(k => k.startsWith('TEN_'));
+    const keys = Object.keys(DEF).filter(k => k.startsWith('TEN_') && typeof (DEF as any)[k] === 'number'); // TEN_TRAITS: JSON (kiraci-karakter.test.ts)
     expect(keys.length).toBeGreaterThanOrEqual(13);
     for (const k of keys) expect(sane(k, (DEF as any)[k]), k).toBe(true);
     expect(sane('TEN_BONUS', 1.5)).toBe(false);

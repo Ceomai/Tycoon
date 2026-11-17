@@ -1,5 +1,5 @@
 /* MENÜ PANELİ — paylaş, lig, davet, sezon, arşiv, haftanın özel tapusu, başlangıç paketi, mağaza, holding, ayarlar */
-import { SERVER_FEATURES, CFG } from '../../config';
+import { SERVER_FEATURES, CFG, CITY_ORDER } from '../../config';
 import { S } from '../../state';
 import { fmt, fmtX, clock, weekKey } from '../../format';
 import { now } from '../../economy';
@@ -10,7 +10,8 @@ import { canHolding, sharesPreview } from '../../game/collection';
 import { openShare } from '../../game/share';
 import { starterActive, starterLeft, showStarter } from '../../game/monetize';
 import { leagueName } from '../../game/league';
-import { stampsOf } from '../../game/tenants';
+import { charMet, cityBadge } from '../../game/tenants';
+import { CHARS } from '../../game/tenantChars';
 import { IH, prizeName, rvOf, rvName, ihaleUnlocked, openIhale } from '../../game/auction';
 import { t, pctTxt } from '../../i18n';
 import { SheetKind } from '../ctx';
@@ -29,7 +30,7 @@ function ihaleRow(row: (a: string, ic: string, b: string, sm: string, dot?: bool
 const ozelAvail = () => { const wk = weekKey(new Date(now())); return !(S.ozel.week === wk && S.ozel.bought); };
 
 export const menu: Panel = {
-  sig: () => 'mn|' + starterActive() + S.noAds + S.club + S.ach.length + seasonLevel() + seasonClaimable() + S.league.tier + canHolding() + S.premium + (S.shares || 0) + (canHolding() ? sharesPreview() : '') + ozelAvail() + '|' + JSON.stringify(S.tdef || {}) + '|' + ihaleSig(),
+  sig: () => 'mn|' + starterActive() + S.noAds + S.club + S.ach.length + seasonLevel() + seasonClaimable() + S.league.tier + canHolding() + S.premium + (S.shares || 0) + (canHolding() ? sharesPreview() : '') + ozelAvail() + '|' + JSON.stringify(S.tdef || {}) + JSON.stringify(S.tdc || {}) + '|' + ihaleSig(),
   render(_s, tn) {
     const row = (a: string, ic: string, b: string, sm: string, dot = false) => `<button class="drow" data-a="${a}"><span class="ic">${ic}${dot ? '<span class="dot"></span>' : ''}</span><span class="di"><b>${b}</b><small>${sm}</small></span></button>`;
     return `<p class="sec">${t('Menü')}</p><div class="dlist">
@@ -38,7 +39,7 @@ export const menu: Panel = {
         ${!SERVER_FEATURES ? '' : row('ref', I.users, t('Arkadaşını davet et'), t('Kodun: {c}', { c: S.ref.code }))}
         ${row('sezon', I.crown, t('Tapu sezonu'), `${seasonName(seasonId())} · ${t('basamak {l}/{m}', { l: seasonLevel(), m: SEASON_LV })}${S.season && S.season.gold ? ' · ' + t('Altın') : ''}`, seasonClaimable())}
         ${row('arsiv', I.trophy, t('Tapu arşivi'), t('{n}/{m} mühür · kira +%{p}', { n: S.ach.length, m: ACH.length, p: Math.floor(S.ach.length / 4) }))}
-        ${Object.keys(S.tdef || {}).length ? row('defter', I.users, t('Kiracı defteri'), t('{n}/6 tip tanışıldı · {m} pul', { n: Object.keys(S.tdef).length, m: stampsOf() })) : ''}
+        ${Object.keys(S.tdef || {}).length ? row('defter', I.users, t('Kiracı defteri'), t('{n}/{m} kiracı tanışıldı · {b} şehir rozeti', { n: CHARS.filter(c => CITY_ORDER.includes(c.city) && charMet(c.id)).length, m: CITY_ORDER.length * 6, b: CITY_ORDER.filter(c => cityBadge(c)).length })) : ''}
         ${ihaleRow(row)}
         ${row('ozel', I.tower, t('Haftanın özel tapusu'), ozelAvail() ? t('{ad} satışta', { ad: t(weekSpecial(weekKey(new Date(tn))).n) }) : t('{ad} alındı', { ad: t(weekSpecial(weekKey(new Date(tn))).n) }), ozelAvail())}
         ${starterActive() ? row('starter', I.crown, t('Başlangıç paketi'), t('Yalnızca bir kez · bitiş {c}', { c: lv('stl', () => clock(starterLeft())) }), true) : ''}

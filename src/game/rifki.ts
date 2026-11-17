@@ -15,15 +15,15 @@ import { weekSpecial } from '../specials';
 import { specialPrice } from './actions';
 import { saveTarget, boostSaving } from './monetize';
 import { tenantSay, Tenant, TenantEv } from './tenants';
-import { tenantBadge } from '../ui/tenantFace';
-import type { Arch } from './tenants';
+import { tenantBadge, tenantLook } from '../ui/tenantFace';
+import type { FaceParams } from './tenantChars';
 import { ihaleTip, IH } from './auction';
 import { blocks, nearest, pjDistrictOk, pjUnlocked, pjName, kindOf, typesAt } from './projcore';
 
 let last2x = -1e9; // 2x hatırlatması (CFG.HINT2X_EVERY) en fazla bu sıklıkla
 
 /** tn: kiracı olayında balonun köşesinde kiracının küçük yüzü (Rıfkı onu tanıtıyor). */
-export interface Tip { id: string; text: string; go?: SheetState; tn?: Arch; }
+export interface Tip { id: string; text: string; go?: SheetState; tn?: { p: FaceParams; id: string }; }
 
 /* Türkçede bina adı cümlede çekimlendiği için (Evin / Evinize / ev) her bina için ayrı tam cümle anahtarı. */
 function pairText(bt: string): string {
@@ -121,7 +121,7 @@ export function showTip(tip: Tip) {
   if (tip.id === 'pjintro') S.pjIntro = true; // tanıtım bir kez
   if (tip.id === 'ihale' && IH().cur) IH().cur!.tip = true; // ihale ipucu ihale başına bir kez
   const mood = moodOf(tip.id); // ifade: ipucu kimliğinden (ui/rifkiFace.ts TIP_MOOD)
-  el.innerHTML = `<div class="rk-face" data-mood="${mood}">${rifkiFace(mood)}</div><button class="rk-bub${tip.tn ? ' has-tn' : ''}" data-rk="go"><b>${t('RIFKI ABİ')}</b><span>${tip.text}</span>${tip.tn ? `<i class="rk-tn">${tenantBadge(tip.tn, tip.id === 'tenok' || tip.id === 'tenready' ? 'happy' : 'wait')}</i>` : ''}</button><button class="rk-x" data-rk="x" aria-label="${t('Kapat')}">×</button>`;
+  el.innerHTML = `<div class="rk-face" data-mood="${mood}">${rifkiFace(mood)}</div><button class="rk-bub${tip.tn ? ' has-tn' : ''}" data-rk="go"><b>${t('RIFKI ABİ')}</b><span>${tip.text}</span>${tip.tn ? `<i class="rk-tn">${tenantBadge(tip.tn.p, tip.id === 'tenok' || tip.id === 'tenready' ? 'happy' : 'wait', tip.tn.id)}</i>` : ''}</button><button class="rk-x" data-rk="x" aria-label="${t('Kapat')}">×</button>`;
   el.hidden = false; faceIn(el.querySelector('.rk-face svg'), reduceMotion); clearTimeout(hideT); hideT = setTimeout(hideTip, 10e3);
 }
 /** Oyun döngüsünden çağrılır. */
@@ -132,7 +132,7 @@ export function sayEvent(kind: 'deed' | 'done', k: DistrictKey): void;
 export function sayEvent(kind: TenantEv, k: DistrictKey, x: Tenant): void;
 export function sayEvent(kind: 'deed' | 'done' | TenantEv, k: DistrictKey, x?: Tenant) {
   if (!S.rifki) return;
-  if (x) { pendingEv = { id: kind, text: tenantSay(kind as TenantEv, x), go: { k: 'kiraci', key: x.k, i: x.i }, tn: x.a }; return; }
+  if (x) { pendingEv = { id: kind, text: tenantSay(kind as TenantEv, x), go: { k: 'kiraci', key: x.k, i: x.i }, tn: tenantLook(x) }; return; }
   const d = nm(DMAP[k].n);
   pendingEv = kind === 'deed'
     ? { id: 'deed', text: t('{d} tapusu sizin, hayırlı olsun efendim! İlk arsaya bir ev kondurun, kira hemen başlar.', { d }) }

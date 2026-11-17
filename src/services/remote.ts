@@ -6,9 +6,12 @@
 import { Capacitor } from '@capacitor/core';
 import { FirebaseRemoteConfig } from '@capacitor-firebase/remote-config';
 import { CFG } from '../config';
+import { cleanTraitCfg } from '../game/tenantChars';
 
 export const REMOTE_TIMEOUT_MS = 4000;
 const DEF: Record<string, number> = { ...(CFG as any) };
+/** Sayı olmayan ayarlar: Remote Config'te JSON metni olarak gelir, kendi doğrulamasından geçer (geçersiz kısım düşer). */
+const OBJ: Record<string, (v: unknown) => object | null> = { TEN_TRAITS: cleanTraitCfg };
 
 /** Uzak değer kabul edilebilir mi? */
 export function sane(key: string, v: unknown): v is number {
@@ -22,6 +25,10 @@ export function sane(key: string, v: unknown): v is number {
 export function applyValues(vals: Record<string, unknown>): string[] {
   const used: string[] = [];
   for (const key of Object.keys(DEF)) if (sane(key, vals[key])) { (CFG as any)[key] = vals[key]; used.push(key); }
+  for (const key of Object.keys(OBJ)) {
+    if (vals[key] == null || vals[key] === '') continue;
+    const v = OBJ[key](vals[key]); if (v && Object.keys(v).length) { (CFG as any)[key] = v; used.push(key); }
+  }
   for (const key of Object.keys(DEF)) {
     if (!key.endsWith('_MIN')) continue;
     const mx = key.slice(0, -4) + '_MAX';
@@ -36,7 +43,11 @@ export async function applyRemoteConfig() {
   const work = (async () => {
     await FirebaseRemoteConfig.fetchAndActivate();
     const vals: Record<string, unknown> = {};
-    for (const key of Object.keys(DEF)) { if (late) return; vals[key] = (await FirebaseRemoteConfig.getNumber({ key })).value; }
+    for (const key of Object.keys(DEF)) {
+      if (late) return;
+      if (key in OBJ) { try { vals[key] = (await FirebaseRemoteConfig.getString({ key })).value; } catch { /* yoksa varsayılan */ } continue; }
+      vals[key] = (await FirebaseRemoteConfig.getNumber({ key })).value;
+    }
     if (!late) applyValues(vals); // hepsi ya da hiçbiri: zaman aşımından sonra gelen değer uygulanmaz
   })().catch(() => { /* varsayılanlar kullanılır */ });
   let tm: any;

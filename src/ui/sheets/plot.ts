@@ -9,11 +9,11 @@ import { $, ui, view } from '../ctx';
 import { build, upgrade, skip, demolish, lotBoost, useToken, placeSpecial } from '../../game/actions';
 import { specialSvg, specialOf } from '../../specials';
 import { lienBlocks, closeLien, clearCost, clearObstacle, obstacleSvg, OBSTACLES } from '../../game/district';
-import { SKIN_COLORS, ROOFS, skinUnlocked, skinStyle, setSkin } from '../../game/fun';
+import { SKIN_COLORS, ROOFS, skinUnlocked, skinShown, skinStyle, setSkin } from '../../game/fun';
 import { t, tk, nm, pctTxt } from '../../i18n';
 import { Panel, STAY, openSheet, lv, lvBar, discBox, later } from './core';
 import { tenantAt, wishTargets, wishType, tName, wishShort, nbAsk, handKey, inProgress, bonusPct, Tenant } from '../../game/tenants';
-import { tenantBadge } from '../tenantFace';
+import { tenantBadge, tenantLook } from '../tenantFace';
 import { IH, koseOf } from '../../game/auccore';
 import { blocks, nearest, pjUnlocked, pjDistrictOk, pjName, styleOf, kindOf, typesAt, pjCost, pjMinLv, pjMax, pjLienWarn } from '../../game/project';
 import { projSvg, psvg } from '../../projdraw';
@@ -28,7 +28,7 @@ function tenStrip(x: Tenant, here: boolean): string {
   const msg = x.st === 'ready' ? t('İsteği oldu: anahtarı ver')
     : x.st === 'live' ? t('Yerleşti · +{p} kira · {m} dk', { p: bonusPct(), m: lv('tnm', () => String(Math.ceil(Math.max(0, x.end - S.playMs) / 60e3))) })
     : (here ? `${wishShort(x)} · +${bonusPct()}` : nbAsk(x)) + ' · ' + lv('tns', left);
-  return `<button class="tn-strip s-${x.st}" data-a="${x.st === 'ready' ? 'tkey' : 'tcard'}" data-k="${x.k}" data-i="${x.i}"><span class="tn">${tenantBadge(x.a, x.st === 'wait' ? 'wait' : 'happy')}</span><span class="tsx"><b>${name} · ${role}</b><small>${msg}</small></span></button>`;
+  return `<button class="tn-strip s-${x.st}" data-a="${x.st === 'ready' ? 'tkey' : 'tcard'}" data-k="${x.k}" data-i="${x.i}"><span class="tn">${(L => tenantBadge(L.p, x.st === 'wait' ? 'wait' : 'happy', L.id))(tenantLook(x))}</span><span class="tsx"><b>${name} · ${role}</b><small>${msg}</small></span></button>`;
 }
 
 interface PlotC { k: string; i: number; p: Plot | null; cc: number; nearly: boolean; canUp: boolean; uc: number; afford: boolean; a: number; pa: number; sa: number; lbLeft: number }
@@ -137,13 +137,13 @@ export const plot: Panel<PlotC> = {
 export const skin: Panel<{ p: Plot | null }> = {
   sig(s, _tn, c) {
     const p = c.p = lotsOf(S, s.key!)[s.i!];
-    return 'sk|' + JSON.stringify(p && p.sk) + S.ach.length + S.skinsU.join();
+    return 'sk|' + JSON.stringify(p && p.sk) + S.ach.length + S.skinsU.join() + JSON.stringify(S.tdc || {});
   },
   render(_s, _tn, { p }) {
     if (!p) return undefined;
     const sk = p.sk || {}, name = p.sp ? specialOf(p.sp).n : TYPES[p.t].n;
     return `<div class="sh-head k-${p.sp ? 'ozel' : p.t}"><div class="sh-art bpbg" style="${skinStyle(p)}">${svg(p.sp ? specialSvg(p.sp) : bld(p.t, Math.max(1, p.lvl)))}</div><div class="sh-t"><h3>${t('Görünümü seç')}</h3><p>${t(name)} · ${t('yalnızca görünüm, kira değişmez')}</p></div></div>
-        <p class="sec">${t('Cephe rengi')}</p><div class="skc">${SKIN_COLORS.map((cl, n) => `<button class="sw2${(sk.c ?? -1) === n ? ' on' : ''}${skinUnlocked(n) ? '' : ' lk'}" data-a="sc" data-n="${n}" style="background:${cl.f}" aria-label="${t(cl.n)}${skinUnlocked(n) ? '' : ' (' + t('kilitli: {s}', { s: t(cl.lock!) }) + ')'}">${skinUnlocked(n) ? '' : I.lock}</button>`).join('')}<button class="sw2 none${sk.c == null ? ' on' : ''}" data-a="sc" data-n="-1" aria-label="${t('Varsayılan')}">×</button></div>
+        <p class="sec">${t('Cephe rengi')}</p><div class="skc">${SKIN_COLORS.map((cl, n) => !skinShown(n) ? '' : `<button class="sw2${(sk.c ?? -1) === n ? ' on' : ''}${skinUnlocked(n) ? '' : ' lk'}" data-a="sc" data-n="${n}" style="background:${cl.f}" aria-label="${t(cl.n)}${skinUnlocked(n) ? '' : ' (' + t('kilitli: {s}', { s: t(cl.lock!) }) + ')'}">${skinUnlocked(n) ? '' : I.lock}</button>`).join('')}<button class="sw2 none${sk.c == null ? ' on' : ''}" data-a="sc" data-n="-1" aria-label="${t('Varsayılan')}">×</button></div>
         ${p.t === 'ev' && !p.sp ? `<p class="sec">${t('Çatı')}</p><div class="skr">${ROOFS.map((r, n) => `<button class="rf2b${(sk.r || 0) === n ? ' on' : ''}" data-a="sr" data-n="${n}"><i style="background:${r.rf || 'var(--rf)'}"></i>${t(r.n)}</button>`).join('')}</div>` : ''}
         <div class="srow"><span>${t('Tabela')}</span><button class="sw${sk.s ? ' on' : ''}" role="switch" aria-checked="${!!(sk.s)}" data-a="ss" aria-label="${t('Tabela')}"></button></div>
         <p class="note">${t('Kilitli renkler tapu arşivinden ve tapu sezonundan açılır.')}</p>

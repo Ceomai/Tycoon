@@ -21,6 +21,7 @@
     "test:gelir": "vite build --mode preview && node tests/gelir.cjs",
     "test:yerel": "vite build --mode preview && node tests/yerel.cjs",
     "i18n": "node scripts/i18n-extract.mjs && node scripts/i18n-build.mjs",
+    "kiracilar": "node scripts/kiracilar/gen.mjs && npm run i18n",
     "test:yon": "vite build --mode preview && node tests/yon.cjs",
     "test:iy": "vite build --mode preview && node tests/iyilestirme.cjs"
   },

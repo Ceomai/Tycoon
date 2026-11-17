@@ -6,6 +6,8 @@
 // Adım 4: animasyonlar (pop, para uçuşu→sayaç, kart kapanışı, panel/semt geçişi, basma, boşta duraklama) ve titreşim; hareketi azalt.
 // Adım 9: Rıfkı Abi'nin yüzü (ifade ipucuna göre; göz kırpma/nefes boşta ve hareketi azalt açıkken durur).
 // Kiracılar (16): Rıfkı tanıtır, kart, hedef arsa, inşaatta süre durur, anahtar teslimi, gidiş/bitiş bildirimi, defter, koyu tema, 320 px, EN.
+// Kiracı karakterleri (16b): 90 karakter — farklı şehirlerden karakter (İstanbul, Londra, Kyoto), portre, kişilik, söz; defter şehir sekmeleri,
+// ayrıntı, şehir rozeti ve ülke cephe rengi (bildirim + cephe paneli kilidi), kartpostal; JA.
 // Büyük projeler (17): Rıfkı tanıtır, arsa panelinde teklif, seçim çerçevesi (çakışan iki blok), onay kartı (kiracı notu), şantiye,
 // teslim, 2. etap, ayırma; reklamla hızlandırma yok; UK/DE üslubu; koyu tema + hareketi azalt, 320 px, yatay 844×390.
 // Rakip ve ihale (18): hap, tanıtım, panel, vekâlet/emanet, geçilme, kazanma/kaybetme, köşe başı seçimi, şehir rakipleri, koyu tema, 320 px, UK, EN.
@@ -83,14 +85,17 @@ async function kiraciBolum(b) {
   ok(st0.ten.length === 1 && x0.a === 'ogrenci' && x0.i === 2 && x0.w.k === 'nb' && x0.w.t === 'kafe' && x0.st === 'wait', 'aday oyunun tick\'iyle geldi (Ece, 2. arsa, yanında kafe): ' + JSON.stringify(x0));
   const r0 = await rk(p);
   ok(r0 && r0.mood === 'wow' && r0.tn && /Ece/.test(r0.txt) && /kiracı adayı/.test(r0.txt) && /%50/.test(r0.txt), 'Rıfkı tanıtıyor: şaşkın yüz, balonda kiracının yüzü, ad ve %50: ' + JSON.stringify(r0));
+  ok(st0.ten[0].c === 'ist.ogrenci' && await has(p, '#rifki .rk-tn svg[data-c="ist.ogrenci"]') && await has(p, tile(p, 2) + ' .tn svg[data-c="ist.ogrenci"]'), 'karakter kaydı (c) ve yeni portre: Rıfkı balonunda ve arsa rozetinde Ece\'nin yüzü');
   ok(await has(p, tile(p, 2) + ' .tn.s-wait svg') && await has(p, tile(p, 2) + ' .tn .td'), 'tahtada rozet: 2. arsada yüz, halka ve "…"');
   const tg = await p.evaluate(() => { const e = document.querySelector('#grid .lot[data-i="6"]'); return { tq: e.classList.contains('tq'), lbl: e.querySelector('.tgt')?.textContent, aria: e.getAttribute('aria-label') }; });
   ok(tg.tq && tg.lbl === 'KAFE?' && /kiracı burada kafe istiyor/.test(tg.aria), 'hedef arsa (6): kesik çizgi, "KAFE?" etiketi, ekran okuyucu metni: ' + JSON.stringify(tg));
   await p.waitForTimeout(450); await p.screenshot({ path: out + 'kiraci-1-tanitim.png' });
   // Rıfkı balonuna dokunmak kiracı kartını açar
   await p.click('#rifki .rk-bub', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350);
-  const card = await p.evaluate(() => ({ h: document.querySelector('#sheetBody .tn-head h3')?.textContent, q: document.querySelector('#sheetBody .tn-q')?.textContent || '', go: document.querySelector('#sheetBody [data-a="go"]')?.textContent, por: !!document.querySelector('#sheetBody .tn-por svg[data-arch="ogrenci"][data-m="wait"]'), led: document.querySelectorAll('#sheetBody .ledger > div').length }));
-  ok(card.h === 'Ece' && /kafe/.test(card.q) && card.go === 'Arsaya git · kafe kur' && card.por && card.led === 5, 'kiracı kartı (balondan): portre, ad, alıntı, 5 satır defter, tek düğme: ' + JSON.stringify(card));
+  const card = await p.evaluate(() => ({ h: document.querySelector('#sheetBody .tn-head h3')?.textContent, q: document.querySelector('#sheetBody .tn-q')?.textContent || '', go: document.querySelector('#sheetBody [data-a="go"]')?.textContent, por: !!document.querySelector('#sheetBody .tn-por svg[data-c="ist.ogrenci"][data-m="wait"]'), led: document.querySelectorAll('#sheetBody .ledger > div').length,
+    role: document.querySelector('#sheetBody .tn-head .sh-t p:not(.sec):not(.tn-own)')?.textContent || '', own: document.querySelector('#sheetBody .tn-own')?.textContent || '', tr: document.querySelector('#sheetBody .tn-tr')?.textContent, kaz: [...document.querySelectorAll('#sheetBody .ledger > div')].map(d => d.textContent).find(s => /Kazandırır/.test(s)) || '' }));
+  ok(card.h === 'Ece' && /kafe/.test(card.q) && card.go === 'Arsaya git · kafe kur' && card.por && card.led === 6, 'kiracı kartı (balondan): portre, ad, alıntı, 6 satır defter, tek düğme: ' + JSON.stringify(card));
+  ok(/fizik öğrencisi/.test(card.role) && /Vapurda simit/.test(card.own) && card.tr === 'Sosyal' && /\+%50 kira · 60 dk/.test(card.kaz), 'karakter: meslek, kendi sözü, kişilik (Sosyal) ve kişiliğe göre kazanç: ' + JSON.stringify({ role: card.role, own: card.own, tr: card.tr, kaz: card.kaz }));
   await p.waitForTimeout(450); await p.screenshot({ path: out + 'kiraci-2-kart.png' });
   // kart → hedef arsanın paneli: şerit ve KİRACI İSTİYOR kartı
   await p.click('#sheetBody [data-a="go"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350);
@@ -105,6 +110,8 @@ async function kiraciBolum(b) {
   const s1 = await S(p), r1 = await rk(p);
   ok(s1.ten[0].st === 'ready' && await has(p, tile(p, 2) + ' .tn.s-ready .tk svg'), 'istek oldu: halka yeşil, rozette altın anahtar');
   ok(r1 && r1.mood === 'happy' && /anahtar/.test(r1.txt), 'Rıfkı haber veriyor (memnun): ' + JSON.stringify(r1));
+  // defter ödülü hazırlığı: İzmir ve Ankara'nın 6'şar karakteri, İstanbul'un Ece dışındaki 5'i daha önce yerleşmiş (Ece yerleşince İstanbul rozeti → Türkiye cephe rengi)
+  await p.evaluate(() => { const S = window.__tapuState(); S.tdc = S.tdc || {}; for (const c of ['ist', 'izm', 'ank']) for (const a of ['ogrenci', 'aile', 'sanatci', 'yazilimci', 'emekli', 'esnaf']) if (c + a !== 'istogrenci') S.tdc[c + '.' + a] = { met: 1, ok: 1 }; });
   // anahtar teslimi: tek dokunuş
   const rate0 = await p.evaluate(() => window.__tapuTest.totalRate());
   await p.evaluate(() => { const r = document.querySelector('#rifki .rk-x'); if (r) r.click(); });
@@ -114,6 +121,8 @@ async function kiraciBolum(b) {
   ok(s2.ten[0].st === 'live' && !(await has(p, '#sheet.on')), 'tek dokunuşla yerleşti (panel açılmadı)');
   ok(/YERLEŞTİ/.test(stamp) && /Ece/.test(stamp), 'binaya YERLEŞTİ mührü basıldı: ' + stamp);
   ok(rate1 > rate0, 'toplam kira arttı (' + rate0.toFixed(2) + ' → ' + rate1.toFixed(2) + ')');
+  const tz = await p.textContent('#toast');
+  ok(/Türkiye cephe rengi açıldı: Çini mavisi/.test(tz) && s2.tdc['ist.ogrenci'].ok === 1, 'şehrin 6. kiracısı yerleşince: İstanbul rozeti, üç şehir → Türkiye cephe rengi bildirimi: ' + tz);
   await p.clock.runFor(600); const r2 = await rk(p);
   ok(r2 && r2.mood === 'party' && /taşındı/.test(r2.txt), 'Rıfkı kutluyor (kutlama yüzü): ' + JSON.stringify(r2));
   await p.waitForTimeout(450); await p.screenshot({ path: out + 'kiraci-3-yerlesti.png' });
@@ -136,9 +145,31 @@ async function kiraciBolum(b) {
   await p.click('#menuBtn', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350);
   ok(await has(p, '#sheetBody .drow[data-a="defter"]'), 'menüde "Kiracı defteri" satırı');
   await p.click('#sheetBody .drow[data-a="defter"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350);
-  const df = await p.evaluate(() => ({ n: document.querySelectorAll('#sheetBody .tdc').length, unk: document.querySelectorAll('#sheetBody .tdc.unk').length, ece: document.querySelector('#sheetBody .tdc[data-arch="ogrenci"] .tdn')?.textContent, on: document.querySelectorAll('#sheetBody .tdc[data-arch="ogrenci"] .tds i.on').length }));
-  ok(df.n === 6 && df.unk === 5 && df.ece === 'Ece' && df.on === 1, 'defter: 6 tip, gelmeyenler "???", Ece\'nin 1 pulu: ' + JSON.stringify(df));
+  const df = await p.evaluate(() => ({ tabs: [...document.querySelectorAll('#sheetBody .dtab [role="tab"]')].map(b => b.textContent.replace(/\s+/g, ' ').trim() + (b.getAttribute('aria-selected') === 'true' ? '*' : '') + (b.querySelector('.rzs') ? '★' : '')),
+    tabH: Math.min(...[...document.querySelectorAll('#sheetBody .dtab [role="tab"]')].map(b => b.getBoundingClientRect().height)),
+    n: document.querySelectorAll('#sheetBody .tdc').length, unk: document.querySelectorAll('#sheetBody .tdc.unk').length, ok: document.querySelectorAll('#sheetBody .tdc .tdk').length,
+    ece: document.querySelector('#sheetBody .tdc[data-ch="ist.ogrenci"] .tdn')?.textContent, tr: document.querySelector('#sheetBody .tdc[data-ch="ist.ogrenci"] .tdt')?.textContent, por: !!document.querySelector('#sheetBody .tdc[data-ch="ist.ogrenci"] .tdp svg[data-c="ist.ogrenci"]'),
+    cty: document.querySelector('#sheetBody .cty')?.textContent.replace(/\s+/g, ' ') || '', ctyOn: !!document.querySelector('#sheetBody .cty.on'), pcs: [...document.querySelectorAll('#sheetBody .pc')].map(e => (e.classList.contains('on') ? '+' : '-') + e.dataset.ch), mud: document.querySelector('#sheetBody .tdm')?.textContent || '' }));
+  ok(df.tabs.length === 3 && df.tabs[0] === 'İstanbul6/6*★' && /^İzmir6\/6★$/.test(df.tabs[1]) && df.tabH >= 44, 'defter: şehir sekmeleri (İstanbul seçili), sayaç ve rozet yıldızı, ≥44 px: ' + JSON.stringify(df.tabs) + ' ' + df.tabH);
+  ok(df.n === 6 && df.unk === 0 && df.ok === 6 && df.ece === 'Ece' && df.tr === 'Sosyal' && df.por, 'defter İstanbul: 6 karakter, yerleşti işaretleri, kişilik çipi, yeni portre: ' + JSON.stringify({ n: df.n, unk: df.unk, ok: df.ok, ece: df.ece, tr: df.tr }));
+  ok(/Türkiye · Çini mavisi cephe/.test(df.cty) && /3\/3 şehir rozeti/.test(df.cty) && df.ctyOn, 'defter: ülke cephe rengi kutusu açıldı: ' + df.cty);
+  ok(df.pcs.join() === '+izm.ogrenci' && /Müdavim pulları \(tipe göre\): 0\/6/.test(df.mud), 'kartpostal (İzmir gezgini Melis) ve eski tip pulları satırı: ' + JSON.stringify({ pcs: df.pcs, mud: df.mud }));
+  await p.click('#sheetBody .tdc[data-ch="ist.emekli"]', { force: true }); await p.clock.runFor(300);
+  const det = await p.evaluate(() => ({ t: document.querySelector('#sheetBody .tdd')?.textContent || '', exp: document.querySelector('#sheetBody .tdc[data-ch="ist.emekli"]')?.getAttribute('aria-expanded') }));
+  ok(/Nevin Teyze · Huzur sever/.test(det.t) && /Boğaz/.test(det.t) && det.exp === 'true', 'karta dokununca ayrıntı: kişilik ve söz: ' + det.t.slice(0, 90));
   await p.waitForTimeout(450); await p.screenshot({ path: out + 'kiraci-4-defter.png' });
+  await p.click('#sheetBody .dtab [data-c="ank"]', { force: true }); await p.clock.runFor(300);
+  const dfa = await p.evaluate(() => ({ sel: document.querySelector('#sheetBody .dtab [aria-selected="true"]')?.dataset.c, ids: [...document.querySelectorAll('#sheetBody .tdc')].map(e => e.dataset.ch), names: [...document.querySelectorAll('#sheetBody .tdc .tdn')].map(e => e.textContent) }));
+  ok(dfa.sel === 'ank' && dfa.ids.every(id => id.startsWith('ank.')) && dfa.ids.length === 6 && dfa.names.includes('Arslan ailesi'), 'Ankara sekmesi: kendi 6 karakteri (Arslan ailesi…): ' + dfa.names.join(', '));
+  // aynı tip, aynı ülke, farklı kişilik
+  const trs = await p.evaluate(() => [...document.querySelectorAll('#sheetBody .tdc[data-arch="aile"] .tdt')].map(e => e.textContent));
+  ok(trs.length === 1 && trs[0] !== 'Sadık', 'Ankara ailesinin kişiliği İstanbul ailesinden (Sadık) farklı: ' + trs);
+  // cephe paneli: Çini mavisi kilidi açık, başka ülkenin rengi Türkiye bölgesinde görünmez
+  await p.keyboard.press('Escape'); await p.clock.runFor(400); await p.keyboard.press('Escape'); await p.clock.runFor(400);
+  await p.evaluate(() => window.__tapuTest.openSheet({ k: 'skin', key: window.__tapuState().cur, i: 0 })); await p.clock.runFor(400); await p.waitForTimeout(300);
+  const sk = await p.evaluate(() => { const b = n => document.querySelector(`#sheetBody .sw2[data-n="${n}"]`); return { tr: !!b(11), trLock: !!(b(11) && b(11).classList.contains('lk')), us: !!b(12), green: !!b(10) }; });
+  ok(sk.tr && !sk.trLock && !sk.us && sk.green, 'cephe paneli: Çini mavisi açık, ABD rengi Türkiye bölgesinde görünmez, Kiracı yeşili duruyor: ' + JSON.stringify(sk));
+  await p.keyboard.press('Escape'); await p.clock.runFor(400);
   // dokunma alanı: rozetli arsa ≥ 44 px (rozet tıklamayı yutmaz)
   await p.keyboard.press('Escape'); await p.clock.runFor(400);
   const hit = await p.evaluate(() => { const e = document.querySelector('#grid .lot[data-i="2"]'), r = e.getBoundingClientRect(), b = e.querySelector('.tn'); const bb = b ? b.getBoundingClientRect() : r; const at = document.elementFromPoint(bb.x + bb.width / 2, bb.y + bb.height / 2); return { w: r.width, h: r.height, hit: !!(at && at.closest('.lot') === e) }; });
@@ -170,10 +201,10 @@ async function kiraciBolum(b) {
   ok(e0.ten.length === 1 && r4 && /Olivia/.test(r4.txt) && /tenant/.test(r4.txt) && !/kiracı|efendim/.test(r4.txt), 'İngiltere/EN: yerel ad (Olivia), İngilizce tanıtım: ' + JSON.stringify(r4));
   await p.evaluate(() => { const r = document.querySelector('#rifki .rk-x'); if (r && !document.querySelector('#rifki').hidden) r.click(); });
   await tapTile(p, 2);
-  const c320 = await p.evaluate(() => ({ h: document.querySelector('#sheetBody .tn-head h3')?.textContent, go: document.querySelector('#sheetBody [data-a="go"]')?.textContent, role: document.querySelector('#sheetBody .tn-head .sh-t p:last-child')?.textContent }));
+  const c320 = await p.evaluate(() => ({ h: document.querySelector('#sheetBody .tn-head h3')?.textContent, go: document.querySelector('#sheetBody [data-a="go"]')?.textContent, role: document.querySelector('#sheetBody .tn-head .sh-t p:not(.sec):not(.tn-own)')?.textContent }));
   const tt = await p.evaluate(() => getComputedStyle(document.querySelector('#sheetBody .tn-head h3')).textTransform);
   ok(tt === 'none', 'kiracı adı büyük harfe çevrilmiyor (Türkçe kuralı yabancı adı bozmasın): ' + tt);
-  ok(c320.h === 'Olivia' && c320.go === 'Go to plot · build a café' && /university student/.test(c320.role || ''), '320 px kart İngilizce: ' + JSON.stringify(c320));
+  ok(c320.h === 'Olivia' && c320.go === 'Go to plot · build a café' && /drama student/.test(c320.role || ''), '320 px kart İngilizce (Londra karakteri Olivia, tiyatro öğrencisi): ' + JSON.stringify(c320));
   const o1 = await noOverflow(p);
   ok(o1.doc <= 320 && o1.sheet <= 0 && !o1.body.length, '320 px: kiracı kartında yatay taşma yok: ' + JSON.stringify(o1));
   const btnH = await p.evaluate(() => [...document.querySelectorAll('#sheetBody .btns button')].map(b => (b.getBoundingClientRect().height).toFixed(2)));
@@ -182,11 +213,38 @@ async function kiraciBolum(b) {
   await p.click('#sheetBody [data-a="defter"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350);
   const o2 = await noOverflow(p);
   ok(o2.doc <= 320 && o2.sheet <= 0 && !o2.body.length, '320 px: defterde yatay taşma yok: ' + JSON.stringify(o2));
+  const uk = await p.evaluate(() => ({ tabs: [...document.querySelectorAll('#sheetBody .dtab [role="tab"]')].map(b => b.dataset.c), unk: document.querySelectorAll('#sheetBody .tdc.unk').length, cols: getComputedStyle(document.querySelector('#sheetBody .tdf')).gridTemplateColumns.split(' ').length, cty: document.querySelector('#sheetBody .cty b')?.textContent, ol: document.querySelector('#sheetBody .tdc[data-ch="lon.ogrenci"] .tdn')?.textContent }));
+  ok(uk.tabs.join() === 'lon,man,edi' && uk.unk === 5 && uk.cols === 2 && uk.ol === 'Olivia' && /United Kingdom · Terrace blue facade/.test(uk.cty || ''), '320 px defter (UK/EN): Londra/Manchester/Edinburgh sekmeleri, 2 sütun, tanışılmayanlar ???, ülke rengi: ' + JSON.stringify(uk));
   await p.waitForTimeout(450); await p.screenshot({ path: out + 'kiraci-8-320-defter.png' });
   await p.keyboard.press('Escape'); await p.clock.runFor(400); await p.keyboard.press('Escape'); await p.clock.runFor(400);
   await p.click('#grid .lot[data-i="6"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350);
   const o3 = await noOverflow(p);
   ok(o3.doc <= 320 && o3.sheet <= 0 && !o3.body.length && await has(p, '#sheetBody .tn-strip'), '320 px: hedef arsa paneli (şerit) taşmıyor: ' + JSON.stringify(o3));
+  ok(!p.errs.length, 'konsol temiz' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+
+  // 16b · üçüncü şehir: Japonya / Kyoto, Japonca (yerel yazım, kişilik, defter sekmesi Kyoto seçili), koyu tema
+  p = await openTen({ lang: 'ja', region: 'jp', city: 'kyo', dark: true });
+  const j0 = await S(p), rj = await rk(p);
+  ok(j0.ten.length === 1 && j0.ten[0].c === 'kyo.ogrenci' && rj && /澪/.test(rj.txt) && await has(p, '#rifki .rk-tn svg[data-c="kyo.ogrenci"]'), 'Kyoto/JA: Kyoto karakteri (澪), Rıfkı balonunda yeni portre: ' + JSON.stringify(rj));
+  await p.evaluate(() => { const r = document.querySelector('#rifki .rk-x'); if (r && !document.querySelector('#rifki').hidden) r.click(); });
+  await tapTile(p, 2);
+  const cj = await p.evaluate(() => ({ h: document.querySelector('#sheetBody .tn-head h3')?.textContent, tr: document.querySelector('#sheetBody .tn-tr')?.textContent, own: document.querySelector('#sheetBody .tn-own')?.textContent || '', por: !!document.querySelector('#sheetBody .tn-por svg[data-c="kyo.ogrenci"]') }));
+  ok(cj.h === '澪' && cj.tr && !/[a-zçğışöü]{3}/i.test(cj.tr) && /[\u3040-\u30ff\u4e00-\u9fff]/.test(cj.own) && cj.por, 'Kyoto kartı Japonca: ad, kişilik, söz, portre: ' + JSON.stringify(cj));
+  await p.click('#sheetBody [data-a="defter"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350);
+  const dj = await p.evaluate(() => ({ sel: document.querySelector('#sheetBody .dtab [aria-selected="true"]')?.dataset.c, tabs: [...document.querySelectorAll('#sheetBody .dtab [role="tab"]')].map(b => b.dataset.c), mio: document.querySelector('#sheetBody .tdc[data-ch="kyo.ogrenci"] .tdn')?.textContent }));
+  ok(dj.sel === 'kyo' && dj.tabs.join() === 'tyo,osa,kyo' && dj.mio === '澪', 'defter Kyoto sekmesiyle açılır (kartın şehri): ' + JSON.stringify(dj));
+  await p.waitForTimeout(450); await p.screenshot({ path: out + 'kiraci-9-kyoto-defter.png' });
+  ok(!p.errs.length, 'konsol temiz' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+  // Global · 320 px: 5 şehir sekmesi (her ülkenin bir şehri) taşmadan sığar; İstanbul karakteri Ece, ülke rengi tek şehirle
+  p = await openTen({ vp: { width: 320, height: 568 }, lang: 'en', region: 'gl', city: 'ist' });
+  await p.evaluate(() => { const r = document.querySelector('#rifki .rk-x'); if (r && !document.querySelector('#rifki').hidden) r.click(); });
+  await tapTile(p, 2); await p.click('#sheetBody [data-a="defter"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350);
+  const g = await p.evaluate(() => ({ tabs: [...document.querySelectorAll('#sheetBody .dtab [role="tab"]')].map(b => b.dataset.c), h: Math.min(...[...document.querySelectorAll('#sheetBody .dtab [role="tab"]')].map(b => b.getBoundingClientRect().height)), cty: document.querySelector('#sheetBody .cty small')?.textContent }));
+  const og = await noOverflow(p);
+  ok(g.tabs.join() === 'ist,nyc,lon,muc,tyo' && g.h >= 44 && /0\/1 city badges/.test(g.cty || '') && og.doc <= 320 && og.sheet <= 0 && !og.body.length, 'Global 320 px defter: 5 şehir sekmesi taşmıyor, ülke rengi tek şehir rozetiyle: ' + JSON.stringify(g) + JSON.stringify(og));
+  await p.waitForTimeout(450); await p.screenshot({ path: out + 'kiraci-10-global-320-defter.png' });
   ok(!p.errs.length, 'konsol temiz' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
   await p.context().close();
 }
@@ -517,6 +575,10 @@ async function ihaleBolum(b) {
   const b=await chromium.launch(); URL=await serve();
   if(process.env.IY_ONLY==='18'){ // yalnızca ihale bölümü: IY_ONLY=18 node tests/iyilestirme.cjs
     console.log('18) Rakip emlakçı ve ihale'); await ihaleBolum(b); await b.close();
+    const pass=results.filter(r=>r.pass).length; console.log(`\nSONUÇ: ${pass}/${results.length} geçti`); process.exit(pass===results.length?0:1);
+  }
+  if(process.env.IY_ONLY==='16'){ // yalnızca kiracılar bölümü: IY_ONLY=16 node tests/iyilestirme.cjs
+    console.log('16) Kiracılar ve karakterler'); await kiraciBolum(b); await b.close();
     const pass=results.filter(r=>r.pass).length; console.log(`\nSONUÇ: ${pass}/${results.length} geçti`); process.exit(pass===results.length?0:1);
   }
   if(process.env.IY_ONLY==='17'){ // yalnızca büyük projeler bölümü: IY_ONLY=17 node tests/iyilestirme.cjs

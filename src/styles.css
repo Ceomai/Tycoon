@@ -1014,6 +1014,32 @@ body.idle .sumbar{animation-play-state:running!important}
 .tn-head ~ .btns .txt{min-height:44px} /* metin düğmesi (Kiracı defteri) de ≥44 px dokunma alanı */
 .ledger.tn-led b{white-space:normal;text-align:right;min-width:0} /* kiracı kartı: uzun istek/bağlantı metni dar ekranda alt satıra geçer */
 .tn-head .sh-t h3{text-transform:none} /* kiracı adı büyük harfe çevrilmez: Türkçe kural yabancı adı bozmasın (OLİVİA), "Garcia ailesi" karışık dilli */
+/* kiracı karakterleri (90 karakter): kartta kendi sözü, kişilik çipi; defterde şehir sekmeleri, ayrıntı, ülke cephe rengi, kartpostal */
+.tn-head .tn-own{margin:var(--sp-2) 0 0;font:italic 400 var(--fs-2)/1.35 var(--ui);color:var(--muted)}
+.dtab{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:var(--sp-3);margin:var(--sp-5) 0 var(--sp-2)} /* Global'de 5 şehir: dar ekranda alt satıra geçer, kaymaz */
+.dtab .dtb{min-width:0;min-height:44px;overflow-wrap:anywhere;padding:var(--sp-2) var(--sp-3);border-radius:var(--r-sm);border:1.5px solid var(--ink);background:transparent;color:var(--ink);font:600 var(--fs-3) var(--ui);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer}
+.dtab .dtb small{font:500 var(--fs-1) var(--mono);color:var(--muted);display:flex;gap:3px;align-items:center}
+.dtab .dtb[aria-selected=true]{background:var(--ink);color:var(--surface)}
+.dtab .dtb[aria-selected=true] small{color:var(--surface)}
+.dtab .rzs{color:var(--gold);display:inline-flex}
+button.tdc{font:inherit;color:var(--ink);cursor:pointer;min-height:44px}
+.tdc.sel{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ink)}
+.tdc .tdt{font:600 var(--fs-1) var(--ui);margin-top:2px;padding:1px 6px;border-radius:var(--r-sm);border:1px solid var(--line);color:var(--ink);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.tdc .tdk{position:absolute;right:6px;top:6px;width:18px;height:18px;border-radius:var(--r-round);background:var(--up-fill);color:#fff;display:grid;place-items:center}
+.tdc .tdk svg{width:11px;height:11px}
+.tdd{margin:0 0 var(--sp-6);padding:var(--sp-5) var(--sp-6);border:1.5px solid var(--ink);border-radius:var(--r-lg);background:var(--rk-card);color:var(--ink)}
+.tdd b{display:block;font:600 var(--fs-3) var(--ui)}
+.tdd p{margin:var(--sp-2) 0;font:italic 400 var(--fs-3)/1.4 var(--ui)}
+.tdd small{font:400 var(--fs-2)/1.35 var(--ui);color:var(--muted)}
+.cty{display:flex;align-items:center;gap:var(--sp-5);padding:var(--sp-5) var(--sp-6);border:1.5px dashed var(--ink);border-radius:var(--r-lg);background:var(--rk-card);margin:var(--sp-4) 0;color:var(--ink)}
+.cty.on{border-style:solid}
+.cty .csw{width:28px;height:28px;border-radius:var(--r-sm);border:1.5px solid var(--ink);flex:none}
+.cty b{font:600 var(--fs-3) var(--ui)}
+.cty small{display:block;font:500 var(--fs-1) var(--mono);color:var(--muted)}
+.tdh{margin-top:var(--sp-6)}
+.pcs{display:flex;gap:var(--sp-4);overflow-x:auto;padding:var(--sp-2) 0}
+.pc{flex:none;width:96px;height:64px;border-radius:var(--r-sm);border:1.5px dashed var(--ink);background:var(--surface);display:grid;place-items:center;font:600 var(--fs-1)/1.3 var(--ui);color:var(--muted);text-align:center;padding:var(--sp-2)}
+.pc.on{border-style:solid;color:#1e3a32;background:linear-gradient(160deg,#9ec9e6,#f2d79b)}
 
 /* =====================================================================================================
    BÜYÜK PROJELER (arsa birleştirme) — 2×2 karo, seçim çerçevesi ve şeridi, arsa panelindeki teklif, onay kartı, panel.

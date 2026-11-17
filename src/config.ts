@@ -158,6 +158,10 @@ export const CFG = {
   TEN_AFFORD_SEC: 180,         // istek kasa + bu kadar saniyelik kirayla karşılanabilmeli
   TEN_TIME_MAX: 6 * 60e3,      // isteğin gerektirdiği inşaat en fazla bu kadar sürmeli
   TEN_STAMP: 3,                // kiracı defteri: bir tipten bu kadar kiracı yerleşince müdavim pulu (yalnızca görünüm)
+  /** Kiracı kişilikleri (game/tenantChars.ts): { kişilik: [kira yüzdesi, sözleşme dk] } geçersiz kılma. Boşsa veri dosyasındaki değerler
+   *  (Sabırsız 60·50, Sadık 40·75, Coşkulu 65·46, Köklü 35·86, Gezgin 70·43, kalanlar 50·60). Remote Config: TEN_TRAITS anahtarına
+   *  JSON metni; her çift yüzde × dk / (50 × 60) ±%5 içinde olmalı, değilse o çift yok sayılır (services/remote.ts). */
+  TEN_TRAITS: {} as Record<string, [number, number]>,
   // büyük projeler (game/project.ts, arsa birleştirme): isteğe bağlı katman; denge scripts/sim.ts (SIM_PJ) ile ölçüldü.
   // Bedel/süre yüzde olarak (Remote Config varsayılanı 1'i aşamayan oranları yalnızca düşürebilir; yüzde iki yöne ayarlanır).
   PJ_MINLV: 5,                 // 2×2'deki dört binanın en düşük seviyesi

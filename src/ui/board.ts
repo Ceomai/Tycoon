@@ -23,7 +23,7 @@ import { tasksClaimable } from '../game/tasks';
 import { canHolding } from '../game/collection';
 import { tenantAt, wishTargets, wishType, handKey, tName, Tenant } from '../game/tenants';
 import { IH, ihaleUnlocked, standing, prizeName, rvOf, rvName, koseOf } from '../game/auction';
-import { tenantBadge } from './tenantFace';
+import { tenantBadge, tenantLook } from './tenantFace';
 
 export function render() {
   const tn = now(), k = S.cur, d = DMAP[k], boosted = S.boostUntil > tn;
@@ -150,7 +150,7 @@ function tenantHtml(x: Tenant | null): string {
   if (!x) return '';
   const left = x.st === 'live' ? 1 : Math.max(0, Math.min(1, (x.dl - S.playMs) / CFG.TEN_WAIT));
   const mark = x.st === 'ready' ? `<i class="tk">${KEY}</i>` : x.st === 'live' ? '<i class="th">♥</i>' : '<i class="td">…</i>';
-  return `<span class="tn s-${x.st}" style="--tp:${(left * 360).toFixed(0)}deg" aria-hidden="true">${tenantBadge(x.a, x.st === 'wait' ? 'wait' : 'happy')}${mark}</span>`;
+  return `<span class="tn s-${x.st}" style="--tp:${(left * 360).toFixed(0)}deg" aria-hidden="true">${(L => tenantBadge(L.p, x.st === 'wait' ? 'wait' : 'happy', L.id))(tenantLook(x))}${mark}</span>`;
 }
 const tenantAria = (x: Tenant | null) => !x ? '' : x.st === 'wait' ? t(', kiracı adayı bekliyor: {n}', { n: tName(x.a, x.k)[0] })
   : x.st === 'ready' ? t(', anahtar hazır: dokununca {n} yerleşir', { n: tName(x.a, x.k)[0] }) : t(', kiracı: {n}', { n: tName(x.a, x.k)[0] });

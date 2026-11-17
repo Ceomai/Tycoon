@@ -7,6 +7,8 @@ import { Time } from './time';
 import { LM } from './landmarks';
 import { marketMult, civicMult, achBonus } from './game/modifiers';
 import { weekKey } from './format';
+import { bonusOf } from './game/tenantChars';
+import { charOfT } from './game/tenants';
 /* Adım önbelleği (tick-scoped memo): oyun döngüsü her adımda açar (tickMemo(true)), adım bitince kapatır. Açıkken
    - permMult girdileri (hisse, koleksiyon, semtler, Holding, arşiv) değişmedikçe yeniden hesaplanmaz (her çağrıda yeni Set yok),
    - curWeek saati yeniden okumaz,
@@ -111,7 +113,7 @@ export function specialBase(k: DistrictKey, i: number): number {
 let tenOff = false;
 export function tenantMult(k: DistrictKey, i: number): number {
   const L = S.ten; if (tenOff || !L || !L.length) return 1;
-  for (const x of L) if (x.st === 'live' && x.k === k && x.i === i) return 1 + CFG.TEN_BONUS;
+  for (const x of L) if (x.st === 'live' && x.k === k && x.i === i) return 1 + bonusOf(charOfT(x)); // kişiliğe göre (game/tenantChars.ts)
   return 1;
 }
 /** f'yi kiracı bonusu olmadan hesaplar (çevrimdışı kazanç). */

@@ -254,15 +254,15 @@ const tap=makeTap({wait:380});
    ok(await p.isVisible('#guideHint') && await p.evaluate(() => document.querySelector('#guideBtn').classList.contains('wig')), 'ilk kira toplanınca sekme bir kez tanıtılıyor');
    await p.clock.runFor(6500); ok(await p.isHidden('#guideHint'), 'tanıtım 6 sn sonra kayboluyor');
    s=await st(p); ok(s.guideHint===true, 'tanıtım bir daha gösterilmeyecek');
-   await tap(p,'#guideBtn'); ok((await p.$$('.gditem')).length===21, 'kılavuzda 21 madde');
+   await tap(p,'#guideBtn'); ok((await p.$$('.gditem')).length===23, 'kılavuzda 23 madde');
    await tap(p,'.gditem[data-i="2"]'); let t=await p.textContent('#sheetBody');
    ok(t.includes('Madde 03') && t.includes('Kira ve kumbara') && t.includes('1 dk 30 sn')||t.includes('90'), 'madde 03: kira ve kumbara, sayılar ayarlardan');
    await tap(p,'[data-a="next"]'); ok((await p.textContent('#sheetBody')).includes('Madde 04'), 'sonraki maddeye geçildi');
    await tap(p,'[data-a="prev"]'); await tap(p,'[data-a="prev"]'); ok((await p.textContent('#sheetBody')).includes('Madde 02'), 'önceki maddeye dönüldü');
    await tap(p,'[data-a="list"]'); ok(await p.isVisible('.gdlist'), 'listeye dönüldü');
    // her madde hatasız açılıyor
-   let bad=[]; for (let k=0;k<20;k++){ await tap(p,`.gditem[data-i="${k}"]`); const tx=await p.textContent('#sheetBody'); if(!tx.includes('Madde '+String(k+1).padStart(2,'0'))||/undefined|NaN/.test(tx)) bad.push(k+1); await tap(p,'[data-a="list"]'); }
-   ok(bad.length===0, '20 maddenin hepsi açılıyor, "undefined/NaN" yok '+bad.join(','));
+   let bad=[]; for (let k=0;k<23;k++){ await tap(p,`.gditem[data-i="${k}"]`); const tx=await p.textContent('#sheetBody'); if(!tx.includes('Madde '+String(k+1).padStart(2,'0'))||/undefined|NaN/.test(tx)) bad.push(k+1); await tap(p,'[data-a="list"]'); }
+   ok(bad.length===0, '23 maddenin hepsi açılıyor, "undefined/NaN" yok '+bad.join(','));
    await p.keyboard.press('Escape'); await p.waitForTimeout(400);
    await tap(p,'#menuBtn'); await tap(p,'[data-a="set"]'); await tap(p,'[data-a="guide"]'); ok(await p.isVisible('.gdlist'), 'ayarlardan da kılavuza ulaşılıyor');
    await p.screenshot({path:out+'J-kilavuz.png'});
