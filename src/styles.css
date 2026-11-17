@@ -1178,3 +1178,97 @@ body.idle #modal .card,body.idle #modal .card *{animation-play-state:running!imp
 /* fırsat ve ihale hapları aynı satırda (ikisi birden çıkınca başlık uzayıp tahtayı itmesin; adlar kısalır) */
 .pills{display:flex;gap:var(--sp-4);min-width:0;max-width:100%;align-items:flex-start}
 .pills .offer{flex:0 1 auto;min-width:0}
+/* ---------- BANKA, KUR VE BİLANÇO (ui/sheets/bank.ts) ---------- */
+.bk-tabs{margin:0 0 var(--sp-8)}
+.bk-tabs .chip,.bk-pick .chip,.bk-curs .chip{min-height:44px}
+.bk-cur{flex:none;display:grid;place-items:center;width:42px;height:42px;border-radius:var(--r-round);box-shadow:inset 0 0 0 2px var(--rc,var(--ink));color:var(--rc,var(--ink));font:700 var(--fs-9)/1 var(--cond)}
+.bk-from{display:flex;align-items:center;gap:var(--sp-6);padding:var(--sp-6);border:2px solid var(--ink);border-radius:var(--r-xl);background:var(--me)}
+.bk-from .di{display:flex;flex-direction:column;gap:3px;min-width:0}
+.bk-from b{font:700 var(--fs-7)/1 var(--cond);letter-spacing:.05em;text-transform:uppercase}
+.bk-from small{font:500 var(--fs-3)/1.35 var(--ui);color:var(--muted)}
+.bk-list{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-bottom:var(--sp-7)}
+.bk-to{display:flex;align-items:center;gap:var(--sp-4);min-height:64px;padding:var(--sp-4) var(--sp-5);text-align:left;border:1.5px solid var(--line);border-radius:var(--r-xl);background:none;color:var(--ink);cursor:pointer;min-width:0}
+.bk-to.on{border:2px solid var(--ink);background:var(--me)}
+.bk-to .bk-cur{width:34px;height:34px;font-size:var(--fs-7)}
+.bk-to .di{display:flex;flex-direction:column;gap:2px;min-width:0}
+.bk-to b{font:700 var(--fs-5)/1.05 var(--cond);letter-spacing:.04em;text-transform:uppercase;overflow-wrap:anywhere}
+.bk-to small{font:500 var(--fs-1)/1.3 var(--mono);color:var(--muted)}
+.bk-to.new small{font-style:italic}
+.bk-pick{margin-bottom:var(--sp-6)}
+.bk-slip{position:relative;padding:var(--sp-6) var(--sp-7);background:var(--paper);border:1.5px dashed var(--ink);border-radius:var(--r-md);font:500 var(--fs-3) var(--mono)}
+.bk-l{display:flex;justify-content:space-between;gap:var(--sp-5);padding:var(--sp-3) 0;border-bottom:1px dotted var(--line)}
+.bk-l span{color:var(--muted);min-width:0}
+.bk-l b{white-space:nowrap;font-weight:600}
+.bk-l.bk-tot{border-bottom:none;padding-top:var(--sp-5)}
+.bk-l.bk-tot span{color:var(--ink);font:700 var(--fs-5) var(--cond);text-transform:uppercase;letter-spacing:.05em;align-self:center}
+.bk-l.bk-tot b{font:700 var(--fs-d1)/1 var(--cond);color:var(--up)}
+.bk-cap{margin-top:var(--sp-5)}
+.bk-cap small{display:block;margin-top:var(--sp-3);color:var(--muted);font:500 var(--fs-2) var(--mono)}
+.bk-bar{display:flex;height:10px;border-radius:var(--r-xs);box-shadow:inset 0 0 0 1.5px var(--ink);overflow:hidden}
+.bk-bar i{background:var(--ink);opacity:.45}
+.bk-bar u{background:repeating-linear-gradient(-45deg,var(--up) 0 4px,transparent 4px 7px);box-shadow:inset 0 0 0 1.5px var(--up)}
+.bk-log{border-top:1.5px solid var(--ink)}
+.bk-log div{display:flex;justify-content:space-between;padding:var(--sp-4) 0;border-bottom:1px solid var(--line);font:500 var(--fs-3) var(--mono)}
+.bk-log b.out{color:var(--stamp)} .bk-log b.in{color:var(--up)}
+/* kur */
+.bk-rk{display:flex;gap:var(--sp-6);align-items:flex-start;padding:var(--sp-6);border-radius:var(--r-xl);background:var(--rk-card);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.bk-rk .rk-face{flex:none;width:58px;height:58px}
+.bk-rk .rk-face svg{width:100%;height:100%}
+.bk-rk p{margin:0;font:500 var(--fs-4)/1.4 var(--ui)}
+.bk-rk p b{display:block;font:700 var(--fs-2) var(--mono);letter-spacing:.12em;color:var(--stamp);margin-bottom:2px}
+.bk-fxs{border-top:1.5px solid var(--ink)}
+.bk-fx,.bk-reg{display:flex;align-items:center;gap:var(--sp-5);padding:var(--sp-5) 0;border-bottom:1px solid var(--line);min-height:56px}
+.bk-fx .di,.bk-reg .di{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.bk-fx .di b,.bk-reg .di b{font:700 var(--fs-6)/1.1 var(--cond);letter-spacing:.04em;text-transform:uppercase}
+.bk-reg .di b em{font:600 var(--fs-1) var(--mono);font-style:normal;color:var(--stamp);box-shadow:inset 0 0 0 1px var(--stamp);border-radius:var(--r-sm);padding:1px 4px;margin-left:4px;vertical-align:2px;letter-spacing:.06em}
+.bk-fx .di small,.bk-reg .di small{font:500 var(--fs-2)/1.3 var(--mono);color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.bk-q{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex:none}
+.bk-q b{font:700 var(--fs-7)/1 var(--cond)}
+.bk-q small{font:600 var(--fs-2) var(--mono);color:var(--muted)}
+.bk-q small.up{color:var(--up)} .bk-q small.dn{color:var(--stamp)}
+.bk-sp{width:64px;height:22px;flex:none;overflow:visible}
+.bk-sp line{stroke:var(--line);stroke-dasharray:2 3}
+.bk-sp polyline{fill:none;stroke:var(--ink);stroke-width:1.6;stroke-linejoin:round}
+.bk-sp circle{fill:var(--stamp)}
+/* bilanço */
+.bk-curs{margin:0 0 var(--sp-7)}
+.bk-curs .chip{font-size:var(--fs-8)}
+.bk-big{text-align:center;padding:var(--sp-6) 0 var(--sp-7)}
+.bk-big small{display:block;font:600 var(--fs-1) var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.bk-big b{display:block;font:700 var(--fs-d4)/1.05 var(--cond);margin:var(--sp-3) 0}
+.bk-big span{font:500 var(--fs-2) var(--mono);color:var(--muted)}
+.bk-share{display:flex;height:16px;border-radius:var(--r-sm);overflow:hidden;box-shadow:0 0 0 1.5px var(--ink);margin-bottom:var(--sp-6);gap:2px;background:var(--ink)}
+.bk-share i{display:block;min-width:3px}
+.bk-regs{border-top:1.5px solid var(--ink)}
+.bk-reg.off{opacity:.55}
+.bk-sum{margin-top:var(--sp-7);padding:var(--sp-5) var(--sp-7);border-radius:var(--r-md);background:var(--bp);font:500 var(--fs-3) var(--mono)}
+.bk-sum div{display:flex;justify-content:space-between;gap:var(--sp-5);padding:var(--sp-3) 0}
+.bk-sum span{color:var(--muted)}
+.bk-sum .bk-tot{border-top:1.5px solid var(--ink);margin-top:var(--sp-3);padding-top:var(--sp-4)}
+.bk-sum .bk-tot span{color:var(--ink);font-weight:700}
+/* havale kartı */
+.bk-done{text-align:center}
+.bk-stamp{display:inline-block;margin:var(--sp-4) auto var(--sp-6);padding:var(--sp-3) var(--sp-8);color:var(--stamp);box-shadow:inset 0 0 0 3px var(--stamp);border-radius:var(--r-sm);font:700 var(--fs-d1)/1 var(--cond);letter-spacing:.12em;transform:rotate(-6deg)}
+@media (prefers-reduced-motion:no-preference){ .bk-stamp{animation:bkStamp .35s cubic-bezier(.2,1.6,.4,1) both} }
+@keyframes bkStamp{from{transform:rotate(-6deg) scale(1.8);opacity:0}to{transform:rotate(-6deg) scale(1);opacity:1}}
+/* kur grafiği (tek seri; dokununca o saatin kuru) ve aralık seçici */
+.bk-fxh{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-5);margin-top:var(--sp-7);flex-wrap:wrap}
+.bk-fxh .sec{margin:0}
+.bk-rng{flex:none}
+.bk-rng .chip{min-height:44px;min-width:76px;padding-left:var(--sp-6);padding-right:var(--sp-6);white-space:nowrap}
+.bk-chw{margin:var(--sp-4) 0 var(--sp-6)}
+.bk-ch{display:block;width:100%;height:auto;touch-action:pan-y;cursor:crosshair}
+.bk-ch .g{stroke:var(--line);stroke-width:1;stroke-dasharray:2 4;vector-effect:non-scaling-stroke}
+.bk-ch polyline{fill:none;stroke:var(--ink);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.bk-ch .x{stroke:var(--muted);stroke-width:1;vector-effect:non-scaling-stroke}
+.bk-ch .m{fill:var(--stamp);stroke:var(--paper);stroke-width:2}
+.bk-chax{display:flex;justify-content:space-between;gap:var(--sp-4);font:500 var(--fs-1)/1.3 var(--mono);color:var(--muted);flex-wrap:wrap}
+.bk-chv{color:var(--ink);font-weight:600}
+button.bk-fx{width:100%;background:none;border:none;border-bottom:1px solid var(--line);color:var(--ink);text-align:left;cursor:pointer;padding-left:var(--sp-3);padding-right:var(--sp-3);border-radius:var(--r-sm)}
+button.bk-fx.on{background:var(--me);box-shadow:inset 3px 0 0 var(--ink)}
+.bk-fx .bk-cur,.bk-reg .bk-cur{width:34px;height:34px;font-size:var(--fs-7)}
+.bk-q b{white-space:nowrap}
+.bk-closed{padding:var(--sp-6);border:1.5px dashed var(--line);border-radius:var(--r-md)}
+/* piyasa raporunda kur satırı */
+.mkr.mkfx .mkv{flex:1;font:600 var(--fs-3) var(--mono);color:var(--ink);text-align:left}
+@media (max-width:360px){ .bk-list{grid-template-columns:1fr} .bk-sp{display:none} .bk-q b{font-size:var(--fs-5)} }

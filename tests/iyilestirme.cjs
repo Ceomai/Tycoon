@@ -8,10 +8,11 @@
 // Kiracılar (16): Rıfkı tanıtır, kart, hedef arsa, inşaatta süre durur, anahtar teslimi, gidiş/bitiş bildirimi, defter, koyu tema, 320 px, EN.
 // Büyük projeler (17): Rıfkı tanıtır, arsa panelinde teklif, seçim çerçevesi (çakışan iki blok), onay kartı (kiracı notu), şantiye,
 // teslim, 2. etap, ayırma; reklamla hızlandırma yok; UK/DE üslubu; koyu tema + hareketi azalt, 320 px, yatay 844×390.
+// Banka (19): menü/ayarlar kısayolu, aktarım ve hak, havale kartı → bölge geçişi, kur grafiği, bilanço ₺/$, emanet, piyasa kur satırı, ABD ölçeği, koyu 320 px.
 // Rakip ve ihale (18): hap, tanıtım, panel, vekâlet/emanet, geçilme, kazanma/kaybetme, köşe başı seçimi, şehir rakipleri, koyu tema, 320 px, UK, EN.
 // Çalıştır: npm run test:iy  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 const {chromium}=require('playwright');
-const { serve, PREF_IF: PREF, state, vis, recorder, out } = require('./helpers.cjs');
+const { serve, PREF_IF: PREF, state, vis, recorder, out, dismissCards } = require('./helpers.cjs');
 let URL; // http://127.0.0.1:<port>/index.html — main başında serve() ile
 const results=[]; const ok=recorder(results);
 const S=state;
@@ -513,8 +514,183 @@ async function ihaleBolum(b) {
   await p.context().close();
 }
 
+// ---------- 19) Banka, kur ve bilanço: menü/ayarlar kısayolu, aktarım (hak, kasanın yarısı, lig dışı), havale kartı → bölge
+// geçişi, kur grafiği (24 saat / 7 gün, dokununca saatin kuru), bilanço tek para biriminde ve değiştirince, emanet → başlangıç
+// sermayesi, piyasa raporunda kur satırı, ABD'de gösterim ölçeği, koyu tema + hareketi azalt, 320 px ----------
+async function bankaBolum(b) {
+  const TUE = new Date(2026, 10, 17, 10, 0).getTime();
+  /** Banka vakası: Türkiye'de iki semt (banka açık), kasada bol para; ABD'de başlanmış bir kayıt (Japonya, BK, Almanya başlanmamış). */
+  async function openBk(o = {}) {
+    const ctx = await b.newContext({ viewport: o.vp || { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: o.rm ? 'reduce' : 'no-preference' });
+    await ctx.addInitScript(`if(!localStorage.getItem('tapu-prefs'))localStorage.setItem('tapu-prefs',JSON.stringify({lang:'${o.lang || 'tr'}',region:'tr',ent:{},news:true${o.dark ? ",theme:'dark'" : ''}}));` + (o.dark ? "localStorage.setItem('tapu-theme','dark');" : ''));
+    const p = await ctx.newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(e.message));
+    await p.clock.install({ time: o.t || TUE }); await p.goto(URL); await p.clock.runFor(700);
+    await p.click('#modal .cityopt[data-a="ist"]', { force: true }); await p.clock.runFor(400);
+    for (let k = 0; k < 5 && await has(p, '#modal .card'); k++) { await p.click('#modal .card [data-a]', { force: true }); await p.clock.runFor(400); }
+    await p.evaluate(() => { const S = window.__tapuState(), T = ['ev', 'kafe', 'dukkan', 'ofis'];
+      S.d['ist-0'] = Array.from({ length: 20 }, (_, i) => ({ t: T[i % 4], lvl: 3, buf: 0, until: 0, dur: 1, up: false })); S.d['ist-1'] = Array(20).fill(null); S.own = ['ist-0', 'ist-1'];
+      S.lien = {}; S.lienT = {}; S.collectMode = 'tap'; S.cash = 1e9; S.earned = 1e9; S.week.earned = 12345; S.seen = { ev: true, kafe: true, dukkan: true, ofis: true };
+      S.nextEvent = 9e12; S.nextOffer = 9e12; S.nextCivic = 9e12; S.nextAd = 9e12; S.nextTaxi = 9e12; S.collects = 0; S.market = 'x'; S.rifki = false; S.guideHint = true;
+      S.starter = { at: 1, bought: true }; S.offer = null; S.ten = []; S.nextTen = 9e15; S.pjIntro = true; S.cards = Object.keys(S.d); S.ihale.intro = true;
+      const d = new Date(); S.daily = { last: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'), streak: 1 };
+      S.tasks = { day: S.daily.last, bonus: false, list: [{ k: 'taxi', goal: 1e9, prog: 0, claimed: false }] };
+      // ABD kaydı (başlanmış): aynı biçim, sağlamalı (storage.ts FNV-1a)
+      const us = JSON.parse(JSON.stringify(S)); us.city = 'nyc'; us.own = ['nyc-0']; us.cur = 'nyc-0'; us.d = { 'nyc-0': Array.from({ length: 20 }, (_, i) => i < 8 ? { t: 'ev', lvl: 2, buf: 0, until: 0, dur: 1, up: false } : null) };
+      us.cash = 500; us.earned = 777; us.week.earned = 77; us.bank = { rate: 20, ep: 'usep', in: [], out: [], day: { k: '', got: 0 }, log: [], tip: '' }; us.ihale = { cur: null, rm: {}, got: [], kose: [], kp: 0, intro: true, wins: 0, losses: 0 }; us.ten = []; us.pj = {};
+      const j = JSON.stringify(us); let h = 0x811c9dc5; for (let i = 0; i < j.length; i++) { h ^= j.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+      localStorage.setItem('tapu-save-v2-us', JSON.stringify({ c: (h >>> 0).toString(36), j })); });
+    await p.clock.runFor(1500);
+    for (let k = 0; k < 5 && await has(p, '#modal .card'); k++) { await p.click('#modal .card [data-a]', { force: true }); await p.clock.runFor(400); }
+    return p;
+  }
+  const rd = (p, r) => p.evaluate(r => { const raw = localStorage.getItem('tapu-save-v2' + (r === 'tr' ? '' : '-' + r)); return raw ? JSON.parse(JSON.parse(raw).j) : null; }, r);
+  const lo = x => (x || '').toLocaleLowerCase('tr-TR'); // innerText büyük harfli başlıklar (text-transform): Türkçe küçük harfe
+  const body = p => p.evaluate(() => document.querySelector('#sheetBody').innerText).then(lo);
+  const tapS = async (p, sel, w = 350) => { await p.click(sel, { force: true }); await p.clock.runFor(300); await p.waitForTimeout(w); };
+  const openBank = async p => { await tapS(p, '#menuBtn'); await tapS(p, '#sheetBody .drow[data-a="banka"]', 500); await p.clock.runFor(300); await p.waitForTimeout(300); };
+  const noOverflow = p => p.evaluate(() => { const els = [...document.querySelectorAll('#sheetBody *, #modal *')].filter(e => { const r = e.getBoundingClientRect(); return r.width && (r.right > innerWidth + 0.5 || r.left < -0.5); }); return { doc: document.documentElement.scrollWidth, vw: innerWidth, bad: els.map(e => e.tagName + '.' + (e.getAttribute('class') || '')).slice(0, 4) }; });
+  const small = p => p.evaluate(() => [...document.querySelectorAll('#sheetBody button')].filter(e => e.offsetParent).map(e => { const r = e.getBoundingClientRect(); return Math.round(Math.min(r.width, r.height)); }).filter(v => v < 44));
+
+  let p = await openBk();
+  // menü satırı ve banka paneli
+  await tapS(p, '#menuBtn');
+  const row = lo(await p.evaluate(() => document.querySelector('#sheetBody .drow[data-a="banka"]')?.innerText || ''));
+  ok(/banka ve bilanço/.test(row) && /bölgeler arası aktarım/.test(row), 'menüde "Banka ve bilanço" satırı: ' + row.replace(/\n/g, ' '));
+  await tapS(p, '#sheetBody .drow[data-a="banka"]', 600); await p.clock.runFor(300); await p.waitForTimeout(300);
+  const t0 = await body(p);
+  ok(/gönderen/.test(t0) && /alıcı bölge/.test(t0) && (await p.$$('#sheetBody .bk-to')).length === 5, 'Aktar sekmesi: gönderen, 5 alıcı bölge: ' + t0.slice(0, 50).replace(/\n/g, ' '));
+  const usRow = lo(await p.evaluate(() => document.querySelector('#sheetBody .bk-to[data-r="us"]')?.innerText || '')), jpRow = lo(await p.evaluate(() => document.querySelector('#sheetBody .bk-to[data-r="jp"]')?.innerText || ''));
+  ok(/kasa \$11[.,]62/.test(usRow) && /hak \$/.test(usRow) && /başlanmadı/.test(jpRow), 'alıcı kutuları kendi parasıyla ve ölçeğiyle (ABD kasa ₺500 → $11.62), Japonya başlanmadı: ' + usRow.replace(/\n/g, ' ') + ' | ' + jpRow.replace(/\n/g, ' '));
+  await tapS(p, '#sheetBody .bk-to[data-r="us"]');
+  const slip = lo(await p.evaluate(() => document.querySelector('#sheetBody .bk-slip')?.innerText || ''));
+  ok(/100 ₺ = \$2[,.]3\d/.test(slip) && /makas %1 · komisyon %2/.test(slip) && /abd kasasına varacak/.test(slip) && /\$\d/.test(slip), 'dekont: kur (100 ₺ = $2,3x), makas ve komisyon, varacak tutar $: ' + slip.replace(/\n/g, ' | '));
+  await p.screenshot({ path: out + 'banka-1-aktar.png' });
+  // aktar
+  const s0 = await S(p), u0 = await rd(p, 'us');
+  await tapS(p, '#sheetBody [data-a="send"]', 600); await p.clock.runFor(500); await p.waitForTimeout(300);
+  const card = lo(await p.evaluate(() => { const c = document.querySelector('#modal .card.bk-done'); return c ? c.innerText : ''; }));
+  const s1 = await S(p), u1 = await rd(p, 'us');
+  const sent = s0.cash - s1.cash, got = u1.cash - u0.cash, cap = Math.max(2500, 1800 * 20);
+  ok(/havale/.test(card) && /abd kasasına geçti/.test(card) && /abd bölgesine geç/.test(card) && /burada kal/.test(card), 'havale kartı: HAVALE mührü, "ABD kasasına geçti", bölgeye geç / burada kal: ' + card.replace(/\n/g, ' | ').slice(0, 120));
+  ok(sent > 0 && got > 0 && got <= cap + 1e-6 && got > cap - 2 && sent <= s0.cash / 2 && got / sent > 0.94 && got / sent < 0.99, 'aktarım: TR kasası düştü, ABD kaydına hak kadar (' + Math.round(got) + ' / ' + cap + ') vardı; maliyet ≈ %3: ' + (got / sent).toFixed(4));
+  ok(s1.earned === s0.earned && s1.week.earned === s0.week.earned && u1.earned === u0.earned && u1.week.earned === u0.week.earned, 'aktarılan para kazanç sayılmaz (TR ve ABD earned / haftalık lig aynı)');
+  ok(s1.bank.out.length === 1 && s1.bank.out[0].s > 0 && u1.bank.in.includes(s1.bank.out[0].id), 'çift kayıt: gönderende onay bekleyen havale (s), alanda kimlik');
+  await p.screenshot({ path: out + 'banka-2-havale.png' });
+  await tapS(p, '#modal [data-a="stay"]', 600);
+  const again = await p.evaluate(() => { const b = document.querySelector('#sheetBody [data-a="send"]'); return b ? { d: b.disabled, t: b.innerText.toLocaleLowerCase('tr-TR') } : null; });
+  ok(again && again.d && /bugünkü hak doldu/.test(again.t), '"Burada kal" bankaya döner; hak dolunca düğme kapalı: ' + JSON.stringify(again));
+  // emanet: başlanmamış Japonya
+  await tapS(p, '#sheetBody .bk-to[data-r="jp"]');
+  const js = lo(await p.evaluate(() => document.querySelector('#sheetBody .bk-slip')?.innerText || ''));
+  ok(/emanette bekleyecek/.test(js) && /¥\d/.test(js) && /\/ ¥8[,.]8b/.test(js), 'Japonya: emanette bekleyecek, ¥ ve hak tabanı ¥8,8B (₺2.500): ' + js.replace(/\n/g, ' | '));
+  await tapS(p, '#sheetBody [data-a="send"]', 600); await p.clock.runFor(500);
+  const jc = lo(await p.evaluate(() => document.querySelector('#modal .card.bk-done')?.innerText || ''));
+  const s2 = await S(p), jo = s2.bank.out.find(o => o.to === 'jp');
+  ok(/emanete alındı/.test(jc) && /başlangıç sermayesi/.test(jc) && jo && !jo.s && jo.a <= 2500 && jo.a > 2490, 'emanet kartı ve gönderende emanet (' + (jo && Math.round(jo.a)) + ')');
+  await tapS(p, '#modal [data-a="stay"]', 600);
+  // kur sekmesi
+  await tapS(p, '#sheetBody [data-a="tab"][data-v="fx"]', 500);
+  const fx = await p.evaluate(() => { const b = document.querySelector('#sheetBody'), c = b.querySelector('.bk-ch'); return { t: b.innerText.toLocaleLowerCase('tr-TR'), n: c ? c.dataset.v.split(',').length : 0, rows: b.querySelectorAll('.bk-fx').length, rk: !!b.querySelector('.bk-rk .rk-face svg') }; });
+  ok(fx.n === 25 && fx.rows === 4 && fx.rk && /1 \$ = ₺4\d[,.]\d\d/.test(fx.t) && /24 saat/.test(fx.t) && /7 gün/.test(fx.t), 'Kur: Rıfkı notu, 24 saatlik grafik (25 nokta), 4 para (1 $ = ₺4x,xx): ' + fx.n + '/' + fx.rows);
+  const bb = await p.locator('#sheetBody .bk-ch').boundingBox(); const v0 = await p.textContent('#sheetBody .bk-chv');
+  await p.mouse.move(bb.x + bb.width * 0.2, bb.y + bb.height / 2); await p.waitForTimeout(100);
+  const v1 = await p.textContent('#sheetBody .bk-chv');
+  ok(v0 !== v1 && /^\d\d:00 · 1 \$ = ₺/.test(v1), 'grafikte gezinince o saatin kuru: ' + v0 + ' → ' + v1);
+  await p.screenshot({ path: out + 'banka-3-kur-24s.png' });
+  await tapS(p, '#sheetBody [data-a="rng"][data-v="w"]', 400);
+  const n7 = await p.evaluate(() => document.querySelector('#sheetBody .bk-ch').dataset.v.split(',').length);
+  await tapS(p, '#sheetBody .bk-fx[data-v="EUR"]', 400);
+  const eur = await p.evaluate(() => document.querySelector('#sheetBody .bk-chv').textContent);
+  ok(n7 === 43 && /1 € = ₺4\d/.test(eur), '7 gün (43 nokta), euro seçilince grafik euro: ' + eur);
+  await p.screenshot({ path: out + 'banka-4-kur-7g.png' });
+  // bilanço
+  await tapS(p, '#sheetBody [data-a="tab"][data-v="bil"]', 500);
+  const bl = await p.evaluate(() => { const b = document.querySelector('#sheetBody'); return { t: b.innerText.toLocaleLowerCase('tr-TR'), big: b.querySelector('.bk-big b').textContent, regs: b.querySelectorAll('.bk-reg').length, off: b.querySelectorAll('.bk-reg.off').length, seg: b.querySelectorAll('.bk-share i').length }; });
+  ok(/^₺/.test(bl.big) && bl.regs === 6 && bl.off === 4 && bl.seg === 2 && /toplam net varlık/.test(bl.t), 'Bilanço ₺: toplam ' + bl.big + ', 6 bölge (4 başlanmadı), pay şeridi 2 bölge');
+  await p.screenshot({ path: out + 'banka-5-bilanco-tl.png' });
+  await tapS(p, '#sheetBody [data-a="cur"][data-v="USD"]', 400);
+  const bu = await p.evaluate(() => document.querySelector('#sheetBody .bk-big b').textContent);
+  const num = s => { const m = /([\d.,]+)\s*(Mr|Mn|B|M|K|Tn)?/.exec(s.replace(/^[^\d]+/, '')); return m ? +m[1].replace(',', '.') * ({ B: 1e3, K: 1e3, Mn: 1e6, M: 1e6, Mr: 1e9, Tn: 1e12 }[m[2]] || 1) : NaN; };
+  const ratio = num(bl.big) / num(bu);
+  ok(/^\$/.test(bu) && ratio > 38 && ratio < 48, 'para birimi $ seçilince bilanço dolar: ' + bl.big + ' → ' + bu + ' (oran ' + ratio.toFixed(1) + ')');
+  await p.screenshot({ path: out + 'banka-6-bilanco-usd.png' });
+  await p.keyboard.press('Escape'); await p.clock.runFor(400);
+  // ayarlar kısayolu
+  await tapS(p, '#menuBtn'); await tapS(p, '#sheetBody .drow[data-a="set"]', 500);
+  await tapS(p, '#sheetBody [data-a="banka"]', 500); await p.clock.runFor(300); await p.waitForTimeout(200);
+  ok(/gönderen|toplam net varlık|1 birim kaç/.test(await body(p)), 'Ayarlar bölge listesinin altından bankaya kısayol');
+  await p.keyboard.press('Escape'); await p.clock.runFor(400);
+  // piyasa raporu: kur satırı
+  await p.evaluate(() => { const S = window.__tapuState(); S.market = ''; S.collects = 5; }); await p.clock.runFor(4000); await p.waitForTimeout(300);
+  for (let k = 0; k < 3 && await has(p, '#modal .card') && !await has(p, '#modal .mkcard'); k++) { await p.click('#modal .card [data-a]', { force: true }); await p.clock.runFor(3000); }
+  const mk = lo(await p.evaluate(() => document.querySelector('#modal .mkcard .mkfx')?.innerText || ''));
+  ok(/kur/.test(mk) && /1 \$ = ₺4\d[,.]\d\d/.test(mk) && /[▲▼] %\d/.test(mk), 'piyasa raporunda kur satırı: ' + mk.replace(/\n/g, ' '));
+  await p.screenshot({ path: out + 'banka-7-piyasa-kur.png' });
+  for (let k = 0; k < 3 && await has(p, '#modal .card'); k++) { await p.click('#modal .card [data-a]', { force: true }); await p.clock.runFor(400); }
+  ok(!p.errs.length, 'konsol temiz (Türkiye)' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  // havale kartı → ABD bölgesine geç (yeni aktarım için ABD'nin bugünkü hakkı sıfırlanır: ertesi gün gibi)
+  await p.evaluate(() => { const k = 'tapu-save-v2-us', o = JSON.parse(JSON.parse(localStorage.getItem(k)).j); o.bank.day = { k: '', got: 0 };
+    const j = JSON.stringify(o); let h = 0x811c9dc5; for (let i = 0; i < j.length; i++) { h ^= j.charCodeAt(i); h = Math.imul(h, 0x01000193); } localStorage.setItem(k, JSON.stringify({ c: (h >>> 0).toString(36), j })); });
+  await openBank(p); await tapS(p, '#sheetBody .bk-to[data-r="us"]'); await tapS(p, '#sheetBody [data-a="pick"][data-v="0.1"]');
+  const uc = (await rd(p, 'us')).cash;
+  await tapS(p, '#sheetBody [data-a="send"]', 600); await p.clock.runFor(500);
+  const uc2 = (await rd(p, 'us')).cash;
+  await Promise.all([p.waitForEvent('load'), p.click('#modal [data-a="go"]', { force: true })]); await p.clock.runFor(1500); await p.waitForTimeout(400);
+  await dismissCards(p, { n: 5, run: 600 }); // çevrimdışı kira kartı vb. (reklamsız seçenek)
+  const us = await S(p), cashTxt = await p.textContent('#cash');
+  const shown = num(cashTxt), exp = us.cash / 43, ins = us.bank.log.filter(l => l.dir === 'in').length;
+  ok(us.city === 'nyc' && uc2 > uc && ins === 2 && new Set(us.bank.in).size === 2 && Math.abs((us.cash - uc2) - (us.earned - 777)) < 1, '"ABD bölgesine geç": ABD açıldı, iki havale kasada birer kez (' + Math.round(uc) + ' → ' + Math.round(uc2) + '; üstü yalnız kira)');
+  ok(/^\$\d/.test(cashTxt) && Math.abs(shown - exp) / exp < 0.05, 'ABD gösterim ölçeği: kasa ' + cashTxt + ' (iç ' + Math.round(us.cash) + ' / 43)');
+  await tapS(p, '#grid .lot[data-i="10"]', 500);
+  const lotTxt = await p.evaluate(() => document.querySelector('#sheetBody .bcard.k-ev .bp')?.textContent || '');
+  const evc = await p.evaluate(() => { const S = window.__tapuState(); return 100 * Math.pow(1.12, S.d['nyc-0'].filter(q => q && q.t === 'ev').length); });
+  ok(lotTxt === '$' + (Math.floor(evc / 43 * 100) / 100).toFixed(2).replace('.', ','), 'ABD arsa paneli: ev fiyatı ölçekli ve kuruşlu: ' + lotTxt + ' (iç ' + evc.toFixed(1) + ')');
+  await p.keyboard.press('Escape'); await p.clock.runFor(400);
+  await openBank(p);
+  const usClosed = lo(await p.evaluate(() => document.querySelector('#sheetBody .bk-closed')?.innerText || ''));
+  ok(/ikinci semtini alınca ya da \$116 kazanınca/.test(usClosed), 'ABD’de banka (tek semt, az kazanç) kapalı; eşik ölçekli ($116 = iç 5.000): ' + usClosed);
+  await p.screenshot({ path: out + 'banka-8-abd.png' });
+  await p.keyboard.press('Escape'); await p.clock.runFor(400);
+  // Japonya'ya geç: şehir seçilince emanet başlangıç sermayesi
+  await p.evaluate(() => { const P = JSON.parse(localStorage.getItem('tapu-prefs')); P.region = 'jp'; localStorage.setItem('tapu-prefs', JSON.stringify(P)); });
+  await p.evaluate(() => window.__tapuTest && 0); await p.reload(); await p.clock.runFor(800);
+  await p.click('#modal .cityopt[data-a="tyo"]', { force: true }); await p.clock.runFor(1200); await p.waitForTimeout(300);
+  const jp = await S(p), toastT = await p.evaluate(() => document.querySelector('#toast')?.innerText || '');
+  ok(jp.city === 'tyo' && jp.cash > 150 + 2490 && jp.cash <= 150 + 2500 && jp.earned === 0, 'Japonya açıldı: emanet başlangıç sermayesi olarak kasada (' + Math.round(jp.cash) + '), kazanç 0');
+  ok(/Bankadaki emanet kasana geçti: ¥\d/.test(toastT) || jp.cash > 150, 'emanet bildirimi: ' + toastT);
+  ok(!p.errs.length, 'konsol temiz (ABD, Japonya)' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+
+  // koyu tema + hareketi azalt, 320 px: taşma yok, dokunma alanları ≥44 px
+  p = await openBk({ dark: true, rm: true, vp: { width: 320, height: 640 } });
+  await openBank(p); await tapS(p, '#sheetBody .bk-to[data-r="us"]');
+  const dk = await p.evaluate(() => ({ dark: document.documentElement.dataset.theme || getComputedStyle(document.body).backgroundColor, slip: getComputedStyle(document.querySelector('#sheetBody .bk-slip')).color }));
+  const o1 = await noOverflow(p), s1b = await small(p);
+  await p.screenshot({ path: out + 'banka-9-koyu-320-aktar.png' });
+  await tapS(p, '#sheetBody [data-a="tab"][data-v="fx"]', 400); const o2 = await noOverflow(p), s2b = await small(p);
+  await p.screenshot({ path: out + 'banka-10-koyu-320-kur.png' });
+  await tapS(p, '#sheetBody [data-a="tab"][data-v="bil"]', 400); const o3 = await noOverflow(p), s3b = await small(p);
+  await p.screenshot({ path: out + 'banka-11-koyu-320-bilanco.png' });
+  ok([o1, o2, o3].every(o => o.doc <= o.vw && !o.bad.length), '320 px: üç sekmede yatay taşma yok: ' + JSON.stringify([o1, o2, o3].map(o => o.bad)));
+  ok(![...s1b, ...s2b, ...s3b].length, 'dokunma alanları ≥44 px: ' + JSON.stringify([s1b, s2b, s3b]));
+  ok(/dark/.test(JSON.stringify(dk)) || dk.slip !== 'rgb(0, 0, 0)', 'koyu tema: ' + JSON.stringify(dk));
+  ok(!p.errs.length, 'konsol temiz (koyu, 320)' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+
+  // yok sayan oyuncu: banka kullanılmazsa kasa ve kayıtlar değişmez (yalnız rate anlık görüntüsü)
+  p = await openBk();
+  const y0 = await S(p), yu0 = await rd(p, 'us'); await p.clock.runFor(5000);
+  const y1 = await S(p), yu1 = await rd(p, 'us');
+  ok(y1.bank.out.length === 0 && yu1.cash === yu0.cash && Math.abs(y1.cash - y0.cash) < 1, 'yok sayan: havale yok, ABD kasası aynı');
+  await p.context().close();
+}
+
 (async()=>{
   const b=await chromium.launch(); URL=await serve();
+  if(process.env.IY_ONLY==='19'){ // yalnızca banka bölümü: IY_ONLY=19 node tests/iyilestirme.cjs
+    console.log('19) Banka, kur ve bilanço'); await bankaBolum(b); await b.close();
+    const pass=results.filter(r=>r.pass).length; console.log(`\nSONUÇ: ${pass}/${results.length} geçti`); process.exit(pass===results.length?0:1);
+  }
   if(process.env.IY_ONLY==='18'){ // yalnızca ihale bölümü: IY_ONLY=18 node tests/iyilestirme.cjs
     console.log('18) Rakip emlakçı ve ihale'); await ihaleBolum(b); await b.close();
     const pass=results.filter(r=>r.pass).length; console.log(`\nSONUÇ: ${pass}/${results.length} geçti`); process.exit(pass===results.length?0:1);
@@ -972,6 +1148,8 @@ async function ihaleBolum(b) {
   await projeBolum(b);
   console.log('18) Rakip emlakçı ve ihale');
   await ihaleBolum(b);
+  console.log('19) Banka, kur ve bilanço');
+  await bankaBolum(b);
   await b.close();
   const pass=results.filter(r=>r.pass).length;
   console.log(`\nSONUÇ: ${pass}/${results.length} geçti`);

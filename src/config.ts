@@ -81,6 +81,33 @@ export function setRegion(r: RegionId) {
 /** Şehrin ülkesi (Global'de rakip emlakçı ve ihale yapıları şehrin ülkesine göre). */
 export const cityRegion = (c: CityId): Exclude<RegionId, 'gl'> => (['tr', 'us', 'uk', 'de', 'jp'] as const).find(r => REGIONS[r].cities.includes(c)) || 'tr';
 export const currency = () => REGIONS[REGION].cur;
+
+/* ---------- para birimleri ve gösterim ölçeği ----------
+   İç ekonomi birimi her bölgede aynıdır (denge, sim, kayıtlar, lig karşılaştırması bu birimle). Ekranda her bölgenin parası
+   gerçekçi bir ölçekle gösterilir: iç birim = ₺ (ölçek 1), diğer paralar taban kurla (CFG.FX_*, Remote Config ile güncellenir).
+   Örn. 1 $ ≈ 43 ₺ ise ABD'de iç birimde 4.300'lük bir bina $100 görünür. Mağaza fiyatları (gerçek para) bunun dışındadır. */
+export type CurId = 'TRY' | 'USD' | 'GBP' | 'EUR' | 'JPY';
+export const CURS: CurId[] = ['TRY', 'USD', 'EUR', 'GBP', 'JPY'];
+export const CUR_OF: Record<RegionId, CurId> = { tr: 'TRY', us: 'USD', uk: 'GBP', de: 'EUR', jp: 'JPY', gl: 'USD' };
+export const CUR_SYM: Record<CurId, string> = { TRY: '₺', USD: '$', GBP: '£', EUR: '€', JPY: '¥' };
+const pos = (x: number, d: number) => (typeof x === 'number' && Number.isFinite(x) && x > 0 ? x : d);
+/** Taban kur: 1 birim para kaç ₺ (gün içi dalgalanma bankada; gösterim taban kurla, fiyatlar saat saat oynamasın). */
+export function tryPer(c: CurId): number {
+  const usd = pos(CFG.FX_USD_TRY, 43);
+  switch (c) {
+    case 'USD': return usd;
+    case 'EUR': return usd * pos(CFG.FX_EUR_USD, 1.15);
+    case 'GBP': return usd * pos(CFG.FX_GBP_USD, 1.33);
+    case 'JPY': return usd * pos(CFG.FX_JPY100_USD, 0.66) / 100;
+    default: return 1;
+  }
+}
+/** Gösterim ölçeği: iç birimde 1, bu bölgenin parasıyla kaç birim görünür. */
+export const dispScale = (r: RegionId = REGION) => 1 / tryPer(CUR_OF[r] || 'TRY');
+/** İç birim → ekrandaki tutar (bölgenin parasıyla). */
+export const toDisp = (x: number, r: RegionId = REGION) => x * dispScale(r);
+/** Ekrandaki tutar (oyuncu girdisi) → iç birim. */
+export const fromDisp = (x: number, r: RegionId = REGION) => x / dispScale(r);
 // Denge (scripts/sim.ts ile ölçüldü): semtler 15–45 dk'da dolar, tapu beklemesi ≤ ~17 dk
 export const TIER_M = [1, 10, 100, 1000, 10000];       // kademe çarpanı (maliyet)
 export const TIER_FEE = [0, 80e3, 1e6, 1.2e7, 1.5e8];   // il içinde sonraki semtin tapu bedeli
@@ -187,6 +214,23 @@ export const CFG = {
   IH_KOSE_X: 0.4,              // köşe başı arsanın kirasına bonus (semt başına 1; lig kazancına sayılmaz)
   IH_UNLOCK_OWN: 2,            // en az bu kadar semt sahibi olunca (ya da Holding kurulmuşsa) açılır
   IH_SHOW_MS: 12 * 3600e3,     // sonuç kartı en geç bu kadar sonra gösterilmez (yok sayan oyuncuya kart yok)
+  // banka, kur ve bilanço (game/bankcore.ts): isteğe bağlı katman; denge scripts/banka.sim.ts ile ölçüldü.
+  // Taban kurlar gerçek kurlara yakın tutulur (geliştirici ara ara Remote Config'ten günceller); gösterim ölçeği bunlardan.
+  FX_USD_TRY: 43,              // 1 $ kaç ₺
+  FX_EUR_USD: 1.15,            // 1 € kaç $
+  FX_GBP_USD: 1.33,            // 1 £ kaç $
+  FX_JPY100_USD: 0.66,         // 100 ¥ kaç $
+  // Gün içi dalgalanma (herkes için aynı, saat/tarih tohumlu): para başına günlük sürüklenme ± ve saatlik ±; iki paranın
+  // çapraz kuru böylece gün içinde ±%1, toplamda ±%3 içinde kalır. Makas + komisyon her zaman bundan büyük tutulur (bankcore).
+  FX_DAY: 0.0098, FX_HOUR: 0.0049,
+  BANK_SPREAD: 0.01,           // alış-satış makası (yalnız para birimi değişince)
+  BANK_FEE: 0.02,              // banka komisyonu (her aktarımda)
+  BANK_FLOOR: 2500,            // günlük aktarım hakkının tabanı (iç birim) = başlanmamış bölgeye başlangıç sermayesi
+  BANK_RENT_MIN: 30,           // günlük hak: alan bölgenin bu kadar dakikalık (2x'siz) kirası
+  BANK_SRC_SHARE: 0.5,         // bir aktarımda kasanın en fazla bu kadarı
+  BANK_VALUE_X: 0.8,           // bilanço: mülk değeri = yapım maliyetinin bu kadarı
+  BANK_OPEN_OWN: 2, BANK_OPEN_EARN: 5000, // banka hesabı: 2. semt ya da bu kadar kazanç
+  BANK_TIP_PCT: 0.01,          // Rıfkı'nın kur notu: başka bölgenin parası 7 günlük ortalamasından bu kadar ucuzsa (günde en fazla bir kez)
 };
 export type Cfg = typeof CFG;
 

@@ -7,7 +7,7 @@ import { EN } from '../../src/locales/en';
 import { DE } from '../../src/locales/de';
 import { JA } from '../../src/locales/ja';
 import { fmt } from '../../src/format';
-import { setRegion, REGIONS, REGION_ORDER, CITIES, DRULES, CITY_ORDER } from '../../src/config';
+import { setRegion, REGIONS, REGION_ORDER, CITIES, DRULES, CITY_ORDER, fromDisp } from '../../src/config';
 
 const keys: string[] = JSON.parse(fs.readFileSync('scripts/i18n-keys.json', 'utf8')).keys;
 const ph = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort().join(',');
@@ -41,9 +41,10 @@ describe('sözlükler', () => {
 
 describe('biçimler', () => {
   it('para birimi bölgeden, kısaltma dilden', () => {
-    setRegion('de'); setLang('de'); expect(fmt(1.5e6)).toBe('€1,5Mio');
-    setRegion('us'); setLang('en'); expect(fmt(2500)).toBe('$2.5K');
-    setRegion('jp'); setLang('ja'); expect(fmt(1.5e6)).toBe('¥150万'); expect(fmt(3e8)).toBe('¥3億');
+    // tutarlar iç birimde; ekranda bölgenin gösterim ölçeğiyle (banka kur tabanı): fromDisp ekrandaki tutarı iç birime çevirir
+    setRegion('de'); setLang('de'); expect(fmt(fromDisp(1.5e6))).toBe('€1,5Mio');
+    setRegion('us'); setLang('en'); expect(fmt(fromDisp(2500))).toBe('$2.5K');
+    setRegion('jp'); setLang('ja'); expect(fmt(fromDisp(1.5e6))).toBe('¥150万'); expect(fmt(fromDisp(3e8))).toBe('¥3億');
     setRegion('tr'); setLang('tr'); expect(fmt(1.5e6)).toBe('₺1,5Mn');
   });
   it('dile göre yer eki', () => {

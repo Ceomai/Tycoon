@@ -25,7 +25,7 @@ import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { Capacitor } from '@capacitor/core';
 import { CFG } from './config';
 import { S, setS, newState, migrate } from './state';
-import { weekKey } from './format';
+import { weekKey, fmt } from './format';
 import { now, totalRate } from './economy';
 import { Time, guardRollback } from './time';
 import { loadRaw } from './storage';
@@ -57,6 +57,7 @@ import { showLeagueResult } from './game/league';
 import { onTipClick, showTip } from './game/rifki';
 import { spawnTenant, handKey, tenantTick, tenants } from './game/tenants';
 import * as Ihale from './game/auction';
+import * as Bank from './game/bank';
 const { openIhale } = Ihale;
 import { showSummary } from './game/district';
 
@@ -211,7 +212,7 @@ async function boot() {
   // satın alınan paketler tüm bölgelerde geçerli
   S.premium = S.premium || P.ent.premium; S.noAds = S.noAds || P.ent.noAds; S.club = S.club || P.ent.club;
 
-  if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult, totalRate: () => totalRate(true), showTip, toast, showSummary, bigStamp, switchDistrict, spawnTenant, handKey, tenantTick, tenants, ihale: Ihale, openSheet }; } // uçtan uca testler için (yalnızca önizleme paketi)
+  if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult, totalRate: () => totalRate(true), showTip, toast, showSummary, bigStamp, switchDistrict, spawnTenant, handKey, tenantTick, tenants, ihale: Ihale, bank: Bank, openSheet }; } // uçtan uca testler için (yalnızca önizleme paketi)
   setupGrid(); Street.init(); ensureTasks(); drawGuilloche(); bindUi(); fit();
   ui.lastInput = performance.now();
   render();
@@ -225,6 +226,9 @@ async function boot() {
   else if (!P.news && (migrated || P.region === 'tr')) setTimeout(() => { if (!ui.modal) showRegionNews(); }, 1200); // mevcut oyuncuya bir kez
   else { catchUp(awayMs()); S.lastSeen = now(); }
   void loadRegionInfo();
+  // banka: diğer bölgelerden gelen emanetler ve yoldaki havalelerin teslimi; web'de başka sekmeden yazılan havale
+  if (S.city) void Bank.bankBoot().then(got => { if (got) toast(t('Banka havalesi geldi: {m}', { m: fmt(got) })); }).catch(e => Analytics.error(e, 'bank_boot'));
+  Bank.watchTabs(got => toast(t('Banka havalesi geldi: {m}', { m: fmt(got) })));
   await cloud;
   void Purchases.init(Cloud.uid());
   void Ads.init();
