@@ -185,6 +185,13 @@ export const CFG = {
   TEN_AFFORD_SEC: 180,         // istek kasa + bu kadar saniyelik kirayla karşılanabilmeli
   TEN_TIME_MAX: 6 * 60e3,      // isteğin gerektirdiği inşaat en fazla bu kadar sürmeli
   TEN_STAMP: 3,                // kiracı defteri: bir tipten bu kadar kiracı yerleşince müdavim pulu (yalnızca görünüm)
+  // geç oyun istekleri (game/tenants.ts LATE_KINDS: proje, köşe başı, cephe rengi, yenileme): yalnız dolu semtte, eski türden aday
+  // kalmayınca ya da semt olgunlaşınca; denge scripts/sim.ts SIM_PJ=table SIM_PJ_ROWS=gec ile ölçüldü
+  TEN_LATE_LV: 0.5,            // olgun semt: binaların en az bu payı en üst katta (Sv5)
+  TEN_LATE_GAP: 35 * 60e3,     // geç oyun adayı gelince sıradaki aday bu kadar daha geç gelir (aralık ≈ 40–43 dk; aktif oyuncu geç oyunda ≈ +%15 bandında)
+  TEN_PJ_AFFORD_SEC: 600,      // proje isteği: etap bedeli kasa + bu kadar saniyelik kirayla karşılanabilmeli
+  TEN_RV_FEE_SEC: 300,         // yenileme bedeli: binanın taban kirasının bu kadar saniyesi
+  TEN_RV_PCT: 0.1,             // yenileme süresi: binanın son kat (Sv4→5) süresinin bu payı (1 dk ile TEN_TIME_MAX arası); bu sürede kira yok
   /** Kiracı kişilikleri (game/tenantChars.ts): { kişilik: [kira yüzdesi, sözleşme dk] } geçersiz kılma. Boşsa veri dosyasındaki değerler
    *  (Sabırsız 60·50, Sadık 40·75, Coşkulu 65·46, Köklü 35·86, Gezgin 70·43, kalanlar 50·60). Remote Config: TEN_TRAITS anahtarına
    *  JSON metni; her çift yüzde × dk / (50 × 60) ±%5 içinde olmalı, değilse o çift yok sayılır (services/remote.ts). */

@@ -13,7 +13,7 @@
 import { CFG, COLS, ROWS, MAXLV, TYPES, UP_COST, DistrictKey, BuildingType, pjMinLv } from '../config';
 import { S, lotsOf, Pj, PjKind } from '../state';
 import { costM, isFull, upTime, pjCells, pjOf, producing, now } from '../economy';
-import { tenants, excludeTenantLots, satisfied, handKey, tenantHooks, countryOf, Tenant, Country } from './tenants';
+import { tenants, excludeTenantLots, satisfied, handKey, tenantHooks, countryOf, tenantPj, Tenant, Country } from './tenants';
 import { t, tk } from '../i18n';
 
 /** Türü 2×2'deki binalar belirler: en az 3 ev → site · kafe+dükkân en az 3 → çarşı · en az 3 ofis → plaza · diğer → karma. */
@@ -71,6 +71,8 @@ export const pjReady = (k: DistrictKey, i: number) => blocks(k, i).length > 0;
 /** Kiracı hedefi olmayan arsa: projede ya da projeye dönüşebilecek bir blokta. */
 export const pjReserved = (k: DistrictKey, i: number) => !!pjOf(k, i) || pjReady(k, i);
 excludeTenantLots(pjReserved, true); // mevcut kiracılar pjStart'ta ele alınır (sessizce düşmez)
+// kiracıların geç oyun proje isteği (tenants.ts tenantPj): uygun bloklar, semtin projeleri, etap bedeli
+Object.assign(tenantPj, { blocks: (k: DistrictKey, i?: number) => blocks(k, i), list: (k: DistrictKey) => pjList(k), cost: (k: DistrictKey, a: number, st?: number) => pjCost(k, a, st) });
 
 type Near = { a: number; ready: number; floors: number; i: number };
 /** Projeye en yakın blok (i'yi içerenler ya da semtin tümü): kaç bina hazır, kaç kat eksik, kat çıkması gereken ilk arsa.
@@ -102,11 +104,13 @@ export function pjTime(k: DistrictKey, a: number, stage = 1): number {
 /* ---------- kiracılar: birleşmede ne olur ---------- */
 export interface PjTen { live: Tenant[]; move: Tenant[]; leave: Tenant[] }
 /** Bloğun arsalarındaki kiracılar: live = sözleşmesi sürüyor (projede kalır), move = isteği olmuş, anahtar bekliyor
- *  (projeye yerleşir), leave = isteği artık karşılanamaz (bildirimle ayrılır). */
+ *  (projeye yerleşir), leave = isteği artık karşılanamaz (bildirimle ayrılır). Proje isteyen kiracı (proj) ve yenilemesi süren
+ *  kiracı (renov) hiçbirine girmez: beklemeye devam eder (proje / yenileme bitince anahtar). */
 export function pjTenants(k: DistrictKey, a: number): PjTen {
   const cells = pjCells(a), r: PjTen = { live: [], move: [], leave: [] };
   for (const x of tenants()) {
     if (x.k !== k || !cells.includes(x.i)) continue;
+    if (x.st === 'wait' && (x.w.k === 'proj' || (x.w.k === 'renov' && x.rv != null))) continue;
     if (x.st === 'live') r.live.push(x); else if (satisfied(x)) r.move.push(x); else r.leave.push(x);
   }
   return r;

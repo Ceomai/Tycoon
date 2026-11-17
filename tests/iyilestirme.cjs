@@ -12,6 +12,7 @@
 // teslim, 2. etap, ayırma; reklamla hızlandırma yok; UK/DE üslubu; koyu tema + hareketi azalt, 320 px, yatay 844×390.
 // Banka (19): menü/ayarlar kısayolu, aktarım ve hak, havale kartı → bölge geçişi, kur grafiği, bilanço ₺/$, emanet, piyasa kur satırı, ABD ölçeği, koyu 320 px.
 // İnceleme (20): web'de oyun tek sekmede — ikinci sekme bekleme ekranı, devralma, durmuş sekme yazmaz, yabancı yazmada yeniden yükleme.
+// Kiracılar · geç oyun (21): dolu Sv5 semtte aday gelir (cephe rengi), yenileme (bedel, kira durur, anahtar), proje isteği akışı, koyu 320 px.
 // Rakip ve ihale (18): hap, tanıtım, panel, vekâlet/emanet, geçilme, kazanma/kaybetme, köşe başı seçimi, şehir rakipleri, koyu tema, 320 px, UK, EN.
 // Çalıştır: npm run test:iy  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 const {chromium}=require('playwright');
@@ -745,8 +746,127 @@ async function bankaBolum(b) {
   await p.context().close();
 }
 
+// ---------- 21) Kiracılar · geç oyun: dolu ve olgun (Sv5) semtte yeni istekler (cephe rengi, yenileme, proje) ----------
+async function kiraciGecBolum(b) {
+  /** İstanbul'un beş semti alınmış, hepsi dolu ve Sv5 (türler sırayla ev/kafe/dükkân/ofis), ekranda Bebek. pj: Bebek'te iki proje
+   *  (sol üst 0 ve 10, teslim edilmiş) — kalan 12 arsa kiracı hedefi olabilir; yoksa her blok projeye hazır (yalnız proje isteği). */
+  async function openGec(o = {}) {
+    const ctx = await b.newContext({ viewport: o.vp || { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: o.rm ? 'reduce' : 'no-preference' });
+    await ctx.addInitScript(`localStorage.setItem('tapu-prefs',JSON.stringify({lang:'tr',region:'tr',ent:{},news:true${o.dark ? ",theme:'dark'" : ''}}));` + (o.dark ? "localStorage.setItem('tapu-theme','dark');" : ''));
+    const p = await ctx.newPage(); p.errs = []; p.on('pageerror', e => p.errs.push(e.message));
+    await p.clock.install(); await p.goto(URL); await p.clock.runFor(700);
+    await p.click('#modal .cityopt[data-a="ist"]', { force: true }); await p.clock.runFor(400);
+    for (let k = 0; k < 5 && await has(p, '#modal .card'); k++) { await p.click('#modal .card [data-a]', { force: true }); await p.clock.runFor(400); }
+    await p.evaluate(pj => { const S = window.__tapuState(), T = ['ev', 'kafe', 'dukkan', 'ofis'];
+      S.own = [0, 1, 2, 3, 4].map(d => 'ist-' + d);
+      for (const k of S.own) S.d[k] = Array.from({ length: 20 }, (_, i) => ({ t: T[i % 4], lvl: 5, buf: 0, until: 0, dur: 1, up: false }));
+      S.pj = pj ? { 'ist-4': [{ a: 0, kd: 'karma', st: 1, until: 0, dur: 1 }, { a: 10, kd: 'karma', st: 1, until: 0, dur: 1 }] } : {};
+      S.lien = {}; S.lienT = {}; S.collectMode = 'tap'; S.cash = 1e15; S.earned = 1e13; S.seen = { ev: true, kafe: true, dukkan: true, ofis: true };
+      S.nextEvent = 9e12; S.nextOffer = 9e12; S.nextCivic = 9e12; S.nextAd = 9e12; S.nextTaxi = 9e12; S.collects = 0; S.market = 'x'; S.rifki = true; S.guideHint = true; S.pjIntro = true;
+      S.starter = { at: 1, bought: true }; S.offer = null; S.ten = []; S.tdef = {}; S.nextTen = 9e15; S.cards = Object.keys(S.d);
+      const d = new Date(); S.daily = { last: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'), streak: 1 };
+      S.tasks = { day: S.daily.last, bonus: false, list: [{ k: 'taxi', goal: 1e9, prog: 0, claimed: false }] };
+      window.__tapuTest.switchDistrict('ist-4'); }, !!o.pj);
+    await p.clock.runFor(1500);
+    for (let k = 0; k < 5 && await has(p, '#modal .card'); k++) { await p.click('#modal .card [data-a]', { force: true }); await p.clock.runFor(400); }
+    if (await has(p, '#rifki:not([hidden])')) await p.evaluate(() => document.querySelector('#rifki .rk-x').click());
+    if (o.spawn !== false) { // aday oyunun kendi tick'iyle (Math.random = 0 yalnız o an: ilk aday deterministik)
+      await p.evaluate(() => { const S = window.__tapuState(); S.nextTen = S.playMs + 300; const r = Math.random; Math.random = () => 0; setTimeout(() => { Math.random = r; }, 700); });
+      await p.clock.runFor(1200);
+    }
+    return p;
+  }
+  const rk = p => p.evaluate(() => { const r = document.querySelector('#rifki'); return r.hidden ? null : { mood: r.querySelector('.rk-face')?.dataset.mood, txt: r.querySelector('.rk-bub span')?.textContent || '' }; });
+  const rkX = p => p.evaluate(() => { const r = document.querySelector('#rifki .rk-x'); if (r && !document.querySelector('#rifki').hidden) r.click(); });
+  const tile = i => `#grid .lot[data-i="${i}"]`;
+  const tapTile = async (p, i) => { await p.click(tile(i), { force: true }); await p.clock.runFor(400); await p.waitForTimeout(350); };
+  const rate = p => p.evaluate(() => window.__tapuTest.totalRate());
+  const esc = async p => { if (await has(p, '#sheet.on')) { await p.keyboard.press('Escape'); await p.clock.runFor(400); } };
+
+  // a) dolu Sv5 semtte aday gelir: cephe rengi isteği (eski türden aday yok)
+  let p = await openGec({ pj: true });
+  const s0 = await S(p), x0 = s0.ten[0];
+  ok(s0.ten.length === 1 && x0.k === 'ist-4' && x0.w.k === 'paint' && x0.i === 8 && x0.w.c === 2 && x0.c === 'ist.ogrenci', 'dolu ve Sv5 Bebek\'te aday geldi: cephe rengi isteği (Ece, 8. arsa, Nane): ' + JSON.stringify(x0));
+  const r0 = await rk(p);
+  ok(r0 && r0.mood === 'wow' && /cephe rengi: nane/i.test(r0.txt), 'Rıfkı tanıtıyor (şaşkın yüz, istek): ' + JSON.stringify(r0));
+  await tapTile(p, 8);
+  const c0 = await p.evaluate(() => ({ q: document.querySelector('#sheetBody .tn-q')?.textContent || '', w: [...document.querySelectorAll('#sheetBody .ledger > div')].map(d => d.textContent.replace(/\s+/g, ' ')), go: document.querySelector('#sheetBody [data-a="go"]')?.textContent }));
+  ok(/nane/.test(c0.q) && c0.w.some(s => /Cephe rengi: Nane/.test(s)) && c0.w.some(s => /yalnızca görünüm/.test(s)) && c0.go === 'Binaya git · cephe rengi', 'kiracı kartı: söz, istek, bağlantı ve düğme: ' + JSON.stringify(c0));
+  await p.waitForTimeout(400); await p.screenshot({ path: out + 'kiraci-gec-1-cephe-kart.png' });
+  await p.click('#sheetBody [data-a="go"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(300);
+  const sk = await p.evaluate(() => ({ want: document.querySelector('#sheetBody .sw2.want')?.dataset.n, note: document.querySelector('#sheetBody .sk-want')?.textContent || '' }));
+  ok(sk.want === '2' && /Ece bu binanın cephesi için nane rengini istiyor/.test(sk.note), 'cephe paneli: istenen renk işaretli, not: ' + JSON.stringify(sk));
+  await p.waitForTimeout(300); await p.screenshot({ path: out + 'kiraci-gec-2-cephe-panel.png' });
+  await p.click('#sheetBody .sw2.want', { force: true }); await p.clock.runFor(1200);
+  ok((await S(p)).ten[0].st === 'ready', 'renk seçilince istek oldu (anahtar hazır)');
+  await esc(p); await rkX(p); await p.click(tile(8), { force: true }); await p.clock.runFor(400);
+  ok((await S(p)).ten[0].st === 'live', 'tek dokunuşla yerleşti');
+
+  // b) yenileme: bedel, kısa süre kira yok, sonra anahtar
+  await esc(p); await rkX(p);
+  await p.evaluate(() => { const S = window.__tapuState(); S.ten.push({ id: 99, a: 'emekli', k: 'ist-4', i: 12, w: { k: 'renov' }, dl: S.playMs + 8 * 60e3, st: 'wait', end: 0, c: 'ist.emekli' }); });
+  await p.clock.runFor(600); await tapTile(p, 12);
+  const rb = await p.evaluate(() => { const b = document.querySelector('#sheetBody [data-a="renov"]'); return b ? { t: b.textContent.replace(/\s+/g, ' '), dis: b.disabled, h: b.getBoundingClientRect().height } : null; });
+  ok(rb && /^Yenile · /.test(rb.t) && /dk/.test(rb.t) && !rb.dis && rb.h >= 44, 'kiracı kartında "Yenile · bedel · süre" düğmesi (≥44 px): ' + JSON.stringify(rb));
+  await p.waitForTimeout(300); await p.screenshot({ path: out + 'kiraci-gec-3-yenile-kart.png' });
+  const cash0 = (await S(p)).cash, rt0 = await rate(p);
+  await p.click('#sheetBody [data-a="renov"]', { force: true }); await p.clock.runFor(400);
+  const s1 = await S(p), x1 = s1.ten.find(x => x.id === 99), rt1 = await rate(p);
+  ok(x1.rv > s1.playMs && s1.cash < cash0 && cash0 - s1.cash < (rt0 - rt1) * 600, 'yenileme başladı: bedel kasadan (binanın birkaç dakikalık kirası: ' + Math.round((cash0 - s1.cash) / (rt0 - rt1)) + ' sn), bitiş zamanı kayıtlı');
+  ok(rt1 < rt0, 'yenilemedeki bina kira vermiyor (' + rt0.toFixed(0) + ' → ' + rt1.toFixed(0) + ')');
+  await esc(p); await p.clock.runFor(1500);
+  const r1 = await rk(p), rv = await p.evaluate(() => { const e = document.querySelector('#grid .lot[data-i="12"]'); return { cls: e.classList.contains('rv'), b: e.querySelector('.rvb b')?.textContent, aria: e.getAttribute('aria-label') }; });
+  ok(r1 && r1.mood === 'think' && /Yenileme başladı/.test(r1.txt), 'Rıfkı haber veriyor (düşünceli yüz): ' + JSON.stringify(r1));
+  ok(rv.cls && rv.b === 'YENİLENİYOR' && /yenileniyor/.test(rv.aria), 'karo: YENİLENİYOR şeridi ve ekran okuyucu metni: ' + JSON.stringify(rv));
+  await rkX(p); await p.waitForTimeout(300); await p.screenshot({ path: out + 'kiraci-gec-4-yenileniyor.png' });
+  await p.clock.runFor(x1.rv - s1.playMs + 3000);
+  const s2 = await S(p);
+  ok(s2.ten.find(x => x.id === 99).st === 'ready' && !(await has(p, tile(12) + ' .rvb')) && (await rate(p)) > rt1, 'yenileme bitti: kira geri geldi, anahtar hazır');
+  await p.clock.runFor(1500); await rkX(p); await esc(p); await p.click(tile(12), { force: true }); await p.clock.runFor(400);
+  ok((await S(p)).ten.find(x => x.id === 99).st === 'live', 'anahtarla yerleşti');
+  ok(!p.errs.length, 'konsol temiz' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+
+  // c) proje isteği: her blok hazırken yalnız proje istenir; kart → onay kartı → proje; teslimde anahtar
+  p = await openGec({ pj: false });
+  const x2 = (await S(p)).ten[0];
+  ok(x2 && x2.w.k === 'proj' && x2.w.n === 1 && x2.i === 0, 'her blok hazır: aday projeyi istiyor (0. arsa): ' + JSON.stringify(x2));
+  await rkX(p); await tapTile(p, 0);
+  const c2 = await p.evaluate(() => ({ go: document.querySelector('#sheetBody [data-a="go"]')?.textContent, w: [...document.querySelectorAll('#sheetBody .ledger > div')].map(d => d.textContent.replace(/\s+/g, ' ')) }));
+  ok(c2.go === 'Bloğa git · projeye dönüştür' && c2.w.some(s => /Bu blok projeye dönüşsün/.test(s)) && c2.w.some(s => /Proje dört binanın kirasına \+%20/.test(s)), 'kart: istek, bağlantı, düğme: ' + JSON.stringify(c2));
+  await p.click('#sheetBody [data-a="go"]', { force: true }); await p.clock.runFor(400); await p.waitForTimeout(300);
+  ok(await has(p, '#modal .pjcard'), 'düğme bloğun proje onay kartını açtı');
+  await p.waitForTimeout(300); await p.screenshot({ path: out + 'kiraci-gec-5-proje-onay.png' });
+  await p.click('#modal [data-a="go"]', { force: true }); await p.clock.runFor(600);
+  const s3 = await S(p), q3 = s3.pj['ist-4'] && s3.pj['ist-4'][0];
+  ok(q3 && q3.a === 0 && q3.st === 0 && s3.ten.some(x => x.id === x2.id && x.st === 'wait'), 'proje başladı, aday ayrılmadı (bekliyor)');
+  ok(await has(p, tile(0) + ' .tn.s-wait'), 'şantiye karosunda adayın rozeti');
+  await rkX(p); await p.evaluate(() => { const S = window.__tapuState(); S.pj['ist-4'][0].until = Date.now() + 500; }); await p.clock.runFor(2000);
+  ok((await S(p)).ten.find(x => x.id === x2.id).st === 'ready' && await has(p, tile(0) + ' .tn.s-ready'), 'proje teslim: anahtar hazır');
+  await rkX(p); await esc(p); await p.click(tile(0), { force: true }); await p.clock.runFor(400);
+  ok((await S(p)).ten.find(x => x.id === x2.id).st === 'live' && !(await has(p, '#sheet.on')), 'proje karosuna tek dokunuşla yerleşti');
+  ok(!p.errs.length, 'konsol temiz' + (p.errs.length ? ' [' + p.errs.slice(0, 2).join('|') + ']' : ''));
+  await p.context().close();
+
+  // d) koyu tema, 320 px: yenileme kartı taşmaz
+  p = await openGec({ pj: true, dark: true, vp: { width: 320, height: 640 }, spawn: false });
+  await p.evaluate(() => { const S = window.__tapuState(); S.ten.push({ id: 98, a: 'emekli', k: 'ist-4', i: 12, w: { k: 'renov' }, dl: S.playMs + 8 * 60e3, st: 'wait', end: 0, c: 'ist.emekli' }); });
+  await p.clock.runFor(600); await tapTile(p, 12);
+  const ov = await p.evaluate(() => ({ doc: document.documentElement.scrollWidth, vw: innerWidth, bad: [...document.querySelectorAll('#sheetBody *')].filter(e => { const r = e.getBoundingClientRect(); return r.width && (r.right > innerWidth + 0.5 || r.left < -0.5); }).length }));
+  ok(ov.doc <= ov.vw && !ov.bad, '320 px koyu tema: yenileme kartı taşmıyor: ' + JSON.stringify(ov));
+  await p.waitForTimeout(300); await p.screenshot({ path: out + 'kiraci-gec-6-320-koyu.png' });
+  await p.click('#sheetBody [data-a="renov"]', { force: true }); await p.clock.runFor(400); await esc(p); await rkX(p);
+  await p.waitForTimeout(300); await p.screenshot({ path: out + 'kiraci-gec-7-320-koyu-tahta.png' });
+  ok(await has(p, tile(12) + ' .rvb'), '320 px koyu tema: YENİLENİYOR şeridi görünür');
+  await p.context().close();
+}
+
 (async()=>{
   const b=await chromium.launch(); URL=await serve();
+  if(process.env.IY_ONLY==='21'){ // yalnızca geç oyun kiracı istekleri: IY_ONLY=21 node tests/iyilestirme.cjs
+    console.log('21) Kiracılar · geç oyun istekleri'); await kiraciGecBolum(b); await b.close();
+    const pass=results.filter(r=>r.pass).length; console.log(`\nSONUÇ: ${pass}/${results.length} geçti`); process.exit(pass===results.length?0:1);
+  }
   if(process.env.IY_ONLY==='19'){ // yalnızca banka bölümü: IY_ONLY=19 node tests/iyilestirme.cjs
     console.log('19) Banka, kur ve bilanço'); await bankaBolum(b); await b.close();
     const pass=results.filter(r=>r.pass).length; console.log(`\nSONUÇ: ${pass}/${results.length} geçti`); process.exit(pass===results.length?0:1);
@@ -1214,6 +1334,8 @@ async function bankaBolum(b) {
   await ihaleBolum(b);
   console.log('19) Banka, kur ve bilanço');
   await bankaBolum(b);
+  console.log('21) Kiracılar · geç oyun istekleri');
+  await kiraciGecBolum(b);
   console.log('20) İnceleme düzeltmeleri: oyun tek sekmede (iy-inceleme.cjs)');
   await incelemeBolum(b, ok, URL);
   await b.close();

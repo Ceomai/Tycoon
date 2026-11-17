@@ -27,6 +27,7 @@ export const TIP_MOOD: Readonly<Record<string, Mood>> = {
   tennote: 'think',   // kiracı hâlâ bekliyor (hatırlatır)
   tenready: 'happy',  // istek oldu: anahtarı verin
   tenok: 'party',     // kiracı yerleşti (kutlar) · gidişte Rıfkı konuşmaz, kısa bildirim çıkar
+  tenrv: 'think',     // kiracı isteği: yenileme başladı (bina kısa süre kira vermez)
   pjintro: 'wow',     // büyük projeler açıldı (bir kez tanıtır)
   pjnear: 'think',    // 2×2 blok projeye 1–2 kat uzak
   project: 'party',   // proje (ya da 2. etap) teslim

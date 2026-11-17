@@ -8,7 +8,7 @@
    Bu modül arayüz ve durum (state) içe aktarmaz: state.ts sanitize, sim ve testler de kullanır.
    ========================================================= */
 import { CFG, DMAP, BuildingType, CityId, DistrictKey } from '../config';
-import type { Arch, WishKind } from './tenants';
+import type { Arch, WishKind, LateKind } from './tenants';
 import { TRAITS as TRAIT_DATA, CHARS as CHAR_DATA } from './tenantChars.data';
 
 export type TraitId = 'uyumlu' | 'sabirsiz' | 'sadik' | 'coskulu' | 'koklu' | 'gezgin' | 'titiz' | 'sosyal' | 'manzaraci' | 'huzurlu';
@@ -23,11 +23,13 @@ export interface TChar {
   r: string; q: string;   // meslek, kendi sözü (Türkçe kaynak; t() ile)
   trait: TraitId;
   wishes: [WishKind, number, BuildingType?][]; // ARCH[a].wishes yerine (toplam ağırlık tipinkine eşit: tipin gelme sıklığı aynı)
+  late: [LateKind, number][];  // geç oyun (dolu/olgun semt) istekleri: ARCH[a].late × kişiliğin late çarpanları (toplam tipinkine eşit)
   sea?: number;           // kıyı/cephe sırası isteği ek çarpanı (manzara sever)
   look: FaceParams;
 }
-/** pct: kira bonusu (%) · min: sözleşme (dk) · wish: istek ağırlığı çarpanları · rare: defterde kartpostal (gezgin) */
-export interface TTrait { pct: number; min: number; wish: Partial<Record<WishKind | 'sea', number>>; rare?: true; n: string; d: string }
+/** pct: kira bonusu (%) · min: sözleşme (dk) · wish: istek ağırlığı çarpanları · late: geç oyun istek çarpanları ·
+ *  rare: defterde kartpostal (gezgin) */
+export interface TTrait { pct: number; min: number; wish: Partial<Record<WishKind | 'sea', number>>; late: Partial<Record<LateKind, number>>; rare?: true; n: string; d: string }
 
 export const TRAITS: Record<TraitId, TTrait> = TRAIT_DATA;
 export const TRAIT_IDS = Object.keys(TRAITS) as TraitId[];

@@ -2,7 +2,7 @@
    Mantık game/tenants.ts'te (arayüz içe aktarmaz); burası yalnız gösterim ve tenantHooks kaydı. */
 import { CFG, DMAP, TYPES, LV_INC, CITIES, CITY_ORDER, REGIONS, CityId } from '../../config';
 import { S, lotsOf } from '../../state';
-import { fmt, clock } from '../../format';
+import { fmt, clock, fmtCost, fmtTime } from '../../format';
 import { rate, incM, permMult, ruleMult, districtMult } from '../../economy';
 import { t, nm, pctTxt } from '../../i18n';
 import { I } from '../../icons';
@@ -12,11 +12,15 @@ import { toast } from '../modal';
 import { tenantFace, tenantBadge, tenantLook } from '../tenantFace';
 import {
   tenantAt, tenantHooks, tName, quote, wishShort, wishLink, goLabel, inProgress, handKey, targetLot, ARCHS, Tenant, bonusPct, liveMin,
+  renovFee, renovMs, startRenov,
   stampsOf, leaveText, endText, charOfT, charName, charOk, charMet, cityCount, cityBadge, countryCities, countryDone, postcards,
 } from '../../game/tenants';
 import { CHAR, CHARS, TRAITS, TChar, bonusOf, liveOf, traitOf } from '../../game/tenantChars';
 import { SKIN_COLORS, COUNTRY_SKIN } from '../../game/fun';
 import { sayEvent } from '../../game/rifki';
+import { pjOf } from '../../economy';
+import { deny } from '../motion';
+import { view } from '../ctx';
 import { persist } from '../../game/persist';
 import { Analytics } from '../../services/analytics';
 import { Panel, STAY, openSheet, closeSheet, lv } from './core';
@@ -33,14 +37,17 @@ function gain(x: Tenant): number {
   return x.st === 'live' ? r - r / (1 + b) : r * b;
 }
 const mins = (ms: number) => Math.ceil(Math.max(0, ms) / 60e3);
-const leftTxt = (x: Tenant) => (x.st === 'live' ? t('{m} dk', { m: mins(x.end - S.playMs) }) : inProgress(x) ? t('usta çalışıyor · süre durdu') : clock(Math.max(0, x.dl - S.playMs)));
+const leftTxt = (x: Tenant) => (x.st === 'live' ? t('{m} dk', { m: mins(x.end - S.playMs) })
+  : x.rv != null && x.rv > S.playMs ? t('yenileniyor · {c}', { c: clock(x.rv - S.playMs) }) : inProgress(x) ? t('usta çalışıyor · süre durdu') : clock(Math.max(0, x.dl - S.playMs)));
+/** Yenileme düğmesi: bedel ve süre (kasa yetmezse pasif). */
+const renovBtn = (x: Tenant) => { const f = renovFee(x.k, x.i); return `<button class="btn" data-a="renov" ${S.cash >= f ? '' : 'disabled'}>${t('Yenile')} · ${fmtCost(f)} <small>${fmtTime(renovMs(x.k, x.i))}</small></button>`; };
 /** Kişiliğin kira bonusu ve süresi ("+%60 kira · 50 dk"). */
 const traitGain = (ch: TChar | null) => t('+{p} kira · {m} dk', { p: pctTxt(Math.round(bonusOf(ch) * 100)), m: Math.round(liveOf(ch) / 60e3) });
 /** Kişiliğin açıklaması ({p}/{m} yer tutucuları karakterin değerleriyle). */
 const traitDesc = (ch: TChar) => t(TRAITS[traitOf(ch)].d, { p: pctTxt(Math.round(bonusOf(ch) * 100)), m: Math.round(liveOf(ch) / 60e3) });
 
 export const kiraci: Panel<{ x: Tenant | null }> = {
-  sig(s, _tn, c) { const x = c.x = tenantAt(s.key!, s.i!); return 'tn|' + (x ? x.id + x.st + (inProgress(x) ? 'p' : '') + (x.dl - S.playMs < CFG.TEN_NOTE ? 'n' : '') : '-'); },
+  sig(s, _tn, c) { const x = c.x = tenantAt(s.key!, s.i!); return 'tn|' + (x ? x.id + x.st + (inProgress(x) ? 'p' : '') + (x.dl - S.playMs < CFG.TEN_NOTE ? 'n' : '') + (x.w.k === 'renov' && x.rv == null ? (S.cash >= renovFee(x.k, x.i) ? 'r' : 'R') : '') : '-'); },
   render(_s, _tn, { x }) {
     if (!x) return `<p class="sec">${t('Kiracı adayı')}</p><p class="gdp">${t('Kiracı adayı başka bir yere baktı. Yenisi gelir.')}</p>
       <div class="btns"><button class="txt" data-a="defter">${t('Kiracı defteri')}</button></div>`;
@@ -57,14 +64,23 @@ export const kiraci: Panel<{ x: Tenant | null }> = {
         <div><span>${live ? t('Sözleşme') : t('Kalan süre')}</span><i></i><b class="${!live && x.dl - S.playMs < CFG.TEN_NOTE ? 'red' : ''}">${lv('tnl', () => leftTxt(x))}</b></div>
         <div class="rule"><span>${t('Bağlantı')}</span><i></i><b>${wishLink(x)}</b></div>
       </div>
-      <div class="btns">${live ? '' : ready ? `<button class="btn gold" data-a="key">${t('Anahtarı ver')}</button>` : `<button class="btn" data-a="go">${goLabel(x)}</button>`}
+      <div class="btns">${live ? '' : ready ? `<button class="btn gold" data-a="key">${t('Anahtarı ver')}</button>` : x.w.k === 'renov' ? (x.rv == null ? renovBtn(x) : '') : `<button class="btn" data-a="go">${goLabel(x)}</button>`}
         <button class="txt" data-a="defter">${t('Kiracı defteri')}</button></div>
       <p class="note">${live ? t('Sözleşme bitince {n} teşekkür edip taşınır; defterindeki pulu kalır.', { n: name }) : t('İstek karşılanmazsa {n} başka yere bakar. Ceza yok, yalnızca bonus kaçar.', { n: name })}</p>`;
   },
   action(a, _b, s) {
     if (a === 'defter') { const x = tenantAt(s.key!, s.i!); if (x) dview.city = DMAP[x.k].city; dview.sel = ''; openSheet({ k: 'defter' }); return STAY; }
     const x = tenantAt(s.key!, s.i!); if (!x) return;
-    if (a === 'go') { openSheet({ k: 'plot', key: x.k, i: targetLot(x) }); return STAY; }
+    if (a === 'go') {
+      if (x.w.k === 'proj') { // 1. etap: proje seçim modu (bu binayı içeren blok) · 2. etap: proje paneli
+        const q = pjOf(x.k, x.i);
+        if (q) { openSheet({ k: 'proj', key: x.k, i: q.a }); return STAY; }
+        if (x.k === S.cur) { closeSheet(); view.pjSelect(x.k, x.i); return STAY; }
+      }
+      if (x.w.k === 'paint') { openSheet({ k: 'skin', key: x.k, i: x.i }); return STAY; }
+      openSheet({ k: 'plot', key: x.k, i: targetLot(x) }); return STAY;
+    }
+    if (a === 'renov') { if (startRenov(x)) { Snd.tap(); persist(); } else deny(); return; }
     if (a === 'key') { handKey(x); closeSheet(); return STAY; }
   },
 };
@@ -132,4 +148,5 @@ tenantHooks.settle = x => {
   sayEvent('tenok', x.k, x); Analytics.log('tenant_settle', { arch: x.a, wish: x.w.k, ch: x.c || '' }); persist();
 };
 tenantHooks.leave = x => { redraw(x); toast(leaveText(x), 3000); };
+tenantHooks.renov = x => { redraw(x); sayEvent('tenrv', x.k, x); Analytics.log('tenant_renov', { arch: x.a, ch: x.c || '' }); };
 tenantHooks.end = x => { redraw(x); toast(endText(x), 3000); };

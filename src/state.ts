@@ -160,7 +160,7 @@ function cleanLot(q: unknown): Lot {
 const cleanLots = (x: unknown): Lot[] => { const a = Array.isArray(x) ? x.slice(0, N).map(cleanLot) : []; while (a.length < N) a.push(null); return a; };
 /* kiracılar: game/tenants.ts ile aynı listeler (döngüsel içe aktarma olmasın diye burada; birim testi eşitliği denetler) */
 export const TEN_ARCHS = ['ogrenci', 'aile', 'sanatci', 'yazilimci', 'emekli', 'esnaf'];
-const TEN_WISH = ['nb', 'quiet', 'lvl', 'new'], TEN_ST = ['wait', 'ready', 'live'], TEN_MAX_N = 24;
+const TEN_WISH = ['nb', 'quiet', 'lvl', 'new', 'proj', 'kose', 'paint', 'renov'], TEN_ST = ['wait', 'ready', 'live'], TEN_MAX_N = 24;
 const int = (x: unknown, min: number, max: number) => typeof x === 'number' && Number.isInteger(x) && x >= min && x <= max;
 /** Kiracı listesi: bozuk / bilinmeyen kayıtlar düşer; süreler oyun süresine göre makul aralığa çekilir (elle uzatılamaz).
  *  Karakter (c): bilinen kimlik, semtin şehri ve tipi tutuyorsa korunur, değilse silinir (eski kayıtta yok: karakter semtten türetilir).
@@ -174,13 +174,16 @@ function cleanTenants(x: unknown, own: DistrictKey[], playMs: number): Tenant[] 
     const w = q.w; if (!isObj(w) || !TEN_WISH.includes(w.k)) continue;
     const wt = w.t === undefined ? undefined : TYPES[w.t as BuildingType] ? (w.t as BuildingType) : null;
     if (wt === null || ((w.k === 'nb' || w.k === 'new') && !wt) || (w.k === 'lvl' && !int(w.n, 1, MAXLV))) continue;
+    if ((w.k === 'proj' && !int(w.n, 1, 2)) || (w.k === 'paint' && !int(w.c, 0, 63))) continue; // geç oyun: proje etabı, cephe rengi
     const key = q.k + ':' + q.i; if (seen.has(key)) continue; seen.add(key);
-    const wish: Tenant['w'] = { k: w.k }; if (wt) wish.t = wt; if (w.k === 'lvl') wish.n = w.n; if (w.k === 'new' && w.sea === true) wish.sea = true;
+    const wish: Tenant['w'] = { k: w.k }; if (wt) wish.t = wt; if (w.k === 'lvl' || w.k === 'proj') wish.n = w.n; if (w.k === 'new' && w.sea === true) wish.sea = true;
+    if (w.k === 'paint') wish.c = w.c;
     const c0 = typeof q.c === 'string' ? CHAR[q.c] : undefined, d = DMAP[q.k as DistrictKey];
     const ch = c0 && d && c0.city === d.city && c0.a === q.a ? c0 : null, ch2 = ch || charFor(q.k, q.a), live = ch2 ? liveOf(ch2) : maxLive();
     const t: Tenant = { id: q.id, a: q.a, k: q.k, i: q.i, w: wish, st: q.st,
       dl: Math.min(q.dl, playMs + Math.max(CFG.TEN_WAIT, CFG.TEN_READY)), end: q.st === 'live' ? Math.min(q.end, playMs + live) : 0 };
     if (q.noted === true) t.noted = true;
+    if (w.k === 'renov' && q.st !== 'live' && fin(q.rv)) t.rv = Math.min(q.rv, playMs + CFG.TEN_TIME_MAX); // yenileme bitişi: elle uzatılamaz
     if (ch) t.c = ch.id;
     out.push(t);
   }

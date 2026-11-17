@@ -116,6 +116,12 @@ export function tenantMult(k: DistrictKey, i: number): number {
   for (const x of L) if (x.st === 'live' && x.k === k && x.i === i) return 1 + bonusOf(charOfT(x)); // kişiliğe göre (game/tenantChars.ts)
   return 1;
 }
+/** Yenilemedeki bina kira vermez (game/tenants.ts "yenileme" isteği; oyun süresiyle işler, çevrimdışı hesapta — withoutTenants — sayılmaz). */
+export function renovating(k: DistrictKey, i: number): boolean {
+  const L = S.ten; if (tenOff || !L || !L.length) return false;
+  for (const x of L) if (x.rv != null && x.st === 'wait' && x.k === k && x.i === i && S.playMs < x.rv) return true;
+  return false;
+}
 /** f'yi kiracı bonusu olmadan hesaplar (çevrimdışı kazanç). */
 export function withoutTenants<T>(f: () => T): T { const o = tenOff; tenOff = true; try { return f(); } finally { tenOff = o; } }
 
@@ -153,7 +159,7 @@ export function leagueShare(): number {
   return Math.min(1, withoutIhale(() => totalRateRaw(false)) / all);
 }
 export function baseRate(k: DistrictKey, i: number): number {
-  const p = lotsOf(S, k)[i]; if (!producing(p)) return 0;
+  const p = lotsOf(S, k)[i]; if (!producing(p) || renovating(k, i)) return 0;
   if (p!.sp) return specialBase(k, i) * permMult() * districtMult(k) * ihaleLotMult(k, i);
   return TYPES[p!.t].inc * LV_INC[p!.lvl] * incM(k) * (1 + neighborBonus(k, i)) * ruleMult(k, i, p!.t) * marketMult(p!.t, curWeek()) * civicMult(k, p!.t) * permMult() * districtMult(k) * (tenantMult(k, i) + pjMult(k, i) - 1) * ihaleLotMult(k, i);
 }

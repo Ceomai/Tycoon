@@ -7,37 +7,59 @@
    Her şehrin 6 tipten birer karakteri var (game/tenantChars.ts: 15 şehir × 6 = 90): ad, meslek, söz, istek ağırlıkları, portre
    ve kişilik. Kişilik kira bonusunu ve sözleşme süresini değiştirir (bonus × süre aynı kalır); kayıtta Tenant.c.
    Bu modül arayüz içe aktarmaz (simülasyon da kullanır); arayüz geri çağrıları tenantHooks ile kaydedilir (ui/sheets/tenant.ts).
+   Geç oyun (dolu ve olgun semt): boş arsa ve kat kalmayınca eski istekler çıkmaz; o semtte dört yeni istek açılır (LATE_KINDS):
+   proje (uygun 2×2'yi projeye dönüştür / projenin 2. etabı), köşe başı (ihale ödülü damgalı arsa), cephe rengi (oyuncunun açık
+   renklerinden) ve yenileme (Sv5 binada küçük bedel + kısa süre kira yok). Yalnız geç oyunda (bir ilin son semti dolu), olgun
+   semtte (dolu, Sv5 payı ≥ CFG.TEN_LATE_LV) ve hiçbir semtte eski türden aday çıkmıyorsa; erken oyun aynen kalır
+   (scripts/sim.ts SIM_TEN=table ve tek koşular birebir).
    ========================================================= */
-import { CFG, COLS, ROWS, N, DRULES, DMAP, REGIONS, CITY_ORDER, ORDER, BuildingType, DistrictKey, CityId } from '../config';
-import { S, lotsOf, Lot } from '../state';
-import { neighbors, buildCost, buildTime, upCost, upTime, withDisc, producing, totalRate, PAIRS } from '../economy';
+import { CFG, COLS, ROWS, N, DRULES, DMAP, REGIONS, CITIES, CITY_ORDER, ORDER, MAXLV, BuildingType, DistrictKey, CityId } from '../config';
+import { S, lotsOf, Lot, Pj } from '../state';
+import { neighbors, buildCost, buildTime, upCost, upTime, withDisc, producing, totalRate, PAIRS, isFull, pjOf, pjCells, baseRate } from '../economy';
+import { koseOf } from './auccore';
+import { SKIN_COLORS, COUNTRY_SKIN, skinShown, skinUnlocked } from './skins';
 import { t, tk, nm, lowTxt, pctTxt } from '../i18n';
 import { charFor, charOpts, CHAR, CHARS, TRAITS, bonusOf, liveOf, TChar, Country } from './tenantChars';
 export type { Country };
 
 export type Arch = 'ogrenci' | 'aile' | 'sanatci' | 'yazilimci' | 'emekli' | 'esnaf';
 export const ARCHS: readonly Arch[] = ['ogrenci', 'aile', 'sanatci', 'yazilimci', 'emekli', 'esnaf'];
-export type WishKind = 'nb' | 'quiet' | 'lvl' | 'new';
-export const WISH_KINDS: readonly WishKind[] = ['nb', 'quiet', 'lvl', 'new'];
-/** nb: yanında t türü bina · quiet: yanında ev, ofis olmasın · lvl: en az n. kat · new: bu boş arsaya t türü bina (sea: sahil sırası) */
-export interface Wish { k: WishKind; t?: BuildingType; n?: number; sea?: boolean }
+/** Geç oyun istekleri (dolu/olgun semt): proj · kose · paint · renov. */
+export type LateKind = 'proj' | 'kose' | 'paint' | 'renov';
+export const LATE_KINDS: readonly LateKind[] = ['proj', 'kose', 'paint', 'renov'];
+export type WishKind = 'nb' | 'quiet' | 'lvl' | 'new' | LateKind;
+export const WISH_KINDS: readonly WishKind[] = ['nb', 'quiet', 'lvl', 'new', ...LATE_KINDS];
+export const isLate = (k: WishKind): k is LateKind => (LATE_KINDS as readonly string[]).includes(k);
+/** nb: yanında t türü bina · quiet: yanında ev, ofis olmasın · lvl: en az n. kat · new: bu boş arsaya t türü bina (sea: sahil sırası) ·
+ *  proj: bu bina projeye girsin (n = 1) / projenin 2. etabı (n = 2) · kose: köşe başı arsada (Sv5) oturmak · paint: bu binanın cephesi
+ *  c rengi (SKIN_COLORS sırası) · renov: Sv5 binayı yenile (bedel + kısa süre kira yok; bitişi Tenant.rv) */
+export interface Wish { k: WishKind; t?: BuildingType; n?: number; sea?: boolean; c?: number }
 export type TenantSt = 'wait' | 'ready' | 'live';
 /** dl: bekleme / anahtar teslimi bitişi · end: sözleşme bitişi (ikisi de oyun süresi, S.playMs ms) · noted: Rıfkı hatırlattı ·
  *  c: karakter kimliği ("izm.emekli"; eski kayıtta yok → semtin şehrinin aynı tipteki karakteri) */
-export interface Tenant { id: number; a: Arch; k: DistrictKey; i: number; w: Wish; dl: number; st: TenantSt; end: number; noted?: boolean; c?: string }
+export interface Tenant { id: number; a: Arch; k: DistrictKey; i: number; w: Wish; dl: number; st: TenantSt; end: number; noted?: boolean; c?: string; rv?: number }
 export interface TDef { met: number; ok: number }
 /** Kiracının karakteri (c yoksa — eski kayıt — semtin şehrinin aynı tipteki karakteri). */
 export const charOfT = (x: Pick<Tenant, 'a' | 'k' | 'c'>): TChar | null => (x.c && !charOpts.off && CHAR[x.c]) || charFor(x.k, x.a);
 
-/** Kiracı tipleri: kiraladığı bina türleri ve istek havuzu [tür, ağırlık, bina]. "Sessiz komşu" (quiet) bilerek seyrek. */
-export const ARCH: Record<Arch, { rents: BuildingType[]; wishes: [WishKind, number, BuildingType?][] }> = {
-  ogrenci: { rents: ['ev'], wishes: [['nb', 3, 'kafe'], ['lvl', 1], ['new', 1, 'ev']] },
-  aile: { rents: ['ev'], wishes: [['nb', 3, 'dukkan'], ['lvl', 2], ['new', 1, 'ev']] },
-  sanatci: { rents: ['ev', 'kafe'], wishes: [['lvl', 2], ['new', 2, 'ev']] },
-  yazilimci: { rents: ['ofis', 'ev'], wishes: [['nb', 3, 'kafe'], ['lvl', 1], ['new', 1, 'ofis']] },
-  emekli: { rents: ['ev'], wishes: [['new', 2, 'ev'], ['nb', 1.5, 'kafe'], ['quiet', 0.5]] },
-  esnaf: { rents: ['dukkan', 'kafe'], wishes: [['nb', 3], ['nb', 1, 'dukkan'], ['new', 1, 'dukkan']] }, // nb (bina yok) = akıllı ikili eşi
+/** Kiracı tipleri: kiraladığı bina türleri, istek havuzu [tür, ağırlık, bina] ve geç oyun havuzu [tür, ağırlık] (toplam 4;
+ *  scripts/kiracilar/gen.mjs LATE ile aynı). "Sessiz komşu" (quiet) bilerek seyrek. */
+export const ARCH: Record<Arch, { rents: BuildingType[]; wishes: [WishKind, number, BuildingType?][]; late: [LateKind, number][] }> = {
+  ogrenci: { rents: ['ev'], wishes: [['nb', 3, 'kafe'], ['lvl', 1], ['new', 1, 'ev']], late: [['paint', 1.5], ['renov', 1], ['proj', 1], ['kose', 0.5]] },
+  aile: { rents: ['ev'], wishes: [['nb', 3, 'dukkan'], ['lvl', 2], ['new', 1, 'ev']], late: [['proj', 1.5], ['renov', 1], ['paint', 1], ['kose', 0.5]] },
+  sanatci: { rents: ['ev', 'kafe'], wishes: [['lvl', 2], ['new', 2, 'ev']], late: [['paint', 2], ['renov', 1], ['proj', 0.5], ['kose', 0.5]] },
+  yazilimci: { rents: ['ofis', 'ev'], wishes: [['nb', 3, 'kafe'], ['lvl', 1], ['new', 1, 'ofis']], late: [['proj', 1.5], ['renov', 1], ['paint', 1], ['kose', 0.5]] },
+  emekli: { rents: ['ev'], wishes: [['new', 2, 'ev'], ['nb', 1.5, 'kafe'], ['quiet', 0.5]], late: [['renov', 1.5], ['paint', 1], ['proj', 0.5], ['kose', 1]] },
+  esnaf: { rents: ['dukkan', 'kafe'], wishes: [['nb', 3], ['nb', 1, 'dukkan'], ['new', 1, 'dukkan']], late: [['kose', 2], ['proj', 1], ['renov', 0.5], ['paint', 0.5]] }, // nb (bina yok) = akıllı ikili eşi
 };
+/** Geç oyun havuzu: karakterinki (yoksa tipinki); simülasyonda kişilik zorlanırsa tipin havuzuna o kişiliğin late çarpanları. */
+function lateOf(a: Arch, ch: TChar | null): [LateKind, number][] {
+  if (!ch) return ARCH[a].late;
+  if (!charOpts.force) return ch.late;
+  const T = TRAITS[charOpts.force], base = ARCH[a].late, tot = base.reduce((v, w) => v + w[1], 0);
+  const w = base.map(([k, n]) => [k, n * (T.late[k] || 1)] as [LateKind, number]), f = tot / w.reduce((v, x) => v + x[1], 0);
+  return w.map(([k, n]) => [k, n * f]);
+}
 
 /** Karakterin istek havuzu (karakter yoksa tipinki). Simülasyonda kişilik zorlanırsa tipin havuzuna o kişiliğin ağırlıkları uygulanır. */
 function wishesOf(a: Arch, ch: TChar | null): [WishKind, number, BuildingType?][] {
@@ -75,6 +97,7 @@ export function tName(a: Arch, k: DistrictKey = S.cur): [string, string] {
 /** Arayüz geri çağrıları (ui/sheets/tenant.ts kaydeder; simülasyonda boş). */
 export const tenantHooks = {
   arrive: (_x: Tenant) => {}, ready: (_x: Tenant) => {}, note: (_x: Tenant) => {}, settle: (_x: Tenant) => {}, leave: (_x: Tenant) => {}, end: (_x: Tenant) => {},
+  renov: (_x: Tenant) => {},
 };
 
 /* ---------- hedef dışı arsalar: projelere (arsa birleştirme) ayrılan arsalar kiracı hedefi olmaz ----------
@@ -112,10 +135,62 @@ export function targetLot(x: Tenant): number {
   return x.i;
 }
 
+/* ---------- geç oyun: proje, köşe başı, cephe rengi, yenileme ---------- */
+/** Büyük proje kuralları: game/projcore.ts kaydeder (döngüsel içe aktarma olmasın diye; kayıt yokken proje isteği çıkmaz).
+ *  blocks: uygun 2×2'lerin sol üst arsası · list: semtin projeleri · cost: etap bedeli. */
+export const tenantPj = {
+  blocks: (_k: DistrictKey, _i?: number): number[] => [],
+  list: (_k: DistrictKey): Pj[] => [],
+  cost: (_k: DistrictKey, _a: number, _st?: number): number => Infinity,
+};
+/** Olgun semt: dolu ve binaların en az CFG.TEN_LATE_LV payı en üst katta (Sv5). */
+export function mature(k: DistrictKey): boolean {
+  if (!isFull(k)) return false;
+  const L = lotsOf(S, k).filter(p => !!p && !p.sp && !p.ob);
+  return L.length > 0 && L.filter(p => p!.lvl >= MAXLV).length / L.length >= CFG.TEN_LATE_LV;
+}
+/** Tiplerin sevdiği cephe renkleri (SKIN_COLORS sırası); önce semtin ülke rengi, sonra bunlar, sonra açık olan herhangi biri. */
+const PAINT: Record<Arch, number[]> = { ogrenci: [2, 6, 3], aile: [0, 3, 1], sanatci: [7, 6, 4], yazilimci: [5, 3, 2], emekli: [1, 0, 2], esnaf: [9, 4, 0] };
+/** Kiracının bu binaya isteyeceği renk: oyuncuda açık, bölgede görünen ve binanın şimdiki renginden farklı (yoksa -1). */
+export function paintFor(a: Arch, k: DistrictKey, p: Lot): number {
+  const cur = p && p.sk ? p.sk.c : undefined;
+  for (const c of [COUNTRY_SKIN[countryOf(k)], ...PAINT[a], ...SKIN_COLORS.map((_, n) => n)]) if (c !== cur && SKIN_COLORS[c] && skinShown(c) && skinUnlocked(c)) return c;
+  return -1;
+}
+/** Yenileme bedeli: binanın şimdiki taban kirasının CFG.TEN_RV_FEE_SEC saniyesi. */
+export const renovFee = (k: DistrictKey, i: number) => baseRate(k, i) * CFG.TEN_RV_FEE_SEC;
+/** Yenileme süresi (ms, oyun süresi): binanın son kat (Sv4→5) süresinin CFG.TEN_RV_PCT payı, 1 dk ile TEN_TIME_MAX arası. */
+export function renovMs(k: DistrictKey, i: number): number {
+  const p = lotsOf(S, k)[i]; if (!p || p.sp) return 0;
+  const up = upTime(k, { t: p.t, lvl: MAXLV - 1, buf: 0, until: 0, dur: 1, up: false });
+  return Math.round(Math.min(CFG.TEN_TIME_MAX, Math.max(60e3, up * CFG.TEN_RV_PCT)));
+}
+/** Yenilemeyi başlatır (oyuncunun dokunuşu): bedel kasadan, bina süre boyunca kira vermez (economy.ts renovating), sonra anahtar. */
+export function startRenov(x: Tenant): boolean {
+  if (x.w.k !== 'renov' || x.st !== 'wait' || x.rv != null || !satisfiable(x)) return false;
+  const f = renovFee(x.k, x.i); if (!(S.cash >= f)) return false;
+  S.cash -= f; x.rv = S.playMs + renovMs(x.k, x.i); tenantHooks.renov(x); return true;
+}
+/** Geç oyun isteği hâlâ karşılanabilir mi (proje bloğu başka projeye gitti, ruhsat doldu, köşe başı damgası yok, renk kilitli…). */
+function satisfiable(x: Tenant): boolean {
+  const p = lotsOf(S, x.k)[x.i];
+  switch (x.w.k) {
+    case 'proj': { const q = pjOf(x.k, x.i); return q ? (x.w.n || 1) <= 1 || q.st >= 1 : (x.w.n || 1) <= 1 && tenantPj.blocks(x.k, x.i).length > 0; }
+    case 'kose': return koseOf(x.k) === x.i;
+    case 'paint': return x.w.c != null && !!SKIN_COLORS[x.w.c] && skinUnlocked(x.w.c);
+    case 'renov': return !!p && !p.sp && (p.lvl >= MAXLV || x.rv != null);
+    default: return true;
+  }
+}
+
 /* ---------- istek durumu ---------- */
 export function satisfied(x: Tenant): boolean {
   const lots = lotsOf(S, x.k), p = lots[x.i];
   switch (x.w.k) {
+    case 'proj': { const q = pjOf(x.k, x.i); return !!q && q.st >= (x.w.n || 1); }
+    case 'kose': return koseOf(x.k) === x.i && producing(p) && !p.sp && p.lvl >= MAXLV;
+    case 'paint': return !!p && !!p.sk && p.sk.c === x.w.c;
+    case 'renov': return x.rv != null && S.playMs >= x.rv && producing(p);
     case 'nb': return neighbors(x.i).some(j => { const q = lots[j]; return built(q) && q!.t === x.w.t; });
     case 'quiet': { const nb = neighbors(x.i).map(j => lots[j]); return nb.some(q => built(q) && q!.t === 'ev') && !nb.some(q => q && !q.sp && q.t === 'ofis'); }
     case 'lvl': return !!p && !p.sp && p.lvl >= x.w.n!;
@@ -129,6 +204,9 @@ export function inProgress(x: Tenant): boolean {
     case 'nb': case 'quiet': return neighbors(x.i).some(j => { const q = lots[j]; return !!q && !!q.until && q.lvl === 0 && q.t === wishType(x); });
     case 'lvl': return !!p && !!p.until && p.up && p.lvl + 1 >= x.w.n!;
     case 'new': return !!p && !!p.until && p.t === x.w.t;
+    case 'proj': { const q = pjOf(x.k, x.i); return !!q && !!q.until && q.st + 1 >= (x.w.n || 1); }
+    case 'renov': return x.rv != null && S.playMs < x.rv;
+    default: return false;
   }
 }
 /** Kiracının binası hâlâ yerinde mi (yıkıldı, türü değişti, semt elden çıktı ya da aday arsası hedef dışı kaldıysa sessizce çekilir). */
@@ -189,16 +267,63 @@ export function candidates(k: DistrictKey): Cand[] {
   }
   return out;
 }
+/** Geç oyun: bir ilin son semti (ör. Bebek) alınmış ve dolu, yani bir il baştan sona tamamlanmış. Tapu beklemesindeki (duvar)
+ *  dolu semtler bunu tetiklemez: orta oyun aynen kalır. */
+export const lateGame = () => S.own.some(k => { const d = DMAP[k]; return !!d && d.idx === CITIES[d.city].districts.length - 1 && isFull(k); });
+/** Geç oyun adayları: geç oyunda ve olgun semtte. spawnTenant bunlara yalnız hiçbir semtte eski türden aday çıkmayınca bakar:
+ *  erken oyun (ve onun rastgele sayı dizisi) aynen kalır. */
+export function lateCandidates(k: DistrictKey): Cand[] {
+  if (tenantSim.noLate || !lateGame()) return [];
+  if (!mature(k)) return [];
+  const taken = new Set(tenants().filter(x => x.k === k).map(x => x.i));
+  for (const j of wishTargets(k).keys()) taken.add(j);
+  return lateCands(k, taken, budget());
+}
+/** Geç oyun adayları. Ağırlık: türün payı (w0) adayların sayısına bölünür (tür sıklığı arsa sayısından bağımsız);
+ *  semt kuralı: o türün kiracısı ×2 · ucuz tadilat: yenileme ×2 · kıyı/cephe sırası semti: köşe başı ×1,5. */
+function lateCands(k: DistrictKey, taken: Set<number>, money: number): Cand[] {
+  const lots = lotsOf(S, k), out: Cand[] = [], r = DRULES[k], pjMoney = Math.max(0, S.cash) + totalRate(false) * CFG.TEN_PJ_AFFORD_SEC;
+  const rented = (a: Arch, j: number) => { const p = lots[j]; return producing(p) && !p.sp && !p.ob && ARCH[a].rents.includes(p.t); };
+  const free = (j: number) => !taken.has(j) && !lotExcluded(k, j);
+  // proje: uygun 2×2 (1. etap) ya da teslim edilmiş projenin 2. etabı; dört arsasında başka kiracı yoksa. Projeye dönüşecek arsalar
+  // eski isteklerin hedefi değildir (projcore pjReserved); bu istek tam da onları ister.
+  const pjOpts: [number[], number][] = [];
+  for (const q of tenantPj.list(k)) if (q.st === 1 && !q.until && tenantPj.cost(k, q.a, 2) <= pjMoney) pjOpts.push([pjCells(q.a), 2]);
+  for (const b of tenantPj.blocks(k)) if (tenantPj.cost(k, b, 1) <= pjMoney) pjOpts.push([pjCells(b), 1]);
+  const ko = koseOf(k);
+  for (const a of ARCHS) {
+    for (const [kind, w0] of lateOf(a, charFor(k, a))) {
+      const L: Cand[] = [];
+      if (kind === 'proj') {
+        for (const [cells, n] of pjOpts) { if (cells.some(j => taken.has(j))) continue; const j = cells.find(j => rented(a, j)); if (j != null) L.push({ a, i: j, w: { k: 'proj', n }, wt: 0 }); }
+      } else if (kind === 'kose') {
+        if (ko >= 0 && free(ko) && rented(a, ko) && lots[ko]!.lvl >= MAXLV) L.push({ a, i: ko, w: { k: 'kose' }, wt: 0 });
+      } else for (let i = 0; i < N; i++) {
+        if (!free(i) || !rented(a, i)) continue;
+        const p = lots[i]!;
+        if (kind === 'paint') { const c = paintFor(a, k, p); if (c >= 0) L.push({ a, i, w: { k: 'paint', c }, wt: 0 }); }
+        else if (p.lvl >= MAXLV && renovFee(k, i) <= money) L.push({ a, i, w: { k: 'renov' }, wt: 0 });
+      }
+      for (const c of L) {
+        const ty = lots[c.i]!.t;
+        c.wt = (w0 / L.length) * (r && r.kind === 'type' && r.type === ty ? 2 : 1) * (kind === 'renov' && r && r.kind === 'upDisc' ? 2 : 1) * (kind === 'kose' && r && r.kind === 'row' ? 1.5 : 1);
+        out.push(c);
+      }
+    }
+  }
+  return out;
+}
 /** Yalnız simülasyon (scripts/sim.ts "önce" ölçümü): semt düzeni uyum kuralını kapatır. Oyunda dokunulmaz. */
-export const tenantSim = { noFit: false };
+export const tenantSim = { noFit: false, noLate: false };
 let lastA: Arch | null = null;
 /** Bellekteki geçici durumu sıfırlar (simülasyonda her koşu, testlerde her vaka başında). */
 export function tenantReset() { lastA = null; }
 /** Yeni aday: önce ekrandaki semt, olmazsa sahip olunan diğer semtler (yeniden eskiye). Aynı tip art arda gelmez. */
 export function spawnTenant(rnd: () => number = Math.random): Tenant | null {
   const L = tenants(), order = [S.cur, ...S.own.filter(k => k !== S.cur).reverse()];
-  for (const k of order) {
-    const cs = candidates(k); if (!cs.length) continue;
+  // önce eski türler (her semtte); hiçbiri yoksa geç oyun istekleri (olgun / dolu semtlerde)
+  for (const [k, late] of [...order.map(k => [k, false] as const), ...order.map(k => [k, true] as const)]) {
+    const cs = late ? lateCandidates(k) : candidates(k); if (!cs.length) continue;
     const recent = new Set<Arch>(L.map(x => x.a)); if (lastA) recent.add(lastA);
     const pool = cs.filter(c => !recent.has(c.a)), list = pool.length ? pool : cs;
     let sum = 0; for (const c of list) sum += c.wt;
@@ -250,6 +375,7 @@ export function tenantTick(dt: number, rnd: () => number = Math.random) {
   for (let n = L.length - 1; n >= 0; n--) {
     const x = L[n];
     if (!valid(x)) { L.splice(n, 1); continue; }
+    if (x.st !== 'live' && !satisfiable(x) && !satisfied(x)) { L.splice(n, 1); tenantHooks.leave(x); continue; } // geç oyun isteği artık olamaz
     if (x.st === 'wait') {
       if (satisfied(x)) { x.st = 'ready'; x.dl = Math.max(x.dl, S.playMs + CFG.TEN_READY); tenantHooks.ready(x); continue; } // anahtarı oyuncu verir
       if (inProgress(x)) { x.dl += dt; continue; } // usta çalışıyor: süre durur
@@ -265,7 +391,10 @@ export function tenantTick(dt: number, rnd: () => number = Math.random) {
   if (S.playMs < S.nextTen) return;
   S.nextTen = S.playMs + CFG.TEN_MIN + rnd() * Math.max(0, CFG.TEN_MAX - CFG.TEN_MIN);
   const cap = Math.floor(S.own.length >= 3 ? CFG.TEN_CAP3 : CFG.TEN_CAP);
-  if (L.filter(x => x.st !== 'live').length < cap) { const x = spawnTenant(rnd); if (x) tenantHooks.arrive(x); }
+  if (L.filter(x => x.st !== 'live').length < cap) {
+    const x = spawnTenant(rnd);
+    if (x) { if (isLate(x.w.k)) S.nextTen += CFG.TEN_LATE_GAP; tenantHooks.arrive(x); } // geç oyun adayı daha seyrek (denge: sim SIM_PJ_ROWS=gec)
+  }
 }
 
 /* ---------- metinler (kiracının ağzından istek, kısa istek, bağlantı, düğme, Rıfkı ve bildirim) ----------
@@ -309,8 +438,23 @@ export function quote(x: Tenant): string {
         case 'ofis': return t('Yeni bina kokusu! Bu arsaya bir ofis kurulsun, ilk kiracısı ben olayım.');
         default: return t('Yeni bina kokusu! Bu arsaya bir ev kurulsun, ilk kiracısı ben olayım.');
       }
+    case 'proj':
+      if ((n || 1) >= 2) return x.a === 'esnaf' ? t('Çarşı büyüsün: projenin 2. etabı yapılsın, yeni katta dükkânım olsun.') : t('Projenin 2. etabını yapın; yeni katlardan birinde ben oturayım.');
+      if (x.a === 'aile') return t('Çocuklar bahçe ister: bu bloğu projeye dönüştürün, ilk biz taşınalım.');
+      if (x.a === 'yazilimci') return t('Ekip büyüyor: bu blok tek bir projeye dönüşsün, masamı oraya kurarım.');
+      if (x.a === 'esnaf') return t('Kapalı çarşı gibi olsun: bu bloğu projeye dönüştürün, ilk dükkân benim.');
+      return t('Bu dört bina tek bir proje olsun; içinde oturmak isterim.');
+    case 'kose': return x.a === 'esnaf' ? t('Esnafın yeri köşe başıdır: o damgalı arsada dükkânım olsun.') : t('Köşe başı iki caddeyi birden görür: oraya taşınmak isterim.');
+    case 'paint': {
+      const c = lowTxt(paintName(w.c));
+      if (x.a === 'sanatci') return t('Bu cephe {c} olursa tam tablo olur. Boyatın, hemen taşınayım.', { c });
+      return t('Bu binanın cephesi {c} olsun; ancak o zaman evim gibi hissederim.', { c });
+    }
+    case 'renov': return x.a === 'emekli' ? t('Bina yorulmuş evladım: bir yenileyin, temiz temiz oturayım.') : t('Tesisat eskimiş: kısa bir yenileme yapın, hemen taşınırım.');
   }
 }
+/** Cephe renginin görünen adı. */
+export const paintName = (c?: number) => t((c != null && SKIN_COLORS[c] ? SKIN_COLORS[c] : SKIN_COLORS[0]).n);
 /** Kısa istek (kart, şerit, Rıfkı). */
 export function wishShort(x: Tenant): string {
   const w = x.w;
@@ -321,6 +465,10 @@ export function wishShort(x: Tenant): string {
     case 'new':
       if (w.sea) return t('{s}: yeni ev', { s: seaLabel(x.k) });
       switch (w.t) { case 'kafe': return t('Buraya yeni kafe'); case 'dukkan': return t('Buraya yeni dükkân'); case 'ofis': return t('Buraya yeni ofis'); default: return t('Buraya yeni ev'); }
+    case 'proj': return (w.n || 1) >= 2 ? t('Projenin 2. etabı') : t('Bu blok projeye dönüşsün');
+    case 'kose': return t('Köşe başı arsada otursun');
+    case 'paint': return t('Cephe rengi: {c}', { c: paintName(w.c) });
+    case 'renov': return t('Binayı yenile');
   }
 }
 /** İsteğin hangi mekaniğe dayandığı (kartta küçük not). */
@@ -333,11 +481,19 @@ export function wishLink(x: Tenant): string {
   }
   if (w.k === 'quiet') return t('Ev + ev komşuluğu: ayrıca +{p}', { p: pctTxt(Math.round(CFG.ADJ * 100)) });
   if (w.k === 'lvl') return t('Kat çıkınca kira zaten artar; kiracı üstüne +{p}', { p: bonusPct(x) });
+  if (w.k === 'proj') return t('Proje dört binanın kirasına +{x}; kiracı bu binaya ayrıca +{p}', { x: pctTxt(Math.round(((w.n || 1) >= 2 ? CFG.PJ_X2 : CFG.PJ_X1) * 100)), p: bonusPct(x) });
+  if (w.k === 'kose') return t('Köşe başı zaten +{x}; kiracı üstüne +{p}', { x: pctTxt(Math.round(CFG.IH_KOSE_X * 100)), p: bonusPct(x) });
+  if (w.k === 'paint') return t('Cephe rengi yalnızca görünüm, bedeli yok');
+  if (w.k === 'renov') return t('Yenileme {m} dk sürer, o sürede bina kira vermez', { m: Math.max(1, Math.round(renovMs(x.k, x.i) / 60e3)) });
   return w.sea && r ? t('Semt kuralı: bu sıra ayrıca +{p}', { p: pctTxt(Math.round(r.x * 100)) }) : t('Boş arsa kira getirmez; kiracıyla hemen dolar');
 }
 /** Kartın eylem düğmesi (isteği karşılamaya gider). */
 export function goLabel(x: Tenant): string {
   if (x.w.k === 'lvl') return t('Binaya git · kat çık');
+  if (x.w.k === 'proj') return (x.w.n || 1) >= 2 ? t('Projeye git · 2. etap') : t('Bloğa git · projeye dönüştür');
+  if (x.w.k === 'kose') return t('Köşe başına git');
+  if (x.w.k === 'paint') return t('Binaya git · cephe rengi');
+  if (x.w.k === 'renov') return t('Binaya git');
   switch (wishType(x)) { case 'kafe': return t('Arsaya git · kafe kur'); case 'dukkan': return t('Arsaya git · dükkân kur'); case 'ofis': return t('Arsaya git · ofis kur'); default: return t('Arsaya git · ev kur'); }
 }
 /** Komşu isteğinin hedef arsasında (mülk paneli şeridi). */
@@ -346,12 +502,13 @@ export function nbAsk(x: Tenant): string {
   switch (wishType(x)) { case 'kafe': return t('Komşusu {n} burada kafe istiyor', { n }); case 'dukkan': return t('Komşusu {n} burada dükkân istiyor', { n }); case 'ofis': return t('Komşusu {n} burada ofis istiyor', { n }); default: return t('Komşusu {n} burada ev istiyor', { n }); }
 }
 /** Rıfkı Abi'nin cümleleri (rifki.ts sayEvent) ve bildirimler (ayrılış). */
-export type TenantEv = 'ten' | 'tennote' | 'tenready' | 'tenok';
+export type TenantEv = 'ten' | 'tennote' | 'tenready' | 'tenok' | 'tenrv';
 export function tenantSay(ev: TenantEv, x: Tenant): string {
   const [n, r] = tName(x.a, x.k), w = lowTxt(wishShort(x)), p = bonusPct(x);
   switch (ev) {
     case 'ten': return t('{d} · yeni bir kiracı adayı var efendim: {n}, {r}. İsteği: {w}. Olursa kira {p} artar.', { d: nm(DMAP[x.k].n), n, r, w, p });
     case 'tennote': return t('{n} hâlâ bekliyor efendim. İsteği: {w}. {m} dakikası kaldı.', { n, w, m: Math.max(1, Math.round(CFG.TEN_NOTE / 60e3)) });
+    case 'tenrv': return t('Yenileme başladı efendim: bina {m} dakika kira vermez, sonra {n} anahtarı bekler.', { n, m: Math.max(1, Math.round(renovMs(x.k, x.i) / 60e3)) });
     case 'tenready': return t('İstek tamam! {n} anahtarı bekliyor; arsadaki anahtara bir dokunun, sözleşmeyi imzalayalım.', { n });
     default: return t('Hayırlı olsun! {n} taşındı; bu bina {m} dakika boyunca {p} fazla kira getirir.', { n, p, m: liveMin(x) });
   }
