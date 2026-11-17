@@ -4,7 +4,7 @@
    ========================================================= */
 import { CFG, DMAP, CITIES, DistrictKey } from '../config';
 import { now } from '../economy';
-import { fmt, esc } from '../format';
+import { fmt, fmtCost, esc } from '../format';
 import { t, tk, nm, pn, pt, pctTxt } from '../i18n';
 import { IHALE_LM, lmSvg } from '../landmarks';
 import { svg } from '../draw';
@@ -48,11 +48,11 @@ export const rvMood = (a: Auction, tn: number): RivalMood => { const st = standi
 export function rifkiLine(a: Auction, tn: number): { mood: Mood; text: string } {
   const r = rvOf(a), name = rvName(r), st = standing(a, tn);
   if (st.lead === 'me' && a.my >= a.capHi + a.step) return { mood: 'party', text: t('Vekâletiniz {r} için fazlasıyla yeter. Arkanıza yaslanın efendim; ödeyeceğiniz onun tavanının bir adım fazlası.', { r: name }) };
-  if (isLate(a, tn)) return { mood: 'warn', text: t('Son düzlük! {r} artık tavanına kadar çıkıyor. Vekâletiniz {x} altındaysa risktesiniz.', { r: name, x: fmt(a.capHi) }) };
-  if (st.lead === 'me') return { mood: 'think', text: t('Şimdilik öndesiniz efendim, ama {r} son iki saatte {a}–{b} arasına çıkar. Vekâleti {c} yaparsanız içiniz rahat eder.', { r: name, a: fmt(a.capLo), b: fmt(a.capHi), c: fmt(advice(a)) }) };
+  if (isLate(a, tn)) return { mood: 'warn', text: t('Son düzlük! {r} artık tavanına kadar çıkıyor. Vekâletiniz {x} altındaysa risktesiniz.', { r: name, x: fmtCost(a.capHi) }) };
+  if (st.lead === 'me') return { mood: 'think', text: t('Şimdilik öndesiniz efendim, ama {r} son iki saatte {a}–{b} arasına çıkar. Vekâleti {c} yaparsanız içiniz rahat eder.', { r: name, a: fmtCost(a.capLo), b: fmtCost(a.capHi), c: fmtCost(advice(a)) }) };
   const m = IH().rm[a.rv] || 0;
   const mood = m > 0 ? t('Geçen sefer kaybetti, bu hafta hırslı.') : m < 0 ? t('Geçen sefer kazandı, kasası biraz boşaldı.') : '';
-  return { mood: 'think', text: t('{r} böyle bir tapuya {a}–{b} arası verir. {m} Vekâleti {c} verin; ödeyeceğiniz yine onun tavanının bir adım üstü olur.', { r: name, a: fmt(a.capLo), b: fmt(a.capHi), m: mood, c: fmt(advice(a)) }).replace('  ', ' ') };
+  return { mood: 'think', text: t('{r} böyle bir tapuya {a}–{b} arası verir. {m} Vekâleti {c} verin; ödeyeceğiniz yine onun tavanının bir adım üstü olur.', { r: name, a: fmtCost(a.capLo), b: fmtCost(a.capHi), m: mood, c: fmtCost(advice(a)) }).replace('  ', ' ') };
 }
 /** Takvim cümlesi (CFG'den). */
 export const calText = () => t('{d1} tarihi yapı, {d2} nadir arsa · {a}–{b}', { d1: t(DAYN[((CFG.IH_LM_DAY % 7) + 7) % 7]), d2: t(DAYN[((CFG.IH_ARSA_DAY % 7) + 7) % 7]), a: hh(CFG.IH_OPEN_H), b: hh(CFG.IH_CLOSE_H) });
@@ -127,7 +127,7 @@ export function ihaleTick(tn: number) {
   const ev = ihaleTickCore(tn);
   const a = IH().cur;
   if (ev.created) { ui.sheetSig = ''; Analytics.log('ihale_open', { kind: ev.created.kind, rival: ev.created.rv }); }
-  if (ev.cut) sayTip({ id: 'ihcut', text: t('Efendim, kasa vekâleti karşılamadı; vekâletiniz {x} oldu. Biraz para birikince yükseltebilirsiniz.', { x: fmt(ev.cut.my) }), go: { k: 'ihale' } });
+  if (ev.cut) sayTip({ id: 'ihcut', text: t('Efendim, kasa vekâleti karşılamadı; vekâletiniz {x} oldu. Biraz para birikince yükseltebilirsiniz.', { x: fmtCost(ev.cut.my) }), go: { k: 'ihale' } });
   if (ev.late) sayTip({ id: 'ihlate', text: t('Son düzlük! {r} sizi geçti: {p}. Vekâleti yükseltmek isterseniz bakalım.', { r: rvName(rvOf(ev.late)), p: prizeName(ev.late) }), go: { k: 'ihale' } });
   if (ev.resolved) { ui.sheetSig = ''; persist(); Analytics.log('ihale_close', { kind: ev.resolved.kind, result: ev.resolved.done, joined: ev.resolved.my > 0 }); }
   if (a && a.done && !a.seen) {

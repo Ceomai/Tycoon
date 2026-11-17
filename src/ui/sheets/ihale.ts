@@ -2,7 +2,7 @@
    KÖŞE BAŞI SEÇİMİ — kazanılan damganın vurulacağı semt ve arsa. Kurallar game/auccore.ts, metinler game/auction.ts. */
 import { CFG, COLS, N, TYPES, DistrictKey } from '../../config';
 import { S, lotsOf } from '../../state';
-import { fmt, clock } from '../../format';
+import { fmt, fmtCost, clock } from '../../format';
 import { now, rate } from '../../economy';
 import { t, pctTxt } from '../../i18n';
 import { rifkiFace } from '../rifkiFace';
@@ -34,19 +34,19 @@ export const ihale: Panel = {
     return `<div class="lghead"><div><p class="sec">${t('İhale · {d}', { d: dayName(a.open) })}</p><h4 class="lgt">${prizeName(a)}</h4>
         <small class="lgsub">${t('Kapanış')} <b class="ih-clock">${lv('ihc', () => clock(Math.max(0, a.close - now())))}</b></small></div><span class="st spst">${a.kind === 'lm' ? t('TARİHİ YAPI') : t('NADİR ARSA')}</span></div>
       ${late ? `<div class="ih-late"><b>${t('SON DÜZLÜK')}</b><span>${t('{r} artık tavanına kadar çıkıyor', { r: name })}</span></div>` : ''}
-      <div class="ih-prow"><div class="ih-prize bpbg">${prizeArt(a)}</div><p class="ih-eff">${prizeEffect(a)}<small>${t('Açılış {x} · {r} tavanını ihale açılırken belirler, sonradan değiştirmez.', { x: fmt(a.start), r: name })}</small></p></div>
+      <div class="ih-prow"><div class="ih-prize bpbg">${prizeArt(a)}</div><p class="ih-eff">${prizeEffect(a)}<small>${t('Açılış {x} · {r} tavanını ihale açılırken belirler, sonradan değiştirmez.', { x: fmtCost(a.start), r: name })}</small></p></div>
       <div class="ih-table">
         <div class="ih-side rv${meLead ? '' : ' lead'}"><div class="ih-face rv">${rivalFace(r.id, rvMood(a, tn))}</div><b>${name}</b><small>${t(ARCHE[r.a].n)}</small>${meLead ? '' : `<span class="ih-stamp">${t('ÖNDE')}</span>`}</div>
-        <div class="ih-mid"><small>${t('Güncel fiyat')}</small><b class="ih-price">${fmt(st.price)}</b><small>${t('adım {x}', { x: fmt(a.step) })}</small></div>
-        <div class="ih-side me${meLead ? ' lead' : ''}"><div class="ih-you"><span>${t('SEN')}</span></div><b>${t('Sen')}</b><small>${a.my ? t('vekâlet {x}', { x: fmt(a.my) }) : t('henüz teklif yok')}</small>${meLead ? `<span class="ih-stamp me">${t('ÖNDE')}</span>` : ''}</div>
+        <div class="ih-mid"><small>${t('Güncel fiyat')}</small><b class="ih-price">${fmtCost(st.price)}</b><small>${t('adım {x}', { x: fmtCost(a.step) })}</small></div>
+        <div class="ih-side me${meLead ? ' lead' : ''}"><div class="ih-you"><span>${t('SEN')}</span></div><b>${t('Sen')}</b><small>${a.my ? t('vekâlet {x}', { x: fmtCost(a.my) }) : t('henüz teklif yok')}</small>${meLead ? `<span class="ih-stamp me">${t('ÖNDE')}</span>` : ''}</div>
       </div>
       <ol class="ih-log">${log}</ol>
       <div class="ih-rk"><div class="ih-face sm">${rifkiFace(rk.mood)}</div><div class="ih-say"><b>${t('RIFKI ABİ')}</b><span>${rk.text}</span></div></div>
       <div class="ih-proxy"><span class="ih-pl">${t('Vekâlet · en fazla')}</span>
-        <div class="ih-step"><button class="ih-sb" data-a="dn" aria-label="${t('Bir adım azalt')}" ${draft - a.step < minProxy(a, tn) ? 'disabled' : ''}>−</button><b>${fmt(draft)}</b><button class="ih-sb" data-a="up" aria-label="${t('Bir adım artır')}">+</button></div>
-        <button class="ih-chip${draft === adv ? ' on' : ''}" data-a="adv">${t('Rıfkı’nın önerisi · {x}', { x: fmt(adv) })}</button></div>
-      <div class="btns"><button class="btn lotb" data-a="give" ${draft > a.my && S.cash >= need ? '' : 'disabled'}><span class="lbl">${a.my ? t('Vekâleti yükselt · {x}', { x: fmt(draft) }) : t('Vekâlet ver · {x}', { x: fmt(draft) })}</span><small>${S.cash < need ? t('Kasada {x} gerek', { x: fmt(need) }) : need ? t('önde kaldıkça {x} emanette · geçilirsen geri', { x: fmt(a.held + need) }) : t('şimdilik kasadan para çıkmaz')}</small></button></div>
-      ${a.held ? `<p class="note u-tc">${t('Emanette: {x} (önde olduğun fiyat)', { x: fmt(a.held) })}</p>` : ''}
+        <div class="ih-step"><button class="ih-sb" data-a="dn" aria-label="${t('Bir adım azalt')}" ${draft - a.step < minProxy(a, tn) ? 'disabled' : ''}>−</button><b>${fmtCost(draft)}</b><button class="ih-sb" data-a="up" aria-label="${t('Bir adım artır')}">+</button></div>
+        <button class="ih-chip${draft === adv ? ' on' : ''}" data-a="adv">${t('Rıfkı’nın önerisi · {x}', { x: fmtCost(adv) })}</button></div>
+      <div class="btns"><button class="btn lotb" data-a="give" ${draft > a.my && S.cash >= need ? '' : 'disabled'}><span class="lbl">${a.my ? t('Vekâleti yükselt · {x}', { x: fmtCost(draft) }) : t('Vekâlet ver · {x}', { x: fmtCost(draft) })}</span><small>${S.cash < need ? t('Kasada {x} gerek', { x: fmtCost(need) }) : need ? t('önde kaldıkça {x} emanette · geçilirsen geri', { x: fmtCost(a.held + need) }) : t('şimdilik kasadan para çıkmaz')}</small></button></div>
+      ${a.held ? `<p class="note u-tc">${t('Emanette: {x} (önde olduğun fiyat)', { x: fmtCost(a.held) })}</p>` : ''}
       <p class="note u-tc">${t('Rakip son saniyede kapmaz; tavanı ihale açılırken bellidir. İhale ödülleri lig puanına sayılmaz.')}</p>`;
   },
   action(act, _btn, s) {

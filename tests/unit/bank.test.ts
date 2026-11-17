@@ -19,7 +19,7 @@ import { totalRate } from '../../src/economy';
 import { sane } from '../../src/services/remote';
 import { flushSaves, unlockSaves, writeRegionSave, saveKeyOf } from '../../src/storage';
 import { idx, rate, quote, amps, costMult, hist, vsWeek, dailyCap, valueOf, trimIn, newBank, fxPair, BANK_KEEP_IN } from '../../src/game/bankcore';
-import { transfer, deliverOut, claimIn, bankBoot, capLeft, maxSend, loadAll, mergeForeign, cheapCur, bankOpen, REG } from '../../src/game/bank';
+import { transfer, deliverOut, claimIn, bankBoot, capLeft, maxSend, loadAll, cheapCur, bankOpen, REG } from '../../src/game/bank';
 import { makeAuction, IH, nice } from '../../src/game/auccore';
 import { sharesPreview } from '../../src/game/collection';
 
@@ -241,7 +241,7 @@ describe('günlük hak ve aktarım', () => {
 });
 
 describe('kayıt güvenliği', () => {
-  it('çok sekme: alan bölge eski durumla üstüne yazarsa havale bir kez yeniden eklenir; storage olayı canlı sekmeye bir kez ekler', async () => {
+  it('alan bölge eski durumla üstüne yazarsa havale bir kez yeniden eklenir', async () => {
     await seed('us', 'nyc', 1000); await seed('tr', 'ist', 5e6);
     const stale = read('us');
     play('tr'); const r = await transfer('us', 20000); expect(r.ok).toBe(true); if (!r.ok) return;
@@ -250,12 +250,7 @@ describe('kayıt güvenliği', () => {
     setRegion('us'); await writeRegionSave('us', stale); setRegion('tr'); // başka sekmedeki eski ABD durumu üstüne yazdı
     await deliverOut(); await flushSaves(); expect(read('us').cash).toBe(1000 + r.got);
     await deliverOut(); await flushSaves(); expect(read('us').cash).toBe(1000 + r.got); expect(S.bank.out.length).toBe(0);
-    // ABD sekmesi açıkken (eski durum) havale yazıldı: storage olayındaki yeni değer canlı duruma bir kez eklenir
-    setRegion('us'); setS(migrate(stale, Time.now(), weekKey(new Date(Time.now())))!);
-    expect(mergeForeign(fresh)).toBe(r.got); expect(S.cash).toBe(1000 + r.got);
-    expect(mergeForeign(fresh)).toBe(0); expect(S.cash).toBe(1000 + r.got);
-    const other = { ...fresh, bank: { ...fresh.bank, ep: 'baska' } }; S.bank.in = [];
-    expect(mergeForeign(other)).toBe(0); // başka oyunun (sıfırlanmış) kaydı
+    // (canlı sekmeye birleştirme kaldırıldı: web'de oyun tek sekmede çalışır, bkz. tests/unit/sekme.test.ts)
   });
   it('bulut paketi: aktarımın her yazma adımındaki anlık görüntü yüklenip açılınca para çoğalmaz, kaybolmaz', async () => {
     await seed('us', 'nyc', 1000); await seed('tr', 'ist', 5e6);

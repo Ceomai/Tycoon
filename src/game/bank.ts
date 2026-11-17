@@ -9,7 +9,8 @@
         aktarım) alan kimliği gösteriyorsa silinir; göstermiyorsa ve kayıt aynı oyunsa (ep aynı: ör. web'de başka sekmede açık
         kalan eski durum üstüne yazdı) yeniden eklenir; kayıt sıfırlanmışsa (ep farklı) para o oyuna gitmişti, eklenmez.
    Bulut paketi tüm bölgelerin anlık görüntüsü: paket ya (hiçbiri), ya (1) ya (1+2) durumunu taşır → hiçbir sırada para
-   çoğalmaz; (1)'de kalan havale bir sonraki açılışta teslim edilir.
+   çoğalmaz; (1)'de kalan havale bir sonraki açılışta teslim edilir. Pakette olmayan bölgelerle uzlaştırma: bankcore reconcileBundle.
+   Web'de oyun aynı anda tek sekmede çalışır (tabs.ts): başka sekmenin eski durumu kaydın üstüne yazamaz.
    Başlanmamış bölgeye havale: alan kayıt olmadığı için EMANET olarak gönderende bekler; bölge açılıp şehir seçilince
    claimIn ile başlangıç sermayesi olarak kasaya geçer.
    Aktarılan para kazanç DEĞİLDİR: addCash kullanılmaz (earned, haftalık lig, görev, holding hissesi, bina kilitleri değişmez).
@@ -18,9 +19,9 @@ import { CFG, REGION, REGION_ORDER, RegionId, CUR_OF } from '../config';
 import { S } from '../state';
 import { now } from '../economy';
 import { dayKey } from '../format';
-import { readRegionSave, cachedRegionSave, writeRegionSave, flushSaves, validSave, saveKeyOf, parseSave } from '../storage';
+import { readRegionSave, cachedRegionSave, writeRegionSave, flushSaves, validSave, onSaveBarrier } from '../storage';
 import { persist, persistNow } from './persist';
-import { BankOut, BankState, rid, dailyCap, usedToday, quote, newBank, vsWeek, trimIn, BANK_LOG } from './bankcore';
+import { BankOut, BankState, rid, dailyCap, usedToday, quote, newBank, vsWeek, trimIn, BANK_LOG, BANK_OUT_MAX } from './bankcore';
 import { REGION_INFO } from '../storage';
 
 export const today = () => dayKey(new Date(now()));
@@ -36,7 +37,7 @@ export async function loadAll(fresh = false) {
 }
 const saveOf = (r: RegionId): any | null => (r === REGION ? S : REG.saves[r] || null);
 /** Başlanmamış alana bekleyen emanetler (tüm bölgelerin gönderen kayıtlarından). */
-function pendingTo(to: RegionId): number {
+export function pendingTo(to: RegionId): number {
   let s = 0;
   for (const r of REGION_ORDER) { const v: any = saveOf(r); const out = v && v.bank && Array.isArray(v.bank.out) ? v.bank.out : []; for (const o of out) if (o && o.to === to && !o.s) s += +o.a || 0; }
   return s;
@@ -55,9 +56,21 @@ export function maxSend(to: RegionId, t = now()): number {
   return Math.max(0, Math.min(S.cash * CFG.BANK_SRC_SHARE, q.net > 0 ? left / q.net : 0));
 }
 
-export type TransferResult = { ok: true; got: number; held: boolean } | { ok: false; why: 'closed' | 'same' | 'cash' | 'cap' };
-/** Aktarım: amt kaynak iç biriminde. */
-export async function transfer(to: RegionId, amt: number): Promise<TransferResult> {
+/* ---------- banka kuyruğu ----------
+   Aktarım, teslim ve emanet alma diğer bölgelerin kayıtlarını oku-değiştir-yaz ile günceller: aynı anda iki iş (ör. açılış
+   teslimi sürerken aktarım) aynı kaydı eski haliyle ezmesin diye işler tek sırada çalışır. Bulut kaydı yükleme ve hesap silme
+   kayıtları kilitledikten sonra sıradaki işlerin bitmesini bekler (storage.ts saveBarrier); kilitliyken iş yazamaz. */
+let queue: Promise<unknown> = Promise.resolve();
+function serial<T>(f: () => Promise<T>): Promise<T> { const r = queue.then(f, f); queue = r.catch(() => {}); return r; }
+/** Sıradaki ve süren banka işleri bitene kadar bekler. */
+export async function bankIdle(): Promise<void> { let tail: Promise<unknown>; do { tail = queue; await tail; } while (tail !== queue); }
+onSaveBarrier(bankIdle);
+export { BANK_OUT_MAX };
+
+export type TransferResult = { ok: true; got: number; held: boolean } | { ok: false; why: 'closed' | 'same' | 'cash' | 'cap' | 'busy' | 'save' };
+/** Aktarım: amt kaynak iç biriminde. busy: yoldaki havale sınırı dolu · save: gönderen kaydı yazılamadı (para geri). */
+export function transfer(to: RegionId, amt: number): Promise<TransferResult> { return serial(() => transferNow(to, amt)); }
+async function transferNow(to: RegionId, amt: number): Promise<TransferResult> {
   if (!bankOpen()) return { ok: false, why: 'closed' };
   if (to === REGION || !REGION_ORDER.includes(to)) return { ok: false, why: 'same' };
   amt = Math.floor(amt);
@@ -65,15 +78,26 @@ export async function transfer(to: RegionId, amt: number): Promise<TransferResul
   await loadAll(true);
   const tn = now(), q = quote(REGION, to, tn), got = Math.floor(amt * q.net);
   if (!(got >= 1) || got > capLeft(to).left + 1e-6) return { ok: false, why: 'cap' };
-  const o: BankOut = { id: newId(), to, a: got, at: tn }, b = bank();
-  S.cash -= amt; b.out.push(o);
-  b.log.unshift({ at: tn, dir: 'out', r: to, a: amt, b: got }); if (b.log.length > BANK_LOG) b.log.length = BANK_LOG;
-  await persistNow();                                    // (1) gönderen: kasadan düştü + yolda
-  const held = !(await deliverOut());                    // (2) + (3)
+  const b = bank();
+  // başlanmamış bölgeye giden emanet: bekleyen emanetle tek kayıtta birleşir (alan kayıt yok: kimliği kimse almadı)
+  let o: BankOut | undefined = REG.saves[to] ? undefined : b.out.find(x => x.to === to && !x.s);
+  if (!o && b.out.length >= BANK_OUT_MAX) { await deliverNow(); if (b.out.length >= BANK_OUT_MAX) return { ok: false, why: 'busy' }; }
+  const merged = !!o, prevA = o ? o.a : 0;
+  if (o) o.a += got; else { o = { id: newId(), to, a: got, at: tn }; b.out.push(o); }
+  const entry = { at: tn, dir: 'out' as const, r: to, a: amt, b: got, id: o.id };
+  S.cash -= amt; b.log.unshift(entry); if (b.log.length > BANK_LOG) b.log.length = BANK_LOG;
+  if (!(await persistNow())) {                           // (1) yazılamadı: teslim yok, aktarım geri alınır
+    S.cash += amt; if (merged) o.a = prevA; else b.out = b.out.filter(x => x !== o);
+    b.log = b.log.filter(l => l !== entry);
+    return { ok: false, why: 'save' };
+  }
+  await deliverNow();                                    // (2) + (3)
+  const id = o.id, held = !b.out.some(x => x.id === id && x.s); // bu havale alan kayda yazılmadıysa (emanet ya da yolda) bekliyor
   return { ok: true, got, held };
 }
 /** Gönderenin yoldaki havalelerini teslim eder. Başlanmamış bölgeye emanet kalmadıysa true. */
-export async function deliverOut(): Promise<boolean> {
+export function deliverOut(): Promise<boolean> { return serial(deliverNow); }
+async function deliverNow(): Promise<boolean> {
   const b = bank(); if (!b.out.length) return true;
   let all = true, changed = false; const keep: BankOut[] = [];
   for (const o of b.out) {
@@ -92,7 +116,7 @@ export async function deliverOut(): Promise<boolean> {
     tb.day = { k: d, got: (+day.got || 0) + o.a };
     tb.log = [{ at: o.at, dir: 'in', r: REGION, a: o.a, b: 0, id: o.id }, ...(Array.isArray(tb.log) ? tb.log : [])].slice(0, BANK_LOG);
     await flushSaves();                                  // kendi kaydımızın kuyruğu boşalsın (aynı depolamaya sırayla)
-    await writeRegionSave(o.to, tv);                     // (2) alan
+    if (!(await writeRegionSave(o.to, tv))) { keep.push(o); all = false; continue; } // (2) alan yazılamadı (kilit/depolama): yolda kalır
     REG.saves[o.to] = tv; REG.at = Date.now();
     keep.push({ ...o, s: now(), ep: tb.ep }); changed = true; // (3) onay bekler: sonraki teslimde kimlik görülünce silinir
   }
@@ -101,8 +125,10 @@ export async function deliverOut(): Promise<boolean> {
 }
 /** Açılışta / şehir seçilince: diğer bölgelerin bu bölgeye bıraktığı, henüz hiçbir kayda yazılmamış havaleleri (emanet) alır.
  *  Önce bu kayıt yazılır (kimlik bizde), sonra gönderenin kaydında havale teslim edilmiş olarak işaretlenir (s, ep): bu bölge
- *  sonradan sıfırlanırsa emanet yeni oyuna ikinci kez gelmez. Arada kesilirse gönderen kimliği bizde görür ve siler. */
-export async function claimIn(): Promise<number> {
+ *  sonradan sıfırlanırsa emanet yeni oyuna ikinci kez gelmez. Arada kesilirse gönderen kimliği bizde görür ve siler.
+ *  Bu kayıt yazılamazsa (kilit, depolama) gönderende işaretlenmez: emanet sonraki açılışta yeniden alınır. */
+export function claimIn(): Promise<number> { return serial(claimNow); }
+async function claimNow(): Promise<number> {
   if (!S.city) return 0;
   const b = bank(); let sum = 0; const senders: [RegionId, any][] = [];
   for (const r of REGION_ORDER) {
@@ -120,37 +146,22 @@ export async function claimIn(): Promise<number> {
   }
   if (!senders.length) return 0;
   b.in = trimIn(b.in);
-  await persistNow();                                    // alınanlar bizim kayıtta
+  if (!(await persistNow())) return sum;                 // alınanlar bizim kayda yazılamadı: gönderende işaretlenmez
   for (const [r, v] of senders) {
     for (const o of v.bank.out) if (o && o.to === REGION && !o.s && b.in.includes(o.id)) { o.s = now(); o.ep = b.ep; }
     await flushSaves(); await writeRegionSave(r, v);
   }
   return sum;
 }
+/** Yeni oyun (bölge sıfırlanırken): eski kaydın yoldaki (alan kayda yazılmamış) havaleleri yeni duruma taşınır — para kaybolmaz.
+ *  Teslim edilmiş (onay bekleyen) havaleler taşınmaz: para alana geçmişti. */
+export function carryOut(old: any): BankOut[] {
+  const out = old && old.bank && Array.isArray(old.bank.out) ? old.bank.out : [];
+  return out.filter((o: any) => o && typeof o.id === 'string' && REGION_ORDER.includes(o.to) && typeof o.s !== 'number' && Number.isFinite(+o.a) && +o.a > 0)
+    .map((o: any) => ({ id: o.id, to: o.to, a: +o.a, at: Number.isFinite(+o.at) ? +o.at : 0 }));
+}
 /** Açılış: önce gelen emanetler, sonra yoldaki gidenler. Dönen: alınan emanet (iç birim). */
-export async function bankBoot(): Promise<number> { const got = await claimIn(); await deliverOut(); return got; }
-
-/** Web'de çok sekme: bu bölge başka bir sekmede açıkken bir havale kayda yazılırsa (storage olayı), yazılan kayıttaki yeni
- *  havaleler bu sekmenin canlı durumuna da eklenir (bu sekme eski durumla üstüne yazınca havale kaybolmasın). Dönen: eklenen. */
-export function mergeForeign(raw: unknown): number {
-  const v: any = raw; if (!S || !S.city || !v || !v.bank || !Array.isArray(v.bank.log)) return 0;
-  const b = bank(); if (v.bank.ep && b.ep && v.bank.ep !== b.ep) return 0; // başka oyun (sıfırlanmış kayıt)
-  let sum = 0;
-  for (const l of v.bank.log) {
-    if (!l || l.dir !== 'in' || typeof l.id !== 'string' || b.in.includes(l.id) || !(+l.a > 0) || !Number.isFinite(+l.a)) continue;
-    if (!Array.isArray(v.bank.in) || !v.bank.in.includes(l.id)) continue;
-    const d = today(); if (b.day.k !== d) b.day = { k: d, got: 0 };
-    S.cash += +l.a; b.day.got += +l.a; b.in.push(l.id); sum += +l.a; logIn(b, { ...l });
-  }
-  if (sum) { b.in = trimIn(b.in); persist(); }
-  return sum;
-}
-let watching = false;
-/** Çok sekme dinleyicisi (yalnız web; telefonda tek oturum). onGot: eklenen tutarla (bildirim için). */
-export function watchTabs(onGot: (a: number) => void) {
-  if (watching || typeof window === 'undefined') return; watching = true;
-  window.addEventListener('storage', e => { if (e.key !== saveKeyOf(REGION) || !e.newValue) return; const got = mergeForeign(parseSave(e.newValue)); if (got) onGot(got); });
-}
+export function bankBoot(): Promise<number> { return serial(async () => { const got = await claimNow(); await deliverNow(); return got; }); }
 
 /** Başka bir (başlanmış) bölgenin parası şimdi, oynanan paraya göre 7 günlük ortalamasından en az BANK_TIP_PCT ucuzsa: o bölge.
  *  started: yalnız başlanmış bölgeler (REGION_INFO ya da panelin okuduğu kayıtlar). Rıfkı'nın kur notu için. */

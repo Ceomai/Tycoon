@@ -1,10 +1,10 @@
 /* OYUN DÖNGÜSÜ (4 Hz), başlangıç ili seçimi, boşta duraklatma, yeni oyun */
 import { CFG, N, CITIES, CITY_ORDER, CityId, dkey, TYPES, REGIONS, REGION_ORDER, RegionId, setRegion, currency } from '../config';
-import { t, nm, LANGS, setLang, LANG } from '../i18n';
+import { t, nm, LANGS, setLang, loadLang, LANG } from '../i18n';
 import { P, savePrefs } from '../prefs';
 import { S, setS, newState, lotsOf } from '../state';
 import { rand, dayKey, weekKey, fmt } from '../format';
-import { now, producing, rate, pending, curWeek, tickMemo, freezeRates, isFull } from '../economy';
+import { now, producing, rate, pending, curWeek, tickMemo, freezeRates, isFull, withoutTenants } from '../economy';
 import { Snd, buzz } from '../sound';
 import { $, ui, view } from '../ui/ctx';
 import { toast, openModal, closeModal } from '../ui/modal';
@@ -15,7 +15,7 @@ import { showEvent } from './events';
 import { showOffer } from './offers';
 import { nudgeCollect, autoCollect } from './actions';
 import { persist, persistNow, dirty, clearDirty } from './persist';
-import { clearSave, lockSaves, unlockSaves } from '../storage';
+import { clearSave, lockSaves, unlockSaves, loadRaw } from '../storage';
 import { Ads } from '../services/ads';
 import { Cloud } from '../services/cloud';
 import { Analytics } from '../services/analytics';
@@ -27,7 +27,7 @@ import { maybeStarter, clubTick } from './monetize';
 import { tenantTick } from './tenants';
 import { tickProjects } from './project';
 import { ihaleTick } from './auction';
-import { bankBoot } from './bank';
+import { bankBoot, carryOut } from './bank';
 
 let lastT = performance.now(), lastGoals = 0, teslimOf = '';
 const anyProducing = () => S.own.some(k => lotsOf(S, k).some(producing));
@@ -44,7 +44,7 @@ function step(pt: number, dt: number) {
   const tn = now();
   S.maxSeen = Math.max(S.maxSeen, tn);
   if (teslimOf !== S.cur) { teslimOf = S.cur; ui.teslim = {}; } // teslim mühürleri arsa sırasına bağlı: semt değişince silinir
-  let doneAny = false, doneHere = false; // uzun aradan dönüşte üst üste ses/titreşim olmasın
+  let doneAny = false, doneHere = false; const ad = ui.ad; // uzun aradan dönüşte üst üste ses/titreşim olmasın
   for (const k of S.own) {
     const lots = lotsOf(S, k); let built = false;
     for (let i = 0; i < N; i++) {
@@ -56,7 +56,7 @@ function step(pt: number, dt: number) {
         doneAny = true; if (k === S.cur) doneHere = true;
       }
       if (producing(p)) {
-        const r = rate(k, i, tn), cap = r * CFG.CAP_SEC; let g = r * dt / 1000;
+        const r = ad ? withoutTenants(() => rate(k, i, tn)) : rate(k, i, tn), cap = r * CFG.CAP_SEC; let g = r * dt / 1000; // reklam sırasında kiracı bonusu yok (süresi de işlemez)
         if (k !== S.cur) S.dEarn[k] = (S.dEarn[k] || 0) + g; // semt özeti
         if (S.lien[k]) { const share = g * CFG.KAPORA_SHARE; payLien(k, share); g -= share; } // kapora borcu kiradan ödenir
         if (p.buf < cap) p.buf = Math.min(cap, p.buf + g);
@@ -106,10 +106,12 @@ const GLOBE_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 const opt = (a: string, b: string, sm: string, sp = '', on = false, gold = false) => `<button class="cityopt${on ? ' on' : ''}${gold ? ' gl' : ''}" data-a="${a}"><b>${b}</b><small>${sm}</small>${sp ? `<span>${sp}</span>` : ''}</button>`;
 
 /** İlk açılış: dil seçimi (tasarım Y1). Cihaz dili seçili gelir. */
+let picking = false;
 export function pickLang(onDone: () => void) {
   openModal(`<div class="card citycard"><div class="badge">${GLOBE_IC}</div><h3>Dil · Language · Sprache</h3><p>${t('Cihaz dilin seçili geldi. İstediğin zaman Ayarlar’dan değiştirebilirsin.')}</p>
     <div class="citylist">${LANGS.map(l => opt(l.id, l.n, l.sub, '', l.id === LANG).replace('<button ', `<button lang="${l.id}" `)).join('')}</div></div>`,
-    a => { if (!LANGS.some(l => l.id === a)) return; closeModal(); setLang(a); P.lang = LANG; savePrefs(); onDone(); });
+    a => { if (!LANGS.some(l => l.id === a) || picking) return; picking = true; // sözlük yüklenince (ayrı parça) devam
+      void loadLang(a).then(() => { picking = false; closeModal(); setLang(a); P.lang = LANG; savePrefs(); onDone(); }); });
 }
 /** Bölge seçimi (tasarım Y2): 5 ülke + Global; her bölgenin ilerlemesi ayrı. */
 export function pickRegion(onDone: (r: RegionId) => void, intro = true) {
@@ -145,9 +147,11 @@ export function firstRun(onDone?: () => void, onLang?: () => void) {
     // eski bölgenin son durumu kendi anahtarına yazılır; bölge değişirken kayıtlar kilitli (eski durum yeni bölgeye yazılmasın)
     await persistNow(); lockSaves();
     P.region = r; P.news = true; savePrefs(); applyRegion(r);
+    const carry = carryOut(await loadRaw()); // eski oyunun yoldaki emanetleri yeni oyuna geçer (Holding'deki gibi; para kaybolmaz)
     await clearSave(); // seçilen bölgede yeni oyun (diğer bölgelerin kayıtları korunur)
     const ent = { premium: S.premium, noAds: S.noAds, club: S.club };
     setS(Object.assign(newState(now(), weekKey(new Date(now()))), ent));
+    S.bank.out = carry;
     unlockSaves();
     ui.tileSig = []; ui.linkSig = ''; view.render();
     Analytics.log('start_region', { region: r, lang: LANG });

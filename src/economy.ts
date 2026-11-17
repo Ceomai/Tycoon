@@ -1,7 +1,7 @@
 /* =========================================================
    EKONOMİ — kira, maliyet, süre, komşuluk ve semt/il açılışları
    ========================================================= */
-import { CFG, COLS, ROWS, N, TYPES, LV_INC, UP_COST, UP_TIME, DMAP, DistrictKey, BuildingType, TIER_M, TIER_FEE, dkey, CITIES, CITY_ORDER, DRULES } from './config';
+import { CFG, COLS, ROWS, N, TYPES, LV_INC, UP_COST, UP_TIME, DMAP, DistrictKey, BuildingType, TIER_M, TIER_FEE, dkey, CITIES, CITY_ORDER, DRULES, pjMinLv } from './config';
 import { S, Plot, Lot, lotsOf, Pj } from './state';
 import { Time } from './time';
 import { LM } from './landmarks';
@@ -123,8 +123,10 @@ export function withoutTenants<T>(f: () => T): T { const o = tenOff; tenOff = tr
    Bonus kalıcıdır (çevrimdışı ve lig kazancında da sayılır). Kiracı bonusuyla toplanır, çarpılmaz: üst üste binip şişmesin. */
 /** 2×2 bloğun dört arsası (a: sol üst). */
 export const pjCells = (a: number) => [a, a + 1, a + COLS, a + COLS + 1];
+/** Arsanın projesi: yalnız sahip olunan semtte ve proje seviyesindeki binada (holding/eski kayıt artığı hayalet proje bonus vermez). */
 export function pjOf(k: DistrictKey, i: number): Pj | null {
-  const L = S.pj && S.pj[k]; if (!L || !L.length) return null;
+  const L = S.pj && S.pj[k]; if (!L || !L.length || !S.own.includes(k)) return null;
+  const p = S.d[k] && S.d[k][i]; if (!p || p.lvl < pjMinLv()) return null;
   for (const q of L) { const d = i - q.a; if (d === 0 || d === 1 || d === COLS || d === COLS + 1) return q; }
   return null;
 }

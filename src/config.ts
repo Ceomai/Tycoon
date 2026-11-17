@@ -216,7 +216,7 @@ export const CFG = {
   IH_LM_X: 0.03,               // ihale yapısı başına tüm kiralara kalıcı bonus (lig kazancına sayılmaz)
   IH_LM_N: 4,                  // en fazla ihale yapısı (bölge başına)
   IH_KOSE_X: 0.4,              // köşe başı arsanın kirasına bonus (semt başına 1; lig kazancına sayılmaz)
-  IH_UNLOCK_OWN: 2,            // en az bu kadar semt sahibi olunca (ya da Holding kurulmuşsa) açılır
+  IH_UNLOCK_OWN: 2,            // en az bu kadar semt sahibi olunca açılır (Holding sonrası da: kira tabandayken ihale kırıntıya gitmesin)
   IH_SHOW_MS: 12 * 3600e3,     // sonuç kartı en geç bu kadar sonra gösterilmez (yok sayan oyuncuya kart yok)
   // banka, kur ve bilanço (game/bankcore.ts): isteğe bağlı katman; denge scripts/banka.sim.ts ile ölçüldü.
   // Taban kurlar gerçek kurlara yakın tutulur (geliştirici ara ara Remote Config'ten günceller); gösterim ölçeği bunlardan.
@@ -343,3 +343,6 @@ export const DRULES: Record<string, DRule> = {
   'kyo-3': { n: tk('Ahşap ustaları'), t: tk('Tadilat %20 ucuz'), kind: 'upDisc', x: 0.2 },
   'kyo-4': { n: tk('Hanamikoji sokağı'), t: tk('İnşaatlar %25 hızlı'), kind: 'speed', x: 0.25 },
 };
+
+/** Büyük projede dört binanın en düşük seviyesi (Remote Config kesirli gelebilir: tamsayı ve makul aralık). */
+export const pjMinLv = () => Math.max(1, Math.min(MAXLV, Math.round(CFG.PJ_MINLV)));

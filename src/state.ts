@@ -1,8 +1,8 @@
-import { BuildingType, CityId, DistrictKey, N, COLS, ROWS, SCHEMA, dkey, CFG, DMAP, TYPES, MAXLV, CITY_ORDER, OBSTACLE_IDS, REGION, CITIES } from './config';
+import { BuildingType, CityId, DistrictKey, N, COLS, ROWS, SCHEMA, dkey, CFG, DMAP, TYPES, MAXLV, CITY_ORDER, OBSTACLE_IDS, REGION, CITIES, pjMinLv } from './config';
 import { IHALE_IDS, migrateColl } from './landmarks';
 import type { Tenant } from './game/tenants';
 import { CHAR, charFor, liveOf, maxLive } from './game/tenantChars';
-import { newBank, newEp, trimIn, BANK_LOG, type BankState } from './game/bankcore';
+import { newBank, newEp, trimIn, BANK_LOG, BANK_OUT_MAX, type BankState } from './game/bankcore';
 
 export interface Skin { c?: number; r?: number; s?: boolean; }
 export interface Plot { t: BuildingType; lvl: number; buf: number; until: number; dur: number; up: boolean; bu?: number; sp?: string; ob?: string; sk?: Skin; } // bu: bu mülke 2x bitişi · sp: özel yapı · ob: engel (gecekondu, hurda…)
@@ -197,7 +197,7 @@ function cleanTdef(x: unknown): Record<string, { met: number; ok: number }> {
   if (isObj(x)) for (const a of TEN_ARCHS) { const r = x[a]; if (isObj(r)) o[a] = { met: Math.floor(num(r.met, 0, 0, 1e6)), ok: Math.floor(num(r.ok, 0, 0, 1e6)) }; }
   return o;
 }
-/** Büyük projeler: geçerli 2×2 (sağ ve alt kenarı taşmaz), sahip olunan semtte, dört arsası da bina (özel yapı / engel değil),
+/** Büyük projeler: geçerli 2×2 (sağ ve alt kenarı taşmaz), sahip olunan semtte, dört arsası da proje seviyesinde bina (özel yapı / engel değil),
  *  çakışmayan; etap 0–2, süren inşaat makul (elle uzatılamaz, 2. etaptan sonra inşaat olmaz). Bozuk proje düşer: binalar yerinde kalır. */
 const PJ_DUR_MAX = 48 * 3600e3, PJ_N_MAX = 4; // 4×5 ızgarada en fazla 4 ayrık 2×2
 function cleanPj(x: unknown, own: DistrictKey[], d: Record<string, Lot[]>, now: number): Record<DistrictKey, Pj[]> {
@@ -208,7 +208,7 @@ function cleanPj(x: unknown, own: DistrictKey[], d: Record<string, Lot[]>, now: 
       if (out.length >= PJ_N_MAX) break;
       if (!isObj(q) || !int(q.a, 0, N - 1) || q.a % COLS >= COLS - 1 || Math.floor(q.a / COLS) >= ROWS - 1 || !PJ_KINDS.includes(q.kd)) continue;
       const cells = [q.a, q.a + 1, q.a + COLS, q.a + COLS + 1];
-      if (cells.some(j => used.has(j) || !lots[j] || lots[j]!.sp || lots[j]!.ob || lots[j]!.lvl < 1)) continue;
+      if (cells.some(j => used.has(j) || !lots[j] || lots[j]!.sp || lots[j]!.ob || lots[j]!.lvl < pjMinLv())) continue; // hayalet proje (holding artığı) düşer
       cells.forEach(j => used.add(j));
       const st = Math.round(num(q.st, 0, 0, 2)), dur = num(q.dur, 1, 1, PJ_DUR_MAX);
       let until = num(q.until, 0, 0); if (until) until = Math.min(until, now + dur);
@@ -250,8 +250,13 @@ function cleanIhale(x: unknown, own: DistrictKey[], out: any): IhaleState {
 const REG_IDS = ['tr', 'us', 'uk', 'de', 'jp', 'gl'];
 function cleanBank(x: unknown): BankState {
   const b = isObj(x) ? x : {}, pos = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= MAX_CASH;
-  const out = Array.isArray(b.out) ? b.out.filter((o: any) => isObj(o) && typeof o.id === 'string' && o.id.length < 64 && REG_IDS.includes(o.to) && pos(o.a)).slice(0, 64)
-    .map((o: any) => ({ id: o.id, to: o.to, a: o.a, at: num(o.at, 0, 0), ...(typeof o.s === 'number' && Number.isFinite(o.s) ? { s: o.s } : {}), ...(typeof o.ep === 'string' ? { ep: o.ep } : {}) })) : [];
+  // sınır yalnız teslim edilmiş (onay bekleyen) havaleleri kırpar: yoldakiler (s yok) hiç kırpılmaz, para kaybolmaz
+  const sent = (o: any) => typeof o.s === 'number' && Number.isFinite(o.s);
+  const out0 = Array.isArray(b.out) ? b.out.filter((o: any) => isObj(o) && typeof o.id === 'string' && o.id.length < 64 && REG_IDS.includes(o.to) && pos(o.a)) : [];
+  const road = out0.filter((o: any) => !sent(o));
+  const keepSent = new Set(out0.filter(sent).slice(0, Math.max(0, BANK_OUT_MAX - road.length)));
+  const out = out0.filter((o: any) => !sent(o) || keepSent.has(o))
+    .map((o: any) => ({ id: o.id, to: o.to, a: o.a, at: num(o.at, 0, 0), ...(typeof o.s === 'number' && Number.isFinite(o.s) ? { s: o.s } : {}), ...(typeof o.ep === 'string' ? { ep: o.ep } : {}) }));
   const log = Array.isArray(b.log) ? b.log.filter((l: any) => isObj(l) && REG_IDS.includes(l.r) && (l.dir === 'in' || l.dir === 'out')).slice(0, BANK_LOG)
     .map((l: any) => ({ at: num(l.at, 0, 0), dir: l.dir, r: l.r, a: num(l.a, 0, 0, MAX_CASH), b: num(l.b, 0, 0, MAX_CASH), ...(typeof l.id === 'string' ? { id: l.id } : {}) })) : [];
   return { rate: num(b.rate, 0, 0, MAX_CASH), ep: typeof b.ep === 'string' && b.ep && b.ep.length < 40 ? b.ep : newEp(), in: trimIn(strs(b.in).filter(v => v.length < 64)), out, log,

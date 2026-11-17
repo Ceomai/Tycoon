@@ -1,7 +1,7 @@
 /* HARİTA PANELİ — semt hedefleri (tasarım F2), iller ve semtler, tapu/kapora, borç, 2x ipucu */
 import { CFG, DRULES, DMAP, CITIES, CITY_ORDER, dkey } from '../../config';
 import { S } from '../../state';
-import { fmt } from '../../format';
+import { fmtCost } from '../../format';
 import { filled, unlockInfo, citiesOwned, portfolioBonus } from '../../economy';
 import { I } from '../../icons';
 import { ui } from '../ctx';
@@ -35,20 +35,20 @@ export const map: Panel<{ hint: ReturnType<typeof mapHint> }> = {
       const rows = CITIES[c].districts.map((d, i) => {
         const k = dkey(c, i);
         const rl = DRULES[k] ? `<em class="rl">${t(DRULES[k].n)}: ${lowTxt(t(DRULES[k].t))}</em>` : '';
-        if (S.own.includes(k) && S.lien[k]) return `<div class="lienrow"><button class="drow${k === S.cur ? ' on' : ''}" data-a="go" data-k="${k}"><span class="di"><b>${nm(d.n)} · ${t('kaporalı')}</b><small>${t('{a}/{b} arsa açık · kalan borç {m}', { a: builtCount(k), b: CFG.KAPORA_LOTS, m: lv('ld' + k, () => fmt(S.lien[k] || 0)) })}</small>${rl}</span></button>
+        if (S.own.includes(k) && S.lien[k]) return `<div class="lienrow"><button class="drow${k === S.cur ? ' on' : ''}" data-a="go" data-k="${k}"><span class="di"><b>${nm(d.n)} · ${t('kaporalı')}</b><small>${t('{a}/{b} arsa açık · kalan borç {m}', { a: builtCount(k), b: CFG.KAPORA_LOTS, m: lv('ld' + k, () => fmtCost(S.lien[k] || 0)) })}</small>${rl}</span></button>
             <span class="dp"><u ${lw('lp' + k, () => (S.lien[k] ? lienPct(k) : 100))}></u></span>
-            <button class="chip" data-a="payoff" data-k="${k}" ${S.cash >= S.lien[k] ? '' : 'disabled'}>${t('Borcu kapat')} · ${lv('ld' + k, () => fmt(S.lien[k] || 0))}</button></div>`;
+            <button class="chip" data-a="payoff" data-k="${k}" ${S.cash >= S.lien[k] ? '' : 'disabled'}>${t('Borcu kapat')} · ${lv('ld' + k, () => fmtCost(S.lien[k] || 0))}</button></div>`;
         if (S.own.includes(k)) return `<button class="drow${k === S.cur ? ' on' : ''}" data-a="go" data-k="${k}"><span class="di"><b>${nm(d.n)}${starsOf(k).length >= 3 ? ` <span class="badge-gold">${t('ALTIN MÜHÜR')}</span>` : ''}</b><small>${t('{n}/20 dolu', { n: filled(k) })} · ${'★'.repeat(starsOf(k).length)}${'☆'.repeat(3 - starsOf(k).length)}</small>${rl}</span><span class="mini"><i style="width:${filled(k) / 20 * 100}%"></i></span></button>`;
         const u = unlockInfo(k);
         if (u.ok) {
           const af = S.cash >= u.fee, kap = kaporaOf(k), kf = S.cash >= kap;
           return `<div class="salerow"><div class="sh2"><b>${nm(d.n)}</b><span class="st">${t('SATIŞTA')}</span></div>${rl}
-              <p>${t('Tapu {m}', { m: fmt(u.fee) })}${af ? '' : kf ? ' · ' + t('paran şimdilik yetmiyor ama kapora verip hemen başlayabilirsin') : ' · ' + t('kaporaya {m} kaldı', { m: lv('kp' + k, () => fmt(kaporaOf(k) - S.cash)) })}</p>
+              <p>${t('Tapu {m}', { m: fmtCost(u.fee) })}${af ? '' : kf ? ' · ' + t('paran şimdilik yetmiyor ama kapora verip hemen başlayabilirsin') : ' · ' + t('kaporaya {m} kaldı', { m: lv('kp' + k, () => fmtCost(kaporaOf(k) - S.cash)) })}</p>
               ${hint && hint.k === k ? `<div class="hint2x"><span class="h2c">2x</span><span class="h2t"><b>${t('2x ile ≈ {m} dk kısalır', { m: Math.round(hint.bs.saved) })}</b><small>${t('en çok kazandıran binana 1 sa 2x')}</small></span><button class="chip h2b" data-a="boost2x" data-k="${hint.bs.lot.k}" data-i="${hint.bs.lot.i}">${instantRewards() ? '★ ' + t('Ver') : `${I.play} ${t('İzle')}`}</button></div>` : ''}
-              <div class="sbtns"><button class="btn" data-a="kapora" data-k="${k}" ${kf && !af ? '' : 'disabled'}>${t('Kapora')} · ${fmt(kap)}<small>${t('%{p} · {n} arsa hemen', { p: Math.round(CFG.KAPORA * 100), n: CFG.KAPORA_LOTS })}</small></button>
-              <button class="btn ${af ? 'gold' : 'soft'}" data-a="buy" data-k="${k}" ${af ? '' : 'disabled'}>${t('Tapuyu al')} · ${fmt(u.fee)}<small>${t('20 arsa')}</small></button></div></div>`;
+              <div class="sbtns"><button class="btn" data-a="kapora" data-k="${k}" ${kf && !af ? '' : 'disabled'}>${t('Kapora')} · ${fmtCost(kap)}<small>${t('%{p} · {n} arsa hemen', { p: Math.round(CFG.KAPORA * 100), n: CFG.KAPORA_LOTS })}</small></button>
+              <button class="btn ${af ? 'gold' : 'soft'}" data-a="buy" data-k="${k}" ${af ? '' : 'disabled'}>${t('Tapuyu al')} · ${fmtCost(u.fee)}<small>${t('20 arsa')}</small></button></div></div>`;
         }
-        const why = u.why === 'prev-not-full' ? t('{semt} dolunca açılır', { semt: nm(CITIES[c].districts[i - 1].n) }) : u.why === 'start-not-full' ? t('{semt} dolunca açılır', { semt: nm(CITIES[start].districts[0].n) }) + ' · ' + fmt(u.fee) : t('Kilitli');
+        const why = u.why === 'prev-not-full' ? t('{semt} dolunca açılır', { semt: nm(CITIES[c].districts[i - 1].n) }) : u.why === 'start-not-full' ? t('{semt} dolunca açılır', { semt: nm(CITIES[start].districts[0].n) }) + ' · ' + fmtCost(u.fee) : t('Kilitli');
         return `<div class="drow lkd"><span class="di"><b>${nm(d.n)}</b><small>${why}</small></span>${I.lock}</div>`;
       }).join('');
       return `<div class="cityhead"><span>${nm(CITIES[c].n)}</span><small>${ownedHere ? t('{n}/5 semt', { n: ownedHere }) : t(CITIES[c].tagline)}</small></div><div class="dlist">${rows}</div>`;

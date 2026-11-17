@@ -11,10 +11,12 @@
 // Büyük projeler (17): Rıfkı tanıtır, arsa panelinde teklif, seçim çerçevesi (çakışan iki blok), onay kartı (kiracı notu), şantiye,
 // teslim, 2. etap, ayırma; reklamla hızlandırma yok; UK/DE üslubu; koyu tema + hareketi azalt, 320 px, yatay 844×390.
 // Banka (19): menü/ayarlar kısayolu, aktarım ve hak, havale kartı → bölge geçişi, kur grafiği, bilanço ₺/$, emanet, piyasa kur satırı, ABD ölçeği, koyu 320 px.
+// İnceleme (20): web'de oyun tek sekmede — ikinci sekme bekleme ekranı, devralma, durmuş sekme yazmaz, yabancı yazmada yeniden yükleme.
 // Rakip ve ihale (18): hap, tanıtım, panel, vekâlet/emanet, geçilme, kazanma/kaybetme, köşe başı seçimi, şehir rakipleri, koyu tema, 320 px, UK, EN.
 // Çalıştır: npm run test:iy  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 const {chromium}=require('playwright');
 const { serve, PREF_IF: PREF, state, vis, recorder, out, dismissCards } = require('./helpers.cjs');
+const { incelemeBolum } = require('./iy-inceleme.cjs');
 let URL; // http://127.0.0.1:<port>/index.html — main başında serve() ile
 const results=[]; const ok=recorder(results);
 const S=state;
@@ -663,8 +665,8 @@ async function bankaBolum(b) {
   await p.screenshot({ path: out + 'banka-4-kur-7g.png' });
   // bilanço
   await tapS(p, '#sheetBody [data-a="tab"][data-v="bil"]', 500);
-  const bl = await p.evaluate(() => { const b = document.querySelector('#sheetBody'); return { t: b.innerText.toLocaleLowerCase('tr-TR'), big: b.querySelector('.bk-big b').textContent, regs: b.querySelectorAll('.bk-reg').length, off: b.querySelectorAll('.bk-reg.off').length, seg: b.querySelectorAll('.bk-share i').length }; });
-  ok(/^₺/.test(bl.big) && bl.regs === 6 && bl.off === 4 && bl.seg === 2 && /toplam net varlık/.test(bl.t), 'Bilanço ₺: toplam ' + bl.big + ', 6 bölge (4 başlanmadı), pay şeridi 2 bölge');
+  const bl = await p.evaluate(() => { const b = document.querySelector('#sheetBody'); return { t: b.innerText.toLocaleLowerCase('tr-TR'), big: b.querySelector('.bk-big b').textContent, regs: b.querySelectorAll('.bk-reg').length, off: b.querySelectorAll('.bk-reg.off').length, held: [...b.querySelectorAll('.bk-reg.off')].filter(e => /emanette/.test(e.textContent)).length, seg: b.querySelectorAll('.bk-share i').length }; });
+  ok(/^₺/.test(bl.big) && bl.regs === 6 && bl.off === 4 && bl.seg === 2 + bl.held && /toplam net varlık/.test(bl.t), 'Bilanço ₺: toplam ' + bl.big + ', 6 bölge (4 başlanmadı; ' + bl.held + ' tanesinde emanet satırı), pay şeridi 2 bölge + emanetli bölgeler');
   await p.screenshot({ path: out + 'banka-5-bilanco-tl.png' });
   await tapS(p, '#sheetBody [data-a="cur"][data-v="USD"]', 400);
   const bu = await p.evaluate(() => document.querySelector('#sheetBody .bk-big b').textContent);
@@ -702,7 +704,7 @@ async function bankaBolum(b) {
   await tapS(p, '#grid .lot[data-i="10"]', 500);
   const lotTxt = await p.evaluate(() => document.querySelector('#sheetBody .bcard.k-ev .bp')?.textContent || '');
   const evc = await p.evaluate(() => { const S = window.__tapuState(); return 100 * Math.pow(1.12, S.d['nyc-0'].filter(q => q && q.t === 'ev').length); });
-  ok(lotTxt === '$' + (Math.floor(evc / 43 * 100) / 100).toFixed(2).replace('.', ','), 'ABD arsa paneli: ev fiyatı ölçekli ve kuruşlu: ' + lotTxt + ' (iç ' + evc.toFixed(1) + ')');
+  ok(lotTxt === '$' + (Math.ceil(evc / 43 * 100) / 100).toFixed(2).replace('.', ','), 'ABD arsa paneli: ev fiyatı ölçekli, kuruşlu ve yukarı yuvarlı (fmtCost): ' + lotTxt + ' (iç ' + evc.toFixed(1) + ')');
   await p.keyboard.press('Escape'); await p.clock.runFor(400);
   await openBank(p);
   const usClosed = lo(await p.evaluate(() => document.querySelector('#sheetBody .bk-closed')?.innerText || ''));
@@ -1212,6 +1214,8 @@ async function bankaBolum(b) {
   await ihaleBolum(b);
   console.log('19) Banka, kur ve bilanço');
   await bankaBolum(b);
+  console.log('20) İnceleme düzeltmeleri: oyun tek sekmede (iy-inceleme.cjs)');
+  await incelemeBolum(b, ok, URL);
   await b.close();
   const pass=results.filter(r=>r.pass).length;
   console.log(`\nSONUÇ: ${pass}/${results.length} geçti`);

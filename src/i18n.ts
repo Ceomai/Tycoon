@@ -1,12 +1,11 @@
 /* =========================================================
    DİL (i18n) — arayüz dili bölgeden bağımsız seçilir.
    Anahtar = Türkçe kaynak metin; {ad} yer tutucuları params ile doldurulur. Çeviri yoksa Türkçe görünür.
-   Sözlükler: src/locales/{en,de,ja}.ts (scripts/i18n-extract.mjs ile anahtarlar toplanır).
+   Sözlükler: src/locales/{en,de,ja}.ts (scripts/i18n-extract.mjs ile anahtarlar toplanır). Ana pakette değiller: yalnız seçilen
+   dilin sözlüğü ayrı parça olarak yüklenir (loadLang; açılış metin göstermeden önce bekler). Önizleme (tek dosya) paketinde
+   parçalar pakete gömülür, import() yine çalışır.
    Özel adlar (şehir, semt) nm() ile çevrilir; yoksa olduğu gibi kalır.
    ========================================================= */
-import { EN } from './locales/en';
-import { DE } from './locales/de';
-import { JA } from './locales/ja';
 
 export type Lang = 'tr' | 'en' | 'de' | 'ja';
 export const LANGS: { id: Lang; n: string; sub: string }[] = [
@@ -17,11 +16,25 @@ export const LANGS: { id: Lang; n: string; sub: string }[] = [
 ];
 import type { Dict } from './locales/dict';
 export type { Dict };
-const DICTS: Record<Lang, Dict | null> = { tr: null, en: EN, de: DE, ja: JA };
+const DICTS: Partial<Record<Lang, Dict>> = {};
+const LOAD: Record<Exclude<Lang, 'tr'>, () => Promise<Dict>> = {
+  en: () => import('./locales/en').then(m => m.EN),
+  de: () => import('./locales/de').then(m => m.DE),
+  ja: () => import('./locales/ja').then(m => m.JA),
+};
+const norm = (l: string): Lang => ((['tr', 'en', 'de', 'ja'] as const).includes(l as Lang) ? (l as Lang) : 'tr');
+/** Dilin sözlüğünü yükler (bir kez). Yüklenemezse (çevrimdışı, parça yok) false: metinler Türkçe kaynakla görünür. */
+export async function loadLang(l: string): Promise<boolean> {
+  const L = norm(l); if (L === 'tr' || DICTS[L]) return true;
+  try { DICTS[L] = await LOAD[L](); return true; } catch { return false; }
+}
+/** Sözlüğü doğrudan kaydeder (birim testleri; tests/unit/setup.ts). */
+export function registerDict(l: Lang, d: Dict) { if (l !== 'tr') DICTS[l] = d; }
 
 export let LANG: Lang = 'tr';
+/** Etkin dil. Sözlük önceden loadLang ile yüklenmeli; yüklenmemişse metinler Türkçe kaynakla görünür. */
 export function setLang(l: string) {
-  LANG = (['tr', 'en', 'de', 'ja'] as const).includes(l as Lang) ? (l as Lang) : 'tr';
+  LANG = norm(l);
   if (typeof document !== 'undefined') { document.documentElement.lang = LANG; applyCssText(); }
 }
 /** Cihaz dilinden varsayılan. */

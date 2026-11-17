@@ -30,7 +30,7 @@ export function doHolding() {
   S.shares = (S.shares || 0) + n;
   for (const k of S.own) for (const q of lotsOf(S, k)) if (q && q.sp) S.inv.push(q.sp); // özel yapılar korunur
   S.lien = {}; S.lienT = {}; S.dEarn = {}; ihaleHolding(); // köşe başı semtle gider; ihale yapıları kalır
-  Object.assign(S, { cash: 150, earned: 0, own: fresh.own, cur: fresh.cur, d: fresh.d, fx: [], disc: 0, offer: null, ten: [], nextTen: 0 }); // kiracılar binalarla gider; kiracı defteri (tdef) kalır
+  Object.assign(S, { cash: 150, earned: 0, own: fresh.own, cur: fresh.cur, d: fresh.d, fx: [], disc: 0, offer: null, ten: [], nextTen: 0, pj: {} }); // projeler binalarla gider (pjIntro kalır) // kiracılar binalarla gider; kiracı defteri (tdef) kalır
   lotsOf(S, S.cur);
   ui.tileSig = []; ui.linkSig = ''; view.closeSheet(); persist(); view.render(); Snd.unlock(); buzz.success();
   Analytics.log('holding', { shares: n, total: S.shares });

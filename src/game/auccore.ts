@@ -61,7 +61,9 @@ export const rivalHere = (): Rival => { const a = IH().cur; return a && !a.done 
 export function IH(): IhaleState {
   return S.ihale || (S.ihale = { cur: null, rm: {}, got: [], kose: [], kp: 0, intro: false, wins: 0, losses: 0 });
 }
-export const ihaleUnlocked = () => S.own.length >= CFG.IH_UNLOCK_OWN || (S.shares || 0) > 0;
+/** İhale açık mı: en az IH_UNLOCK_OWN semt. Holding sonrası da aynı kural: tek semtle (kira tabanda) ihale açılsaydı kalıcı ödül
+ *  kırıntı fiyatına alınırdı; ekonomi yeniden ikinci semte gelince açılır, fiyat o anki kirayla (kazanılmış yapılar kalır). */
+export const ihaleUnlocked = () => S.own.length >= CFG.IH_UNLOCK_OWN;
 
 /* ---------- yardımcılar ---------- */
 /** "Güzel" sayı: ilk iki hane, yukarı yuvarlanır. */

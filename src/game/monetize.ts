@@ -8,7 +8,7 @@ import { CFG, DMAP, DistrictKey, N, currency } from '../config';
 import { t, nm } from '../i18n';
 import { S, lotsOf } from '../state';
 import { now, producing, rate, totalRate, unlockInfo, buyableDistricts, isFull } from '../economy';
-import { dayKey, fmt, clock } from '../format';
+import { dayKey, fmt, fmtCost, clock } from '../format';
 import { Snd } from '../sound';
 import { ui } from '../ui/ctx';
 import { openModal, closeModal, toast, bump } from '../ui/modal';
@@ -61,7 +61,7 @@ export function showStarter() {
   if (!starterActive()) return;
   const cash = starterCash(), tg = saveTarget();
   openModal(`<div class="card starter"><span class="gseal st">TAPU<br>${t('HEDİYE<br>SETİ')}</span><p class="sec u-m0">${t('Yalnızca bir kez')}</p><h3>${t('Başlangıç paketi')}</h3>
-    <p>${tg ? t('{d} tapusuna {amt} kaldı. Bu paketle hemen alırsın.', { d: nm(DMAP[tg.k].n), amt: fmt(tg.rem) }) : t('Hızlı bir başlangıç için.')}</p>
+    <p>${tg ? t('{d} tapusuna {amt} kaldı. Bu paketle hemen alırsın.', { d: nm(DMAP[tg.k].n), amt: fmtCost(tg.rem) }) : t('Hızlı bir başlangıç için.')}</p>
     <ul class="pkit"><li><span class="pk">${currency()}</span><span><b>${t('{amt} nakit', { amt: fmt(cash) })}</b><small>≈ ${t('{h} saatlik kira', { h: Math.round(CFG.STARTER_CASH_SEC / 3600) })}</small></span></li>
       <li><span class="pk">2x</span><span><b>${t('{n} adet 2x jetonu', { n: CFG.STARTER_TOKENS })}</b><small>${t('istediğin binaya, reklamsız 1 sa 2x')}</small></span></li>
       <li><span class="pk"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="10" fill="#d98b6c" stroke="var(--ink)" stroke-width="1.5"/></svg></span><span><b>${t('Tuğla kırmızısı cephe')}</b><small>${t('pakete özel renk')}</small></span></li></ul>

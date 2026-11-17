@@ -28,7 +28,9 @@ import { S, setS, newState, migrate } from './state';
 import { weekKey, fmt } from './format';
 import { now, totalRate } from './economy';
 import { Time, guardRollback } from './time';
-import { loadRaw } from './storage';
+import { loadRaw, lockSaves, haltSaves, saveKeyOf, SESSION_ID } from './storage';
+import { createTabGuard, browserTabEnv, foreignWrite, TabGuard } from './tabs';
+import { REGION } from './config';
 import { Snd } from './sound';
 import { $, ui, hist, syncHistory, histSettled } from './ui/ctx';
 import { onModalClick, justOpened, modalBack, bigStamp } from './ui/modal';
@@ -40,12 +42,12 @@ import { ensureTasks } from './game/tasks';
 import { catchUp } from './game/events';
 import { collectAll, switchDistrict } from './game/actions';
 import { toast } from './ui/modal';
-import { persist, persistSync } from './game/persist';
+import { persist, persistSync, persistNow } from './game/persist';
 import { tick, resumeTick, pickCity, firstRun, applyRegion, showRegionNews } from './game/loop';
 import { P, loadPrefs, savePrefs } from './prefs';
 import { applyTheme } from './theme';
 import { anySave, loadRegionInfo } from './storage';
-import { setLang, deviceLang, t } from './i18n';
+import { setLang, loadLang, deviceLang, t } from './i18n';
 import { REGIONS, RegionId } from './config';
 import { Analytics } from './services/analytics';
 import { applyRemoteConfig } from './services/remote';
@@ -181,12 +183,45 @@ function localizeStatic() {
   document.querySelector('.stamp')?.setAttribute('aria-label', t('Tapu'));
   const txt: [string, string][] = [['#guideBtn .l', t('KILAVUZ')], ['#guideHint', t('Kurallar burada')], ['#cmain', t('TOPLA')], ['.stamp text:nth-of-type(2)', t('ADA · PARSEL')]];
   for (const [sel, v] of txt) { const el = document.querySelector(sel); if (el) el.textContent = v; }
+  document.documentElement.classList.remove('l10n'); // index.html: çeviri bitene kadar gizli sabit metinler
+}
+
+/* ---------- tek sekme (web) ---------- tabs.ts: oyun aynı anda yalnız bir sekmede etkin. */
+let tabs: TabGuard | null = null;
+/** "Oyun başka bir sekmede açık · Burada devam et": diğer sekmeyi durdurur ve bu sekmeyi yeniden açar (kayıt yeniden okunur). */
+function showTabWait() {
+  if (document.querySelector('.tabwait')) return;
+  const d = document.createElement('div'); d.className = 'bootfail tabwait'; d.setAttribute('role', 'alertdialog'); d.setAttribute('aria-modal', 'true');
+  d.setAttribute('aria-labelledby', 'tabWaitT'); d.setAttribute('aria-describedby', 'tabWaitP');
+  d.innerHTML = `<div class="card"><h3 id="tabWaitT">${t('Oyun başka bir sekmede açık')}</h3><p id="tabWaitP">${t('Tapu aynı anda yalnız bir sekmede oynanır. Burada devam edersen diğer sekmedeki oyun durur.')}</p><div class="btns"><button class="btn gold" type="button">${t('Burada devam et')}</button></div></div>`;
+  document.body.appendChild(d);
+  for (const el of [$('#app'), $('#sheet'), $('#modal'), $('#scrim')]) if (el && el !== d) el.setAttribute('inert', ''); // arkadaki oyun odak almaz
+  const b = d.querySelector('button')!;
+  b.addEventListener('click', () => {
+    if (b.disabled) return; b.disabled = true;
+    void (tabs ? tabs.takeover() : Promise.resolve()).finally(() => location.reload());
+  });
+  b.focus();
+}
+/** Oyun başka sekmeye geçti: son durum yazılır, kayıtlar durur (unlockSaves açmaz), döngüler durur, bekleme ekranı. */
+async function onTabLost() {
+  try { if (S && S.city) { S.lastSeen = now(); await persistNow(); } } catch (e) { Analytics.error(e, 'tab_lost_save'); }
+  haltSaves(); looping = false; stopLoops(); Street.stop(); Snd.suspend();
+  showTabWait();
+}
+/** Ek güvenlik: bu sekme etkinken kendi kayıt anahtarına başka oturum yazarsa birleştirmeden yazmayı keser ve yeniden açılır. */
+function watchForeignSaves() {
+  window.addEventListener('storage', e => {
+    if (!tabs || !tabs.active || e.key !== saveKeyOf(REGION) || !foreignWrite(e.newValue, SESSION_ID)) return;
+    haltSaves(); stopLoops(); location.reload();
+  });
 }
 
 let uiReady = false;
 /** Açılış arayüz kurulmadan düşerse beyaz ekran yerine basit bir hata ekranı ve "Yeniden başlat". */
 function showBootFail() {
   try { if (!P.lang) setLang(deviceLang()); } catch { /* Türkçe kalır */ }
+  document.documentElement.classList.remove('l10n');
   const d = document.createElement('div'); d.className = 'bootfail'; d.setAttribute('role', 'alertdialog'); d.setAttribute('aria-modal', 'true'); d.setAttribute('aria-labelledby', 'bootFailT');
   d.innerHTML = `<div class="card"><h3 id="bootFailT">${t('Bir sorun oluştu')}</h3><p>${t('Oyun açılırken beklenmedik bir hata oldu. Yeniden başlatmayı dene.')}</p><div class="btns"><button class="btn" type="button">${t('Yeniden başlat')}</button></div></div>`;
   document.body.appendChild(d);
@@ -203,8 +238,17 @@ async function boot() {
   let migrated = false;
   if (!P.region && await anySave()) { P.region = 'tr'; P.lang = P.lang || 'tr'; savePrefs(); migrated = true; }
   const first = !P.region;
-  setLang(P.lang || deviceLang());
+  const lang = P.lang || deviceLang();
+  await loadLang(lang); // seçili dilin sözlüğü (ayrı parça): ilk metin çizilmeden önce
+  setLang(lang);
   localizeStatic();
+  if (!Capacitor.isNativePlatform()) { // web: oyun tek sekmede (başka sekmede açıksa burada kayıt okunmaz, yazılmaz)
+    tabs = createTabGuard(browserTabEnv(), SESSION_ID);
+    tabs.onLost(onTabLost);
+    window.addEventListener('pagehide', () => tabs && tabs.release());
+    if (!(await tabs.acquire())) { lockSaves(); showTabWait(); uiReady = true; return; }
+    watchForeignSaves();
+  }
   applyRegion((REGIONS[P.region as RegionId] ? P.region : 'tr') as RegionId);
   const t0 = Date.now();
   const raw = await loadRaw();
@@ -226,9 +270,8 @@ async function boot() {
   else if (!P.news && (migrated || P.region === 'tr')) setTimeout(() => { if (!ui.modal) showRegionNews(); }, 1200); // mevcut oyuncuya bir kez
   else { catchUp(awayMs()); S.lastSeen = now(); }
   void loadRegionInfo();
-  // banka: diğer bölgelerden gelen emanetler ve yoldaki havalelerin teslimi; web'de başka sekmeden yazılan havale
+  // banka: diğer bölgelerden gelen emanetler ve yoldaki havalelerin teslimi
   if (S.city) void Bank.bankBoot().then(got => { if (got) toast(t('Banka havalesi geldi: {m}', { m: fmt(got) })); }).catch(e => Analytics.error(e, 'bank_boot'));
-  Bank.watchTabs(got => toast(t('Banka havalesi geldi: {m}', { m: fmt(got) })));
   await cloud;
   void Purchases.init(Cloud.uid());
   void Ads.init();

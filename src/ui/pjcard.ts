@@ -2,7 +2,7 @@
    bloktaki kiracıların ne olacağı (sessizce düşen olmasın diye kart önceden söyler). */
 import { CFG, TYPES, DMAP, CITIES, DistrictKey } from '../config';
 import { S, lotsOf } from '../state';
-import { fmt, fmtTime, esc } from '../format';
+import { fmt, fmtCost, fmtTime, esc } from '../format';
 import { t, nm, pctTxt } from '../i18n';
 import { rate, pjCells, tenantMult } from '../economy';
 import { projSvg, psvg } from '../projdraw';
@@ -40,12 +40,12 @@ export function openPjConfirm(k: DistrictKey, a: number, onStart: () => void, on
     <div class="ledger">
       <div><span>${t('Dört binanın kirası')}</span><i></i><b>${t('{v}/sn', { v: fmt(now4, true) })}</b></div>
       <div><span>${t('Proje olunca')}</span><i></i><b class="up">${t('{v}/sn', { v: fmt(after, true) })} · +${pctTxt(Math.round(CFG.PJ_X1 * 100))}</b></div>
-      <div><span>${t('Bedel')}</span><i></i><b>${fmt(cost)}</b></div>
+      <div><span>${t('Bedel')}</span><i></i><b>${fmtCost(cost)}</b></div>
       <div><span>${t('İnşaat')}</span><i></i><b>${fmtTime(time)}</b></div>
     </div>
     ${tenNote}
     <p class="note">${t('İnşaat sürerken binalar kira vermeye devam eder. Komşuluk ve semt kuralı aynen sayılır. Proje sonradan ayrılabilir (bedel iade edilmez).')}</p>
-    <div class="btns"><button class="btn gold" data-a="go" ${afford ? '' : 'disabled'}>${t('Projeyi başlat')} · ${fmt(cost)}</button><button class="txt" data-a="no" data-back>${t('Vazgeç')}</button></div></div>`,
+    <div class="btns"><button class="btn gold" data-a="go" ${afford ? '' : 'disabled'}>${t('Projeyi başlat')} · ${fmtCost(cost)}</button><button class="txt" data-a="no" data-back>${t('Vazgeç')}</button></div></div>`,
   act => {
     if (act === 'go') { if (startProject(k, a)) { closeModal(); onStart(); } return; }
     closeModal(); onCancel();
