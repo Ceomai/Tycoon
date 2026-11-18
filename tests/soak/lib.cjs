@@ -120,10 +120,12 @@ async function measured(p, L, kind, f) {
   return { spend, dEarn: b.earned - a.earned, a, b };
 }
 
-/** Ekrandaki parayı (TR biçimi: ₺1,2Mn) sayıya çevirir; ölçek sc (₺=1, $ için 1/43…). */
-function parseMoney(txt, sc = 1, hi = false, lo = false) {
-  const m = /([₺$€£¥])\s?([\d.,]+)\s?(B|Mn|Mr|Tn|Kn|Kt|Sk|K|M|T)?/.exec(txt || ''); if (!m) return NaN;
-  const U = { B: 1e3, Mn: 1e6, Mr: 1e9, Tn: 1e12, Kn: 1e15, Kt: 1e18, Sk: 1e21, K: 1e3, M: 1e6, T: 1e12 };
+/** Ülke fiyat seviyesi (CFG.PL_*): ekrandaki tutar = iç birim × seviye. */
+const PL = { tr: 12000, us: 2500, uk: 2200, de: 1800, jp: 240000, gl: 2500 };
+/** Ekrandaki parayı (TR biçimi: ₺1,2Mn) iç birime çevirir; sc: bölgenin fiyat seviyesi (PL). */
+function parseMoney(txt, sc = PL.tr, hi = false, lo = false) {
+  const m = /([₺$€£¥])\s?([\d.,]+)\s?(B|Mn|Mr|Tn|Kn|Kt|Sk|Sp|Ok|Nn|K|M|T)?/.exec(txt || ''); if (!m) return NaN;
+  const U = { B: 1e3, Mn: 1e6, Mr: 1e9, Tn: 1e12, Kn: 1e15, Kt: 1e18, Sk: 1e21, Sp: 1e24, Ok: 1e27, Nn: 1e30, K: 1e3, M: 1e6, T: 1e12 };
   const v = parseFloat(m[2].replace(/\./g, '').replace(',', '.')), u = m[3] ? U[m[3]] : 1;
   // gösterim aşağı yuvarlı: birimli ve <100 ise 0,1 hane, değilse 1 hane hassasiyet
   // hi: aşağı yuvarlı gösterimin (kasa, kazanç) üst sınırı · lo: yukarı yuvarlı gösterimin (bedel, fmtCost) alt sınırı
@@ -162,4 +164,4 @@ async function inject(p, state) {
 async function closeApp(p) { await p.goto('about:blank'); await p.close(); }
 async function openTile(p, i) { await closeAll(p); await p.$eval(tile(i), e => e.click()); await p.clock.runFor(400); }
 
-module.exports = { inject, adClose, clk, closeApp, H, OUT, url, launch, newCtx, openPage, boot, pickCity, cards, S, mut, money, invariants, Ledger, measured, parseMoney, tile, tap, esc, closeAll, sheetOn, modalOn, openTile, prefs };
+module.exports = { inject, adClose, clk, closeApp, H, OUT, url, launch, newCtx, openPage, boot, pickCity, cards, S, mut, money, invariants, Ledger, measured, parseMoney, PL, tile, tap, esc, closeAll, sheetOn, modalOn, openTile, prefs };

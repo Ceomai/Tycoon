@@ -12,7 +12,7 @@ vi.mock('../../src/ui/modal', () => ({
 vi.mock('../../src/sound', () => ({ Snd: new Proxy({}, { get: () => () => {} }), buzz: Object.assign(vi.fn(), { light: vi.fn(), medium: vi.fn(), success: vi.fn(), error: vi.fn(), select: vi.fn() }) }));
 
 import { newState, setS, S, migrate, Plot } from '../../src/state';
-import { CFG, setRegion, BuildingType } from '../../src/config';
+import { CFG, setRegion, BuildingType, fromDisp, toDisp } from '../../src/config';
 import { weekKey, money, moneySigned } from '../../src/format';
 import { setLang } from '../../src/i18n';
 import { Time } from '../../src/time';
@@ -88,7 +88,7 @@ describe('holding ve projeler', () => {
 describe('eksi tutar gösterimi', () => {
   it('moneySigned eksi değeri işaretli gösterir (bilanço neti); money eskisi gibi kırpar', () => {
     expect(moneySigned(-1500, '₺')).toBe('−₺1,5B');
-    expect(moneySigned(-12, '$', true)).toBe('−$12,00');
+    expect(moneySigned(-12.6, '$', true)).toBe('−$12'); // kuruş yok
     expect(moneySigned(1500, '₺')).toBe('₺1,5B');
     expect(moneySigned(0, '₺')).toBe('₺0');
     expect(moneySigned(-1e-12, '₺')).toBe('₺0');    // kayan nokta artığı "−₺0" olmaz
@@ -125,14 +125,16 @@ describe('fiyat gösterimi yukarı yuvarlanır', () => {
   const parse = (s: string) => { const U = units(), m = s.replace(/^[^\d]+/, '').match(/^([\d.,]+)(\D*)$/)!; const n = +m[1].replace(',', '.'); const i = m[2] ? U.u.indexOf(m[2]) : -1; return n * Math.pow(U.base, i + 1); };
   it('TR: bedel hiçbir zaman gerçek tutarın altında görünmez; kasa gösterimi eskisi gibi', () => {
     setRegion('tr'); setLang('tr');
-    expect(fmtCost(1090873)).toBe('₺1,1Mn'); expect(fmt(1090873)).toBe('₺1Mn');
-    expect(fmtCost(1e6)).toBe('₺1Mn'); expect(fmtCost(999.6)).toBe('₺1B'); expect(fmtCost(999600)).toBe('₺1Mn'); expect(fmtCost(150)).toBe('₺150'); expect(fmtCost(0)).toBe('₺0');
+    const c = (x: number) => fmtCost(fromDisp(x)); // ekrandaki tutar (iç birim × fiyat seviyesi)
+    expect(c(1090873)).toBe('₺1,1Mn'); expect(fmt(fromDisp(1090873))).toBe('₺1Mn');
+    expect(c(1e6)).toBe('₺1Mn'); expect(c(999.6)).toBe('₺1B'); expect(c(999600)).toBe('₺1Mn'); expect(c(150)).toBe('₺150'); expect(fmtCost(0)).toBe('₺0');
+    expect(fmtCost(100)).toBe('₺1,2Mn'); expect(fmtCost(100 * 0.9)).toBe('₺1,1Mn'); // en ucuz ev, indirimli de ≥ ₺1Mn
     let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    for (let k = 0; k < 3000; k++) { const v = Math.floor(Math.pow(10, 1 + rnd() * 13)); const s = fmtCost(v); expect(parse(s), s + ' < ' + v).toBeGreaterThanOrEqual(v); expect(parse(s), s + ' çok yukarıda ' + v).toBeLessThanOrEqual(v * 1.1 + 1); }
+    for (let k = 0; k < 3000; k++) { const v = Math.floor(Math.pow(10, 1 + rnd() * 13)); const s = fmtCost(v), d = toDisp(v); expect(parse(s), s + ' < ' + d).toBeGreaterThanOrEqual(d * (1 - 1e-12)); expect(parse(s), s + ' çok yukarıda ' + d).toBeLessThanOrEqual(d * 1.1 + 1); }
   });
-  it('kuruşlu paralar ($) yukarı yuvarlanır', () => {
+  it('diğer paralar ($) da yukarı yuvarlanır, kuruşsuz', () => {
     setRegion('us'); setLang('en');
-    try { const s = fmtCost(123); expect(s.startsWith('$')).toBe(true); } finally { setRegion('tr'); setLang('tr'); }
+    try { const s = fmtCost(123); expect(s).toBe('$308K'); expect(fmt(123)).toBe('$307K'); expect(fmtCost(0.0005)).toBe('$2'); } finally { setRegion('tr'); setLang('tr'); }
   });
   it('bedel gösteren arayüz dosyaları fmtCost kullanır', () => {
     const f = (p: string) => fs.readFileSync(p, 'utf8');

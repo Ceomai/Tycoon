@@ -58,7 +58,7 @@ export const plot: Panel<PlotC> = {
         if (!S.seen[b]) return `<div class="bcard locked bpbg k-${b}">${svg(bld(b, 1))}<span class="bn">${t(T.n)}</span><span class="bl">${t('{m} kazanınca', { m: fmt(T.unlock) })}</span><span class="lk">${I.lock}</span></div>`;
         const cst = withDisc(buildCost(k, b)), nb = neighborBonus(k, i, b);
         return `<button class="bcard bpbg k-${b}${want === b ? ' want' : ''}" data-a="build" data-t="${b}" ${S.cash >= cst ? '' : 'disabled'}>${want === b ? `<span class="wtag">${t('KİRACI İSTİYOR')}</span>` : ''}${svg(bld(b, 1))}
-            <span class="bn">${t(T.n)}</span><span class="bm">${t('{v}/sn', { v: fmt(T.inc * incM(k) * (1 + nb) * permMult() * districtMult(k), true) })} · ${fmtTime(buildTime(k, b))}</span><span class="bp">${fmtCost(cst)}</span>${nb ? `<span class="chain" title="${t('Komşu bonusu')}">+${pctTxt(Math.round(nb * 100))}</span>` : ''}</button>`;
+            <span class="bn">${t(T.n)}</span><span class="bm">${t('{v}/sn', { v: fmt(T.inc * incM(k) * (1 + nb) * permMult() * districtMult(k)) })} · ${fmtTime(buildTime(k, b))}</span><span class="bp">${fmtCost(cst)}</span>${nb ? `<span class="chain" title="${t('Komşu bonusu')}">+${pctTxt(Math.round(nb * 100))}</span>` : ''}</button>`;
       }).join('')}</div>${short ? `<p class="note">${t('Kira toplamak için ortadaki TOPLA mührüne bas.')}</p>` : ''}`;
     }
     if (p.ob) {
@@ -84,7 +84,7 @@ export const plot: Panel<PlotC> = {
           ${tenOf(k, i) ? tenStrip(tenOf(k, i)!, true) : ''}
           ${s.del ? `<p class="sec u-tc u-m0b-4">${t('Tekrar dokunursan bina yıkılır')}</p>` : ''}
           <div class="ledger">
-            <div><span>${t('Kira')}</span><i></i><b>${t('{v}/sn', { v: fmt(rate(k, i), true) })}</b></div>
+            <div><span>${t('Kira')}</span><i></i><b>${t('{v}/sn', { v: fmt(rate(k, i)) })}</b></div>
             ${sp ? `<div><span>${t('Komşularına')}</span><i></i><b>${t('her yöne +%{n}', { n: Math.round(CFG.SP_ADJ * 100) })}</b></div>` : `<div><span>${t('Aynı tür komşu')}</span><i></i><b>${a ? '+' + pctTxt(Math.round(a * CFG.ADJ * 100)) : t('yok')}</b></div>
             <div><span>${t('Akıllı ikili ({ad})', { ad: t(PAIR_NAME[p.t]) })}</span><i></i><b>${pa ? '+' + pctTxt(Math.round(pa * CFG.PAIR * 100)) : t('yok')}</b></div>
             ${sa ? `<div><span>${t('Özel yapı komşusu')}</span><i></i><b>+${pctTxt(Math.round(sa * CFG.SP_ADJ * 100))}</b></div>` : ''}`}
@@ -94,7 +94,7 @@ export const plot: Panel<PlotC> = {
             ${districtMult(k) > 1 ? `<div><span>${t('3 yıldızlı semt')}</span><i></i><b>+${pctTxt(Math.round(CFG.STAR_BONUS * 100))}</b></div>` : ''}
             ${lbLeft > 0 ? `<div><span>${t('Bu mülke 2x')}</span><i></i><b class="red">${t('{s} kaldı', { s: fmtTime(lbLeft) })}</b></div>` : ''}
             ${S.boostUntil > tn ? `<div><span>${t('Tüm mülklere 2x')}</span><i></i><b class="red">${t('{s} kaldı', { s: fmtTime(S.boostUntil - tn) })}</b></div>` : ''}
-            ${canUp ? `<div><span>${t('Sv {l} olunca', { l: p.lvl + 1 })}</span><i></i><b>${t('{v}/sn', { v: fmt(next, true) })}</b></div>` : ''}
+            ${canUp ? `<div><span>${t('Sv {l} olunca', { l: p.lvl + 1 })}</span><i></i><b>${t('{v}/sn', { v: fmt(next) })}</b></div>` : ''}
           </div>${sp ? '' : pjOffer(k, i)}${sp ? '' : nbDiagram(k, i)}${canUp ? discBox() : ''}
           <div class="btns">${canUp ? `<button class="btn" data-a="up" ${afford ? '' : 'disabled'}>${t('Kat çık')} · ${fmtCost(uc)} <small>${fmtTime(upTime(k, p))}</small></button>` : sp ? '' : `<button class="btn" disabled>${t('Son seviye')}</button>`}
           <button class="btn gold lotb" data-a="lotboost" ${lbLeft > CFG.LOT_BOOST_MAX - CFG.LOT_BOOST / 2 ? 'disabled' : ''}><span class="lbl">${I.play} ${t('İzle · bu mülke 2x')}</span><small>${t('+1 saat')}${lbLeft ? ' · ' + t('en fazla 4 saat') : ''}</small></button>

@@ -7,15 +7,15 @@ function issues() { const list = [], notes = {}; return { list, notes, note: (k,
 const scale = p => p.evaluate(() => { const s = getComputedStyle(document.documentElement).getPropertyValue('--cur'); return s; });
 
 /** Ekrandaki fiyatla harcamayı karşılaştırır. Bedel gösterimi yukarı yuvarlı (format.ts fmtCost): kasadan çıkan ekrandakinden
- *  fazla olamaz, en çok bir gösterim basamağı (birimli <100: 0,1; değilse 1) az olabilir. sc: gösterim ölçeği. */
-function priceOk(I, what, txt, spend, sc = 1) {
+ *  fazla olamaz, en çok bir gösterim basamağı (birimli <100: 0,1; değilse 1) az olabilir. sc: bölgenin fiyat seviyesi. */
+function priceOk(I, what, txt, spend, sc = L.PL.tr) {
   const hi = L.parseMoney(txt, sc), lo = L.parseMoney(txt, sc, false, true);
   if (!Number.isFinite(hi) || hi <= 0) return;
   if (!(spend <= hi * 1.001 + 1e-9 && spend >= lo * 0.999 - 1e-9)) I.add('fiyat', `${what}: ekranda "${(txt.match(/[₺$€£¥][\d.,]+\s?\S*/) || [txt])[0]}" yazıyor, kasadan ${Math.round(spend)} çıktı`);
 }
 
 class Player {
-  constructor(p, Lg, I, o = {}) { this.p = p; this.L = Lg; this.I = I; this.sc = o.sc || 1; this.stats = { collect: 0, build: 0, up: 0, buy: 0, key: 0, pj: 0, pj2: 0, bid: 0, kose: 0, bank: 0 }; this.auc = o.auc || (() => 'win'); }
+  constructor(p, Lg, I, o = {}) { this.p = p; this.L = Lg; this.I = I; this.sc = o.sc || L.PL.tr; this.stats = { collect: 0, build: 0, up: 0, buy: 0, key: 0, pj: 0, pj2: 0, bid: 0, kose: 0, bank: 0 }; this.auc = o.auc || (() => 'win'); }
   setPage(p) { this.p = p; }
   async plan() {
     return this.p.evaluate(() => {

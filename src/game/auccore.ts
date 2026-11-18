@@ -68,8 +68,8 @@ export const ihaleUnlocked = () => S.own.length >= CFG.IH_UNLOCK_OWN;
 /* ---------- yardımcılar ---------- */
 /** "Güzel" sayı: ilk iki hane, yukarı yuvarlanır. */
 export const nice = (v: number) => { const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(Math.max(1, v))) - 1)); return Math.ceil(v / p) * p; };
-/** Ekranda güzel görünen tutar (bölgenin parasıyla, gösterim ölçeği): açılış ve adım oyuncunun gördüğü birimde yuvarlak olsun
- *  ($60 · adım $6); iç birime geri çevrilir. Türkiye'de (ölçek 1) nice ile aynı. */
+/** Ekranda güzel görünen tutar (bölgenin parasıyla, fiyat seviyesiyle): açılış ve adım oyuncunun gördüğü birimde yuvarlak olsun
+ *  (₺230Mn · adım ₺23Mn; $60M · adım $6M); iç birime geri çevrilir (iç birimdeki tutar bölgeye göre en çok ~%10 yukarı yuvarlanır). */
 export const niceShown = (v: number) => fromDisp(nice(toDisp(v)));
 /** Tohumlu [0,1): ihale kimliğinden (FNV-1a + karıştırma). */
 export function seeded(id: string) { let h = 2166136261; for (const c of id) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995); h ^= h >>> 15; return ((h >>> 0) % 10000) / 10000; }

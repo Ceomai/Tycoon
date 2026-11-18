@@ -42,7 +42,7 @@ const builtAll = () => S.own.reduce((n, k) => n + lotsOf(S, k).filter(p => p && 
 const hasType = (t: BuildingType) => S.own.some(k => lotsOf(S, k).some(p => p && !p.sp && !p.ob && p.t === t && p.lvl >= 1));
 const cities = () => new Set(S.own.map(k => k.split('-')[0])).size;
 const starsAll = () => Object.values(S.stars || {}).reduce((n, a) => n + a.length, 0);
-export const ACH: { id: string; n: string; d: string; ok: () => boolean }[] = [
+export const ACH: { id: string; n: string; d: string; v?: () => Record<string, string | number>; ok: () => boolean }[] = [
   { id: 'ev', n: tk('İLK EV'), d: tk('İlk evini kur'), ok: () => hasType('ev') },
   { id: 'kafe', n: tk('İLK KAFE'), d: tk('İlk kafeni aç'), ok: () => hasType('kafe') },
   { id: 'dukkan', n: tk('İLK DÜKKÂN'), d: tk('İlk dükkânını aç'), ok: () => hasType('dukkan') },
@@ -68,7 +68,7 @@ export const ACH: { id: string; n: string; d: string; ok: () => boolean }[] = [
   { id: 'ob10', n: tk('TEMİZLİKÇİ'), d: tk('10 engelli arsa temizle'), ok: () => S.cnt.ob >= 10 },
   { id: 'civ', n: tk('MECLİS ÜYESİ'), d: tk('3 belediye kararı ver'), ok: () => S.cnt.civic >= 3 },
   { id: 'cep', n: tk('MİMAR'), d: tk('Bir binanın cephesini değiştir'), ok: () => S.cnt.skin > 0 },
-  { id: 'mn', n: tk('MİLYONER'), d: tk('Toplam 1 milyon kazan'), ok: () => S.earned >= 1e6 },
+  { id: 'mn', n: tk('MİLYONER'), d: tk('Toplam {m} kazan'), v: () => ({ m: fmt(1e6) }), ok: () => S.earned >= 1e6 }, // eşik iç birimde; metinde bölgenin parasıyla
 ];
 /** Yeni mühürleri verir (birkaç saniyede bir). */
 export function checkAch() {

@@ -41,11 +41,11 @@ describe('sözlükler', () => {
 
 describe('biçimler', () => {
   it('para birimi bölgeden, kısaltma dilden', () => {
-    // tutarlar iç birimde; ekranda bölgenin gösterim ölçeğiyle (banka kur tabanı): fromDisp ekrandaki tutarı iç birime çevirir
+    // tutarlar iç birimde; ekranda bölgenin gösterim ölçeğiyle (ülkenin fiyat seviyesi): fromDisp ekrandaki tutarı iç birime çevirir
     setRegion('de'); setLang('de'); expect(fmt(fromDisp(1.5e6))).toBe('€1,5Mio');
     setRegion('us'); setLang('en'); expect(fmt(fromDisp(2500))).toBe('$2.5K');
     setRegion('jp'); setLang('ja'); expect(fmt(fromDisp(1.5e6))).toBe('¥150万'); expect(fmt(fromDisp(3e8))).toBe('¥3億');
-    setRegion('tr'); setLang('tr'); expect(fmt(1.5e6)).toBe('₺1,5Mn');
+    setRegion('tr'); setLang('tr'); expect(fmt(fromDisp(1.5e6))).toBe('₺1,5Mn');
   });
   it('dile göre yer eki', () => {
     setLang('tr'); expect(loc('Kadıköy')).toBe('Kadıköy’de');

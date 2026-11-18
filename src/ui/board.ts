@@ -49,7 +49,7 @@ export function render() {
     setText(q('small'), L ? t('{n}/{m} arsa açık · borç {d} kirasının yarısıyla ödeniyor', { n: builtCount(k), m: CFG.KAPORA_LOTS, d: nm(d.n) }) : pi.sub || '');
     setFill(q('.dp u'), L ? 1 - pi.lien / Math.max(pi.lien, S.lienT[k] || pi.lien) : pi.pct / 100);
   }
-  const rateHtml = `${t('{rate}/sn', { rate: fmt(totalRate(true), true) })}${boosted ? '<span class="x2">2x</span>' : ''}${S.premium ? '<span class="x2">PRO</span>' : ''}<span class="x2 mk">${marketChip()}</span>${S.shares ? `<span class="x2">${I.crown.replace('<svg', '<svg width="10" height="10"')} ${fmtX(1 + 0.1 * S.shares)}</span>` : ''}`;
+  const rateHtml = `${t('{rate}/sn', { rate: fmt(totalRate(true)) })}${boosted ? '<span class="x2">2x</span>' : ''}${S.premium ? '<span class="x2">PRO</span>' : ''}<span class="x2 mk">${marketChip()}</span>${S.shares ? `<span class="x2">${I.crown.replace('<svg', '<svg width="10" height="10"')} ${fmtX(1 + 0.1 * S.shares)}</span>` : ''}`;
   if (ui.rateHtml !== rateHtml) { ui.rateHtml = rateHtml; $('#rate').innerHTML = rateHtml; }
   const op = $('#offerPill'), o = S.offer;
   if (o && !o.done) {
@@ -76,7 +76,7 @@ export function render() {
   if (!ui.idle && Math.abs(ro - ringV) > .6 || (ro !== ringV && (pd.fill >= .999 || pd.fill === 0))) {
     const rf = $('#ringFg'); rf.classList.toggle('tr', ringV >= 0 && Math.abs(ro - ringV) > 12); ringV = ro; rf.style.strokeDashoffset = ro.toFixed(1);
   }
-  const main = auto ? t('OTO') : t('TOPLA'), sub = auto ? t('{rate}/sn', { rate: fmt(totalRate(true), true) }) : fmt(pd.amount);
+  const main = auto ? t('OTO') : t('TOPLA'), sub = auto ? t('{rate}/sn', { rate: fmt(totalRate(true)) }) : fmt(pd.amount);
   const cm = $('#cmain'); if (cm.textContent !== main) { cm.textContent = main; cb.setAttribute('aria-label', auto ? t('Kiralar otomatik toplanıyor') : t('Tüm kiraları topla')); }
   const cs = $('#csub'); if (cs.textContent !== sub) cs.textContent = sub;
   $('#mapDot').hidden = !buyableDistricts().length;

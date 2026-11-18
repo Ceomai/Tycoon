@@ -63,7 +63,7 @@ const region = p => p.evaluate(() => JSON.parse(localStorage.getItem('tapu-prefs
   ok(Math.abs(us2.cash - us.cash) < 1e-6 && us2.bank.in.filter(x => x === oUS.id).length === 1, 'ABD yeniden açılınca emanet ikinci kez eklenmedi', { a: us.cash, b: us2.cash });
 
   /* 3) ABD'de oyna: banka açılana kadar (5.000 iç birim kazanç) */
-  Lg = new L.Ledger(await L.money(p)); P = new Player(p, Lg, I, { sc: 1 / 43 });
+  Lg = new L.Ledger(await L.money(p)); P = new Player(p, Lg, I, { sc: L.PL.us });
   for (let t = 0; t < 80; t++) { await P.turn({ builds: 2, auction: false }); await p.clock.runFor(60e3); if (await p.evaluate(() => window.__tapuTest.bank.bankOpen())) break; }
   us = await L.S(p);
   ok(await p.evaluate(() => window.__tapuTest.bank.bankOpen()), 'ABD: banka açıldı (kazanç ' + Math.round(us.earned) + ')');
@@ -138,7 +138,7 @@ const region = p => p.evaluate(() => JSON.parse(localStorage.getItem('tapu-prefs
     const tr0 = (await saves(pc)).tr, trA0 = tr0.cash - tr0.earned;
     await pc.evaluate(() => { const o = JSON.parse(localStorage.getItem('tapu-prefs')); o.region = 'us'; localStorage.setItem('tapu-prefs', JSON.stringify(o)); });
     await pc.reload(); await L.boot(pc); await L.cards(pc);
-    const PC = new Player(pc, new L.Ledger(await L.money(pc)), I, { sc: 1 / 43 });
+    const PC = new Player(pc, new L.Ledger(await L.money(pc)), I, { sc: L.PL.us });
     const r = await PC.bank('tr', 0.25);
     const oc = (await L.S(pc)).bank.out.find(o => o.to === 'tr');
     await pc.evaluate(() => { const o = JSON.parse(localStorage.getItem('tapu-prefs')); o.region = 'tr'; localStorage.setItem('tapu-prefs', JSON.stringify(o)); });
@@ -188,7 +188,7 @@ const region = p => p.evaluate(() => JSON.parse(localStorage.getItem('tapu-prefs
     const regs = await q.evaluate(() => [...document.querySelectorAll('#sheetBody .bk-reg')].map(e => e.innerText.replace(/\n/g, ' ')));
     const sv = await saves(q), live = await L.S(q), cur = await region(q); sv[cur] = live;
     const tn = await q.evaluate(() => Date.now()), tot = B.total(sv, 'TRY', tn);
-    const lo = L.parseMoney(shown), hi = L.parseMoney(shown, 1, true);
+    const lo = L.parseMoney(shown, 1), hi = L.parseMoney(shown, 1, true); // bilanço ₺ ile gerçek değer (seviye dahil): ölçek 1
     const all = tot.sum + tot.pend; // başlanmamış bölgelere yolda bekleyen emanet de bilançoda (o bölgenin satırında)
     ok(all >= lo * 0.995 && all <= hi * 1.005, `bilanço ${label}: panel "${shown}" ≈ bağımsız hesap ₺${Math.round(all)} (emanet ₺${Math.round(tot.pend)} dahil)`, { rows: tot.rows });
     if (tot.pend > 0) ok(regs.some(x => /emanette/.test(x)), `bilanço ${label}: başlanmamış bölgedeki emanet satırda görünüyor`, { regs });

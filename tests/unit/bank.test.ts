@@ -1,6 +1,5 @@
 // Banka, kur ve bilanço (game/bankcore.ts, game/bank.ts): kur deterministik ve sınırlı (gün içi ±%1, toplam ±%3), en iyi/en kötü
-// zamanlı gidiş-dönüş zararı (Remote Config kötüye kullanımında da), gösterim ölçeği (₺ taban, $ €  £ ¥) ve girdi çevrimi (ihale
-// adımları), günlük hak, emanet → başlangıç sermayesi, çift kayıt defteri (onay, çok sekme, sıfırlanan bölge), bulut paketi
+// zamanlı gidiş-dönüş zararı (Remote Config kötüye kullanımında da), gösterim ölçeği (ülke fiyat seviyesi; ayrıntı fiyat.test.ts), günlük hak, emanet → başlangıç sermayesi, çift kayıt defteri (onay, çok sekme, sıfırlanan bölge), bulut paketi
 // anlık görüntüleriyle para çoğalmaması, lig / görev / holding dışı, kayıt temizliği, bilanço değerlemesi.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -20,7 +19,6 @@ import { sane } from '../../src/services/remote';
 import { flushSaves, unlockSaves, writeRegionSave, saveKeyOf } from '../../src/storage';
 import { idx, rate, quote, amps, costMult, hist, vsWeek, dailyCap, valueOf, trimIn, newBank, fxPair, BANK_KEEP_IN } from '../../src/game/bankcore';
 import { transfer, deliverOut, claimIn, bankBoot, capLeft, maxSend, loadAll, cheapCur, bankOpen, REG } from '../../src/game/bank';
-import { makeAuction, IH, nice } from '../../src/game/auccore';
 import { sharesPreview } from '../../src/game/collection';
 
 const DEF = { ...CFG };
@@ -146,36 +144,19 @@ describe('kur', () => {
 });
 
 describe('gösterim ölçeği', () => {
-  it('₺ taban (ölçek 1): Türkiye’de görünen değerler değişmez', () => {
+  // ayrıntılı testler: tests/unit/fiyat.test.ts (ülke fiyat seviyeleri)
+  it('gösterim = iç birim × ülke fiyat seviyesi (yerel para), kuruşsuz; tüm para gösterimleri fmt üzerinden', () => {
     setRegion('tr'); setLang('tr');
-    expect(dispScale('tr')).toBe(1);
-    expect(fmt(150)).toBe('₺150'); expect(fmt(1.5e6)).toBe('₺1,5Mn'); expect(fmt(0.52, true)).toBe('₺0,5'); expect(fmt(80e3)).toBe('₺80B');
-  });
-  it('$ € £ küçük ölçekli (kuruşlu), ¥ büyük ölçekli; tüm para gösterimleri fmt üzerinden', () => {
+    expect(dispScale('tr')).toBe(CFG.PL_TR);
+    expect(fmt(150)).toBe('₺1,8Mn'); expect(fmt(0.52)).toBe('₺6,2B'); expect(fmt(80e3)).toBe('₺960Mn'); expect(fmt(0)).toBe('₺0');
     setRegion('us'); setLang('en');
-    expect(dispScale('us')).toBeCloseTo(1 / 43, 12); expect(dispScale('gl')).toBe(dispScale('us'));
-    expect(fmt(4300)).toBe('$100'); expect(fmt(150)).toBe('$3.48'); expect(fmt(0.5, true)).toBe('$0.011'); expect(fmt(0)).toBe('$0');
-    expect(fmt(6e6)).toBe('$139K'); expect(fmt(2e6)).toBe('$46.5K'); expect(fmt(1.5e8)).toBe('$3.4M');
-    setRegion('de'); setLang('de'); expect(fmt(100)).toBe('€2,02'); expect(fmt(2e6)).toBe('€40,4Tsd');
-    setRegion('uk'); setLang('en'); expect(fmt(5720)).toBe('£100');
-    setRegion('jp'); setLang('ja'); expect(dispScale('jp')).toBeGreaterThan(3); expect(fmt(100)).toBe('¥352'); expect(fmt(1e6)).toBe('¥352万');
-    expect(fmtIn(4300, 'us')).toBe('$100'); // başka bölgenin parasıyla (banka, bilanço)
-  });
-  it('girdi çevrimi: toDisp ↔ fromDisp; ihale açılışı ve adımı oyuncunun gördüğü birimde yuvarlak, kayıt iç birimde', () => {
+    expect(dispScale('us')).toBe(CFG.PL_US); expect(dispScale('gl')).toBe(dispScale('us'));
+    expect(fmt(100)).toBe('$250K'); expect(fmt(150)).toBe('$375K'); expect(fmt(0.5)).toBe('$1.2K'); expect(fmt(6e6)).toBe('$15B');
+    setRegion('de'); setLang('de'); expect(fmt(100)).toBe('€180Tsd'); expect(fmt(2e6)).toBe('€3,6Mrd');
+    setRegion('uk'); setLang('en'); expect(fmt(100)).toBe('£220K');
+    setRegion('jp'); setLang('ja'); expect(fmt(100)).toBe('¥2400万'); expect(fmt(1e6)).toBe('¥2400億');
+    setLang('en'); expect(fmtIn(100, 'us')).toBe('$250K'); // başka bölgenin parasıyla (banka, bilanço)
     for (const r of REGION_ORDER) for (const x of [1, 150, 2580, 1e9]) expect(fromDisp(toDisp(x, r), r)).toBeCloseTo(x, 6);
-    for (const [r, city, re] of [['us', 'nyc', /^\$\d+(\.00)?$/], ['de', 'muc', /^€\d+(,00)?$/], ['jp', 'tyo', /^¥\d+$/], ['tr', 'ist', /^₺\d+(,\d)?B?$/]] as [RegionId, string, RegExp][]) {
-      setRegion(r); setLang(r === 'de' ? 'de' : r === 'jp' ? 'ja' : r === 'tr' ? 'tr' : 'en');
-      setS(newState(T0, weekKey(new Date(T0)), city)); IH();
-      const a = makeAuction('t-' + r, 'lm', 'x', city, T0, 900);
-      const shown = toDisp(a.start), stp = toDisp(a.step);
-      expect(Math.abs(shown - Math.round(shown))).toBeLessThan(1e-6);
-      expect(Math.abs(stp - Math.round(stp))).toBeLessThan(1e-6);
-      expect(fmt(a.step)).toMatch(re); expect(fmt(a.start + 3 * a.step)).toBe(fmt(fromDisp(shown + 3 * stp))); // adım adım artan teklif ekranda tam
-      expect(Math.abs(a.cap / a.step - Math.round(a.cap / a.step))).toBeLessThan(1e-9);
-    }
-    // Türkiye'de ihale tutarları önceki gibi (nice ile aynı)
-    setRegion('tr'); setS(newState(T0, weekKey(new Date(T0)), 'ist')); IH();
-    expect(makeAuction('x', 'lm', 'x', 'ist', T0, 900).start).toBe(nice(900 * CFG.IH_LM_OPEN));
   });
 });
 

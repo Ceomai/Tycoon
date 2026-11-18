@@ -46,12 +46,12 @@ export const proj: Panel<{ q: Pj | null }> = {
     const after2 = can2 ? pjRates(k, q.a, CFG.PJ_X2 - CFG.PJ_X1)[1] : 0;
     return `${head}${pjChips(k, q.a)}
       <div class="ledger">
-        <div><span>${t('Proje kirası')}</span><i></i><b>${lv('pjsum', () => t('{v}/sn', { v: fmt(pjCells(q.a).reduce((x, j) => x + rate(k, j), 0), true) }))}</b></div>
-        <div><span>${t('Dört binanın kendi kirası')}</span><i></i><b>${t('{v}/sn', { v: fmt(own, true) })}</b></div>
+        <div><span>${t('Proje kirası')}</span><i></i><b>${lv('pjsum', () => t('{v}/sn', { v: fmt(pjCells(q.a).reduce((x, j) => x + rate(k, j), 0)) }))}</b></div>
+        <div><span>${t('Dört binanın kendi kirası')}</span><i></i><b>${t('{v}/sn', { v: fmt(own) })}</b></div>
         <div><span>${t('Proje bonusu')}</span><i></i><b class="up">+${pctTxt(Math.round(pjX(q.st) * 100))}</b></div>
         ${tens}${candRow(k, q)}
         <div><span>${t('Komşuluk ve semt kuralı')}</span><i></i><b>${t('aynen sayılır')}</b></div>
-        ${can2 ? `<div><span>${t('2. etap olunca')}</span><i></i><b>${t('{v}/sn', { v: fmt(after2, true) })} · +${pctTxt(Math.round(CFG.PJ_X2 * 100))}</b></div>` : ''}
+        ${can2 ? `<div><span>${t('2. etap olunca')}</span><i></i><b>${t('{v}/sn', { v: fmt(after2) })} · +${pctTxt(Math.round(CFG.PJ_X2 * 100))}</b></div>` : ''}
       </div>
       <div class="btns">${can2 ? `<button class="btn" data-a="pj2" ${S.cash >= c2 ? '' : 'disabled'}>${t('2. etap · kat ekle')} · ${fmtCost(c2)} <small>${fmtTime(pjTime(k, q.a, 2))}</small></button>` : `<button class="btn" disabled>${t('Son etap')}</button>`}</div>`;
   },

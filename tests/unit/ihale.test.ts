@@ -13,7 +13,7 @@ vi.mock('../../src/services/ads', () => ({ Ads: { rewarded: vi.fn(), native: () 
 vi.mock('../../src/sound', () => ({ Snd: new Proxy({}, { get: () => () => {} }), buzz: Object.assign(vi.fn(), { light: vi.fn(), medium: vi.fn(), success: vi.fn(), error: vi.fn(), select: vi.fn() }) }));
 
 import { newState, setS, S, migrate, Plot } from '../../src/state';
-import { CFG, REGIONS, setRegion, CITIES, BuildingType, cityRegion, REGION_ORDER } from '../../src/config';
+import { toDisp, CFG, REGIONS, setRegion, CITIES, BuildingType, cityRegion, REGION_ORDER } from '../../src/config';
 import { weekKey } from '../../src/format';
 import { setLang, t, pn, pt } from '../../src/i18n';
 import { baseRate, totalRate, ihaleLotMult, leagueShare, collBonus } from '../../src/economy';
@@ -21,7 +21,7 @@ import { addCash, collect } from '../../src/game/actions';
 import { sane } from '../../src/services/remote';
 import {
   IH, windowAt, nextWindow, makeAuction, rivalMax, standing, settle, setProxyCore, resolve, advice, heldNeed, minProxy, pickPrize, ihaleTickCore,
-  placeKoseCore, koseOf, ihaleHolding, ihalePlan, RIVALS, ARCHE, ARCHES, rivalOf, nice, lmPool, ihaleUnlocked, isLate,
+  placeKoseCore, koseOf, ihaleHolding, ihalePlan, RIVALS, ARCHE, ARCHES, rivalOf, nice, lmPool, ihaleUnlocked, isLate, niceShown,
 } from '../../src/game/auccore';
 import { prizeName, ARCHE_LINES, ihaleNoteText, rifkiLine } from '../../src/game/auction';
 import { LM, LM_SETS, LM_TR, IHALE_LM, lmSvg, migrateColl } from '../../src/landmarks';
@@ -70,7 +70,9 @@ describe('takvim ve saat penceresi (yerel 08:00–23:00, Pazartesi tarihi yapı,
 describe('rakip tavanı, adımlar ve tempo', () => {
   it('açılış = dakikalık kira × 15 (tarihi yapı) / 8 (arsa), adım = açılışın %10\'u, "güzel" sayılar', () => {
     setup(); const a = auc('lm', 'ist', 1234), b = auc('arsa', 'ist', 1234);
-    expect(a.start).toBe(nice(1234 * 15)); expect(a.step).toBe(nice(a.start * 0.1)); expect(b.start).toBe(nice(1234 * 8));
+    // yuvarlama oyuncunun gördüğü parada (fiyat seviyesiyle): ekranda ilk iki hane, iç birimde karşılığı
+    expect(a.start).toBe(niceShown(1234 * 15)); expect(a.step).toBe(niceShown(a.start * 0.1)); expect(b.start).toBe(niceShown(1234 * 8));
+    expect(toDisp(a.start)).toBeCloseTo(nice(toDisp(1234 * 15)), 3); expect(a.start).toBeGreaterThanOrEqual(1234 * 15); expect(a.start).toBeLessThan(1234 * 15 * 1.1);
     expect(nice(18510)).toBe(19000); expect(nice(37)).toBe(37);
   });
   it('tavan tohumlu ve sabit; Rıfkı aralığının içinde; açılışta belli', () => {
