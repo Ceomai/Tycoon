@@ -38,8 +38,8 @@ export function openPjConfirm(k: DistrictKey, a: number, onStart: () => void, on
     <h3>${esc(name)}</h3><p>${t('Dört bina birleşip tek {kind} olur.', { kind: t(KIND_N[kind]) })}</p>
     ${pjChips(k, a)}
     <div class="ledger">
-      <div><span>${t('Dört binanın kirası')}</span><i></i><b>${t('{v}/sn', { v: fmt(now4, true) })}</b></div>
-      <div><span>${t('Proje olunca')}</span><i></i><b class="up">${t('{v}/sn', { v: fmt(after, true) })} · +${pctTxt(Math.round(CFG.PJ_X1 * 100))}</b></div>
+      <div><span>${t('Dört binanın kirası')}</span><i></i><b>${t('{v}/sn', { v: fmt(now4) })}</b></div>
+      <div><span>${t('Proje olunca')}</span><i></i><b class="up">${t('{v}/sn', { v: fmt(after) })} · +${pctTxt(Math.round(CFG.PJ_X1 * 100))}</b></div>
       <div><span>${t('Bedel')}</span><i></i><b>${fmtCost(cost)}</b></div>
       <div><span>${t('İnşaat')}</span><i></i><b>${fmtTime(time)}</b></div>
     </div>

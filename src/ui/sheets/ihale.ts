@@ -72,7 +72,7 @@ export const kose: Panel = {
     const cells = Array.from({ length: N }, (_, i) => {
       const p = lots[i], r = p ? rate(k, i) : 0;
       const lbl = !p ? t('Boş') : p.ob ? t('Engel') : p.sp ? t('Özel yapı') : `${t(TYPES[p.t].n)} · ${t('Sv {l}', { l: p.lvl })}`;
-      return `<button class="ks-cell${s.i === i ? ' on' : ''}${p && !p.ob ? '' : ' em'}" data-a="pick" data-i="${i}" aria-pressed="${s.i === i}"><b>${lbl}</b><small>${r ? '+' + t('{v}/sn', { v: fmt(r * x, true) }) : '—'}</small></button>`;
+      return `<button class="ks-cell${s.i === i ? ' on' : ''}${p && !p.ob ? '' : ' em'}" data-a="pick" data-i="${i}" aria-pressed="${s.i === i}"><b>${lbl}</b><small>${r ? '+' + t('{v}/sn', { v: fmt(r * x) }) : '—'}</small></button>`;
     }).join('');
     return `<div class="lghead"><div><p class="sec">${t('Köşe başı damgası · {n}', { n: ih.kp })}</p><h4 class="lgt">${t('Arsanı seç')}</h4>
         <small class="lgsub">${t('Seçtiğin arsanın kirası kalıcı +{p} · semt başına bir köşe başı', { p: pctTxt(Math.round(x * 100)) })}</small></div></div>

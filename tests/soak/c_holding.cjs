@@ -79,7 +79,7 @@ const T0 = new Date(2026, 10, 16, 9, 30).getTime(); // Pazartesi: tarihi yapı i
   ok(oUK && !oUK.s, 'TR → UK emaneti yolda', oUK);
   await C.setRegion(p, 'us'); await L.cards(p);
   await L.mut(p, S => { S.cash = Math.max(S.cash, 1e6); S.earned = Math.max(S.earned, 6000); }); await L.inject(p); await L.cards(p);
-  const PU = new Player(p, new L.Ledger(await L.money(p)), I, { sc: 1 / 43 });
+  const PU = new Player(p, new L.Ledger(await L.money(p)), I, { sc: L.PL.us });
   const sUT = await PU.bank('tr', 0.5);
   let us = await L.S(p); const oUT = us.bank.out.find(o => o.to === 'tr');
   ok(oUT && oUT.s, 'ABD → TR havalesi TR kaydına yazıldı (onay bekliyor)', oUT);

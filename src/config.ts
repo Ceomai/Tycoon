@@ -82,16 +82,20 @@ export function setRegion(r: RegionId) {
 export const cityRegion = (c: CityId): Exclude<RegionId, 'gl'> => (['tr', 'us', 'uk', 'de', 'jp'] as const).find(r => REGIONS[r].cities.includes(c)) || 'tr';
 export const currency = () => REGIONS[REGION].cur;
 
-/* ---------- para birimleri ve gösterim ölçeği ----------
+/* ---------- para birimleri, fiyat seviyesi ve gösterim ölçeği ----------
    İç ekonomi birimi her bölgede aynıdır (denge, sim, kayıtlar, lig karşılaştırması bu birimle). Ekranda her bölgenin parası
-   gerçekçi bir ölçekle gösterilir: iç birim = ₺ (ölçek 1), diğer paralar taban kurla (CFG.FX_*, Remote Config ile güncellenir).
-   Örn. 1 $ ≈ 43 ₺ ise ABD'de iç birimde 4.300'lük bir bina $100 görünür. Mağaza fiyatları (gerçek para) bunun dışındadır. */
+   o ülkenin FİYAT SEVİYESİYLE gösterilir: gösterim = iç birim × seviye(bölge), yerel parayla (CFG.PL_*, Remote Config).
+   Örn. en ucuz ev (iç birimde 100) Türkiye'de ₺1,2Mn, ABD'de $250K, Japonya'da ¥2400万. Kira da aynı seviyeyle ölçeklenir:
+   fiyat/kira oranı (getiri) her ülkede aynıdır. Gerçek kurla (CFG.FX_*) dolar karşılığında diğer ülkeler Türkiye'den pahalıdır
+   (ABD ≈ 9×, BK ≈ 10,5×, Almanya ≈ 7,4×, Japonya ≈ 5,7×); banka aktarımı bu farkı hesaba katar (bankcore midIn).
+   Global tek para ($) ve tek seviyeyle oynanır: kasa bütün şehirlerde ortak olduğu için şehre göre değişen seviye aynı kasayı
+   şehirden şehre farklı gösterirdi. Mağaza fiyatları (gerçek para) bunun dışındadır. */
 export type CurId = 'TRY' | 'USD' | 'GBP' | 'EUR' | 'JPY';
 export const CURS: CurId[] = ['TRY', 'USD', 'EUR', 'GBP', 'JPY'];
 export const CUR_OF: Record<RegionId, CurId> = { tr: 'TRY', us: 'USD', uk: 'GBP', de: 'EUR', jp: 'JPY', gl: 'USD' };
 export const CUR_SYM: Record<CurId, string> = { TRY: '₺', USD: '$', GBP: '£', EUR: '€', JPY: '¥' };
 const pos = (x: number, d: number) => (typeof x === 'number' && Number.isFinite(x) && x > 0 ? x : d);
-/** Taban kur: 1 birim para kaç ₺ (gün içi dalgalanma bankada; gösterim taban kurla, fiyatlar saat saat oynamasın). */
+/** Taban kur: 1 birim para kaç ₺ (gün içi dalgalanma bankada; gösterim seviyesi sabit, fiyatlar saat saat oynamasın). */
 export function tryPer(c: CurId): number {
   const usd = pos(CFG.FX_USD_TRY, 43);
   switch (c) {
@@ -102,8 +106,21 @@ export function tryPer(c: CurId): number {
     default: return 1;
   }
 }
-/** Gösterim ölçeği: iç birimde 1, bu bölgenin parasıyla kaç birim görünür. */
-export const dispScale = (r: RegionId = REGION) => 1 / tryPer(CUR_OF[r] || 'TRY');
+/** Fiyat seviyesi: iç birimde 1, bu bölgenin parasıyla kaç birim (geçersiz ayarda varsayılan). */
+export function priceLevel(r: RegionId = REGION): number {
+  switch (r) {
+    case 'us': return pos(CFG.PL_US, 2500);
+    case 'uk': return pos(CFG.PL_UK, 2200);
+    case 'de': return pos(CFG.PL_DE, 1800);
+    case 'jp': return pos(CFG.PL_JP, 240000);
+    case 'gl': return pos(CFG.PL_GL, 2500);
+    default: return pos(CFG.PL_TR, 12000);
+  }
+}
+/** Gösterim ölçeği = fiyat seviyesi. */
+export const dispScale = priceLevel;
+/** Bölgede 1 iç birimin taban kurla ₺ karşılığı (banka: bölgeler arası iç birim oranı bunların oranıdır). */
+export const unitTry = (r: RegionId) => priceLevel(r) * tryPer(CUR_OF[r] || 'TRY');
 /** İç birim → ekrandaki tutar (bölgenin parasıyla). */
 export const toDisp = (x: number, r: RegionId = REGION) => x * dispScale(r);
 /** Ekrandaki tutar (oyuncu girdisi) → iç birim. */
@@ -226,7 +243,11 @@ export const CFG = {
   IH_UNLOCK_OWN: 2,            // en az bu kadar semt sahibi olunca açılır (Holding sonrası da: kira tabandayken ihale kırıntıya gitmesin)
   IH_SHOW_MS: 12 * 3600e3,     // sonuç kartı en geç bu kadar sonra gösterilmez (yok sayan oyuncuya kart yok)
   // banka, kur ve bilanço (game/bankcore.ts): isteğe bağlı katman; denge scripts/banka.sim.ts ile ölçüldü.
-  // Taban kurlar gerçek kurlara yakın tutulur (geliştirici ara ara Remote Config'ten günceller); gösterim ölçeği bunlardan.
+  // Fiyat seviyesi: iç birimde 1, bölgenin parasıyla kaç birim (gösterim ve banka dönüşümü; iç ekonomi değişmez).
+  // En ucuz ev (iç 100): ₺1,2Mn · $250K · £220K · €180K · ¥24Mn; gerçek kurla $ karşılığı TR'nin ≈ 9 · 10,5 · 7,4 · 5,7 katı.
+  PL_TR: 12000, PL_US: 2500, PL_UK: 2200, PL_DE: 1800, PL_JP: 240000,
+  PL_GL: 2500,                 // Global: tek para ($), ABD seviyesi
+  // Taban kurlar gerçek kurlara yakın tutulur (geliştirici ara ara Remote Config'ten günceller).
   FX_USD_TRY: 43,              // 1 $ kaç ₺
   FX_EUR_USD: 1.15,            // 1 € kaç $
   FX_GBP_USD: 1.33,            // 1 £ kaç $

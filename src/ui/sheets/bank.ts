@@ -1,7 +1,7 @@
 /* BANKA PANELİ — üç sekme: Aktar (bölgeler arası havale), Kur (gün içi 24 saat + 7 gün grafik), Bilanço (tüm bölgeler tek
    para biriminde). Hesaplar game/bankcore.ts, aktarım ve teslim game/bank.ts. Tutarlar iç birimde tutulur, her bölgenin
-   kendi gösterim ölçeğiyle yazılır (format.ts fmtIn / money). */
-import { REGIONS, REGION, REGION_ORDER, RegionId, CITIES, CFG, CurId, CUR_SYM, tryPer } from '../../config';
+   kendi fiyat seviyesiyle (config.ts priceLevel) yazılır (format.ts fmtIn / money). */
+import { REGIONS, REGION, REGION_ORDER, RegionId, CITIES, CFG, CurId, CUR_SYM } from '../../config';
 import { S } from '../../state';
 import { fmtIn, moneySigned, esc } from '../../format';
 import { now } from '../../economy';
@@ -12,7 +12,7 @@ import { openModal, closeModal, toast } from '../modal';
 import { rifkiFace } from '../rifkiFace';
 import { Snd } from '../../sound';
 import { switchRegion } from '../../game/loop';
-import { CURS, CUR_OF, CUR_N, idx, quote, fxPair, rnum, curWord, hist, valueOf, type Sheet } from '../../game/bankcore';
+import { CURS, CUR_OF, CUR_N, worthIn, quote, fxPair, rnum, curWord, hist, valueOf, type Sheet } from '../../game/bankcore';
 import { REG, loadAll, capLeft, maxSend, transfer, bankOpen, cheapCur, pendingTo } from '../../game/bank';
 import { Panel, STAY, lv, openSheet } from './core';
 
@@ -25,10 +25,8 @@ const dec = () => units().dec;
 /** Yüzde (ondalıklı): Türkçede %0,4, diğerlerinde 0.4%. */
 const pctD = (x: number, d = 1) => { const n = Math.abs(x * 100).toFixed(d).replace('.', dec()); return LANG === 'tr' ? '%' + n : n + '%'; };
 const pair = fxPair;
-/** İç birimdeki tutarı (r bölgesinin) c para birimine çevirip yazar: o anki orta kurla. */
-const cents = (c: CurId) => 1 / tryPer(c) < 0.5;
-const inCur = (x: number, r: RegionId, c: CurId, tn: number) => x * idx(CUR_OF[r], tn) / idx(c, tn) / tryPer(c);
-const fmtC = (v: number, c: CurId) => moneySigned(v, CUR_SYM[c], cents(c), false, true); // net eksi olabilir (kapora borcu)
+const inCur = worthIn; // iç birim (r bölgesinde) → c parasıyla gerçek değer
+const fmtC = (v: number, c: CurId) => moneySigned(v, CUR_SYM[c], true); // net eksi olabilir (kapora borcu)
 
 let loading = false;
 /** Diğer bölgelerin kayıtları panel açıkken en geç 15 sn'de bir diskten okunur (önbellek değil: başka sekme / yeni kayıt). */
@@ -58,14 +56,14 @@ function tabSend(s: any): string {
     <p class="sec">${t('Tutar')}</p>
     <div class="seg bk-pick" role="radiogroup" aria-label="${t('Tutar')}">${PICKS.map(p => `<button class="chip${p === pick ? ' on' : ''}" role="radio" aria-checked="${p === pick}" data-a="pick" data-v="${p}">${p >= 1 ? t('En çok') : (LANG === 'tr' ? '%' + Math.round(p * 100) : Math.round(p * 100) + '%')}</button>`).join('')}</div>
     <div class="bk-slip">
-      <div class="bk-l"><span>${t('Gönderilen')}</span><b>${fmtIn(amt, REGION, false, true)}</b></div>
+      <div class="bk-l"><span>${t('Gönderilen')}</span><b>${fmtIn(amt, REGION, true)}</b></div>
       <div class="bk-l"><span>${t('Kur (şimdi)')}</span><b>${pair(CUR_OF[REGION], CUR_OF[to], q.show)}</b></div>
       <div class="bk-l"><span>${q.spread ? t('Makas %{m} · komisyon %{k}', { m: Math.round(q.spread * 100), k: Math.round(q.fee * 100) }) : t('Komisyon %{k}', { k: Math.round(q.fee * 100) })}</span><b>−${fmtIn(Math.max(0, amt * q.mid - got), to)}</b></div>
       <div class="bk-l bk-tot"><span>${started(to) ? t('{r} kasasına varacak', { r: regName(to) }) : t('Emanette bekleyecek')}</span><b>${fmtIn(got, to)}</b></div>
       <div class="bk-cap"><div class="bk-bar"><i style="width:${usedPct}%"></i><u style="width:${addPct}%"></u></div><small>${t('Bugünkü hak: {u} / {c} · gece yarısı yenilenir', { u: fmtIn(c.used + got, to), c: fmtIn(c.cap, to) })}</small></div>
     </div>
     <div class="btns"><button class="btn gold" data-a="send"${got < 1 ? ' disabled' : ''}>${got < 1 ? (S.cash * CFG.BANK_SRC_SHARE * q.net >= 1 ? t('Bugünkü hak doldu') : t('Kasada aktarılacak para yok')) : `${t('Aktar')} <small>${fmtIn(got, to)}</small>`}</button></div>
-    <p class="note">${t('Hak, alıcı bölgenin 30 dakikalık kirası kadardır (en az {f}). Aktarılan para kazanç sayılmaz: haftalık lige, görevlere ve holding hissesine eklenmez.', { f: fmtIn(CFG.BANK_FLOOR, to) })}</p>
+    <p class="note">${t('Hak, alıcı bölgenin 30 dakikalık kirası kadardır (en az {f}). Aktarılan para kazanç sayılmaz: haftalık lige, görevlere ve holding hissesine eklenmez.', { f: fmtIn(CFG.BANK_FLOOR, to) })} ${t('Fiyat seviyesi ülkeye göre değişir: aynı para pahalı ülkede daha az, ucuz ülkede daha çok iş görür.')}</p>
     ${lg ? `<p class="sec u-mt-7">${t('Son hareketler')}</p><div class="bk-log">${lg}</div>` : ''}`;
 }
 

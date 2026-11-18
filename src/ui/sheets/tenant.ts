@@ -60,7 +60,7 @@ export const kiraci: Panel<{ x: Tenant | null }> = {
         <div><span>${t('İstek')}</span><i></i><b>${wishShort(x)}</b></div>
         ${ch ? `<div><span>${t('Kişilik')}</span><i></i><b class="tn-tr" data-trait="${traitOf(ch)}">${t(TRAITS[traitOf(ch)].n)}</b></div>` : ''}
         <div><span>${t('Kazandırır')}</span><i></i><b class="up">${t('+{p} kira · {m} dk', { p: bonusPct(x), m: liveMin(x) })}</b></div>
-        <div><span>${t('Bu binaya')}</span><i></i><b>+${lv('tng', () => t('{v}/sn', { v: fmt(gain(x), true) }))}</b></div>
+        <div><span>${t('Bu binaya')}</span><i></i><b>+${lv('tng', () => t('{v}/sn', { v: fmt(gain(x)) }))}</b></div>
         <div><span>${live ? t('Sözleşme') : t('Kalan süre')}</span><i></i><b class="${!live && x.dl - S.playMs < CFG.TEN_NOTE ? 'red' : ''}">${lv('tnl', () => leftTxt(x))}</b></div>
         <div class="rule"><span>${t('Bağlantı')}</span><i></i><b>${wishLink(x)}</b></div>
       </div>

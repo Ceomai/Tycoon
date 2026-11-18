@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { fmt, fmtTime, clock, weekKey, dayKey, dayDiff, esc, loc } from '../../src/format';
 import { newState, migrate, setS, S } from '../../src/state';
 import { totalRate, pending, unlockInfo, baseRate, buildCost, upCost, buildTime, isFull, filled } from '../../src/economy';
-import { DLIST, ORDER, TYPES, MAXLV, CITY_ORDER } from '../../src/config';
+import { fromDisp, DLIST, ORDER, TYPES, MAXLV, CITY_ORDER } from '../../src/config';
 import { marketOf, marketMult } from '../../src/game/modifiers';
 import { seasonId } from '../../src/game/fun';
 
@@ -26,9 +26,10 @@ describe('format: kenar durumlar', () => {
     expect(fmt(Number.MAX_VALUE)).not.toMatch(/NaN|undefined/);
   });
   it('birim sınırları yuvarlanırken 1000 göstermez', () => {
-    expect(fmt(999)).toBe('₺999'); expect(fmt(999.99)).toBe('₺999');
-    expect(fmt(999999)).toBe('₺999B'); expect(fmt(1e6)).toBe('₺1Mn');
-    expect(fmt(99.99, true)).toBe('₺99,9');
+    const f = (x: number) => fmt(fromDisp(x)); // ekrandaki tutar (iç birim × fiyat seviyesi)
+    expect(f(999)).toBe('₺999'); expect(f(999.99)).toBe('₺999');
+    expect(f(999999)).toBe('₺999B'); expect(f(1e6)).toBe('₺1Mn');
+    expect(f(99.99)).toBe('₺99'); // kuruş yok
   });
   it('süre biçimleri', () => {
     expect(fmtTime(0)).toBe('0 sn'); expect(fmtTime(-100)).toBe('0 sn'); expect(fmtTime(NaN)).not.toMatch(/NaN/);

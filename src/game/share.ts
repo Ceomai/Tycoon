@@ -53,7 +53,7 @@ async function genShare(): Promise<Blob> {
   g.textAlign = 'center';
   g.fillStyle = v('--muted'); g.font = '600 44px "IBM Plex Mono", monospace'; g.fillText(upper(`${nm(CITIES[d.city].n)} · ${nm(d.n)}`), W / 2, 170);
   g.fillStyle = v('--ink'); g.font = '700 168px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillText(fmt(S.cash), W / 2, 340);
-  g.fillStyle = v('--muted'); g.font = '600 50px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillText(t('saniyede {n} kira', { n: fmt(totalRate(true), true) }), W / 2, 410);
+  g.fillStyle = v('--muted'); g.font = '600 50px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillText(t('saniyede {n} kira', { n: fmt(totalRate(true)) }), W / 2, 410);
   const city = citySvg(), im = await loadImg('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(city.str));
   const cw = 920, ch = cw * city.h / city.w; g.drawImage(im, (W - cw) / 2, 470, cw, ch);
   g.save(); g.translate(W / 2, H - 196); g.rotate(-5 * Math.PI / 180); g.strokeStyle = v('--stamp'); g.fillStyle = v('--stamp');

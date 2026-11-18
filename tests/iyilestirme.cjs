@@ -604,6 +604,7 @@ async function bankaBolum(b) {
     for (let k = 0; k < 5 && await has(p, '#modal .card'); k++) { await p.click('#modal .card [data-a]', { force: true }); await p.clock.runFor(400); }
     return p;
   }
+  const LEV_TR_US = 12000 / (2500 * 43); // seviye oranı: TR'de 1 iç birim ABD'de kaç iç birim (CFG.PL_TR / (PL_US × FX_USD_TRY))
   const rd = (p, r) => p.evaluate(r => { const raw = localStorage.getItem('tapu-save-v2' + (r === 'tr' ? '' : '-' + r)); return raw ? JSON.parse(JSON.parse(raw).j) : null; }, r);
   const lo = x => (x || '').toLocaleLowerCase('tr-TR'); // innerText büyük harfli başlıklar (text-transform): Türkçe küçük harfe
   const body = p => p.evaluate(() => document.querySelector('#sheetBody').innerText).then(lo);
@@ -621,7 +622,7 @@ async function bankaBolum(b) {
   const t0 = await body(p);
   ok(/gönderen/.test(t0) && /alıcı bölge/.test(t0) && (await p.$$('#sheetBody .bk-to')).length === 5, 'Aktar sekmesi: gönderen, 5 alıcı bölge: ' + t0.slice(0, 50).replace(/\n/g, ' '));
   const usRow = lo(await p.evaluate(() => document.querySelector('#sheetBody .bk-to[data-r="us"]')?.innerText || '')), jpRow = lo(await p.evaluate(() => document.querySelector('#sheetBody .bk-to[data-r="jp"]')?.innerText || ''));
-  ok(/kasa \$11[.,]62/.test(usRow) && /hak \$/.test(usRow) && /başlanmadı/.test(jpRow), 'alıcı kutuları kendi parasıyla ve ölçeğiyle (ABD kasa ₺500 → $11.62), Japonya başlanmadı: ' + usRow.replace(/\n/g, ' ') + ' | ' + jpRow.replace(/\n/g, ' '));
+  ok(/kasa \$1,2mn/.test(usRow) && /hak \$90mn/.test(usRow) && /başlanmadı/.test(jpRow), 'alıcı kutuları kendi parasıyla ve fiyat seviyesiyle (ABD kasa iç 500 × 2.500 → $1,2Mn; hak iç 36.000 → $90Mn), Japonya başlanmadı: ' + usRow.replace(/\n/g, ' ') + ' | ' + jpRow.replace(/\n/g, ' '));
   await tapS(p, '#sheetBody .bk-to[data-r="us"]');
   const slip = lo(await p.evaluate(() => document.querySelector('#sheetBody .bk-slip')?.innerText || ''));
   ok(/100 ₺ = \$2[,.]3\d/.test(slip) && /makas %1 · komisyon %2/.test(slip) && /abd kasasına varacak/.test(slip) && /\$\d/.test(slip), 'dekont: kur (100 ₺ = $2,3x), makas ve komisyon, varacak tutar $: ' + slip.replace(/\n/g, ' | '));
@@ -633,7 +634,7 @@ async function bankaBolum(b) {
   const s1 = await S(p), u1 = await rd(p, 'us');
   const sent = s0.cash - s1.cash, got = u1.cash - u0.cash, cap = Math.max(2500, 1800 * 20);
   ok(/havale/.test(card) && /abd kasasına geçti/.test(card) && /abd bölgesine geç/.test(card) && /burada kal/.test(card), 'havale kartı: HAVALE mührü, "ABD kasasına geçti", bölgeye geç / burada kal: ' + card.replace(/\n/g, ' | ').slice(0, 120));
-  ok(sent > 0 && got > 0 && got <= cap + 1e-6 && got > cap - 2 && sent <= s0.cash / 2 && got / sent > 0.94 && got / sent < 0.99, 'aktarım: TR kasası düştü, ABD kaydına hak kadar (' + Math.round(got) + ' / ' + cap + ') vardı; maliyet ≈ %3: ' + (got / sent).toFixed(4));
+  ok(sent > 0 && got > 0 && got <= cap + 1e-6 && got > cap - 2 && sent <= s0.cash / 2 && got / sent / LEV_TR_US > 0.94 && got / sent / LEV_TR_US < 0.99, 'aktarım: TR kasası düştü, ABD kaydına hak kadar (' + Math.round(got) + ' / ' + cap + ') vardı; iç birim oranı = seviye oranı (' + LEV_TR_US.toFixed(4) + ') × maliyet ≈ %3: ' + (got / sent).toFixed(4));
   ok(s1.earned === s0.earned && s1.week.earned === s0.week.earned && u1.earned === u0.earned && u1.week.earned === u0.week.earned, 'aktarılan para kazanç sayılmaz (TR ve ABD earned / haftalık lig aynı)');
   ok(s1.bank.out.length === 1 && s1.bank.out[0].s > 0 && u1.bank.in.includes(s1.bank.out[0].id), 'çift kayıt: gönderende onay bekleyen havale (s), alanda kimlik');
   await p.screenshot({ path: out + 'banka-2-havale.png' });
@@ -643,7 +644,7 @@ async function bankaBolum(b) {
   // emanet: başlanmamış Japonya
   await tapS(p, '#sheetBody .bk-to[data-r="jp"]');
   const js = lo(await p.evaluate(() => document.querySelector('#sheetBody .bk-slip')?.innerText || ''));
-  ok(/emanette bekleyecek/.test(js) && /¥\d/.test(js) && /\/ ¥8[,.]8b/.test(js), 'Japonya: emanette bekleyecek, ¥ ve hak tabanı ¥8,8B (₺2.500): ' + js.replace(/\n/g, ' | '));
+  ok(/emanette bekleyecek/.test(js) && /¥\d/.test(js) && /\/ ¥600mn/.test(js), 'Japonya: emanette bekleyecek, ¥ ve hak tabanı ¥600Mn (iç 2.500 × 240.000): ' + js.replace(/\n/g, ' | '));
   await tapS(p, '#sheetBody [data-a="send"]', 600); await p.clock.runFor(500);
   const jc = lo(await p.evaluate(() => document.querySelector('#modal .card.bk-done')?.innerText || ''));
   const s2 = await S(p), jo = s2.bank.out.find(o => o.to === 'jp');
@@ -699,17 +700,17 @@ async function bankaBolum(b) {
   await Promise.all([p.waitForEvent('load'), p.click('#modal [data-a="go"]', { force: true })]); await p.clock.runFor(1500); await p.waitForTimeout(400);
   await dismissCards(p, { n: 5, run: 600 }); // çevrimdışı kira kartı vb. (reklamsız seçenek)
   const us = await S(p), cashTxt = await p.textContent('#cash');
-  const shown = num(cashTxt), exp = us.cash / 43, ins = us.bank.log.filter(l => l.dir === 'in').length;
+  const shown = num(cashTxt), exp = us.cash * 2500, ins = us.bank.log.filter(l => l.dir === 'in').length;
   ok(us.city === 'nyc' && uc2 > uc && ins === 2 && new Set(us.bank.in).size === 2 && Math.abs((us.cash - uc2) - (us.earned - 777)) < 1, '"ABD bölgesine geç": ABD açıldı, iki havale kasada birer kez (' + Math.round(uc) + ' → ' + Math.round(uc2) + '; üstü yalnız kira)');
-  ok(/^\$\d/.test(cashTxt) && Math.abs(shown - exp) / exp < 0.05, 'ABD gösterim ölçeği: kasa ' + cashTxt + ' (iç ' + Math.round(us.cash) + ' / 43)');
+  ok(/^\$\d/.test(cashTxt) && Math.abs(shown - exp) / exp < 0.05, 'ABD fiyat seviyesi: kasa ' + cashTxt + ' (iç ' + Math.round(us.cash) + ' × 2.500)');
   await tapS(p, '#grid .lot[data-i="10"]', 500);
   const lotTxt = await p.evaluate(() => document.querySelector('#sheetBody .bcard.k-ev .bp')?.textContent || '');
   const evc = await p.evaluate(() => { const S = window.__tapuState(); return 100 * Math.pow(1.12, S.d['nyc-0'].filter(q => q && q.t === 'ev').length); });
-  ok(lotTxt === '$' + (Math.ceil(evc / 43 * 100) / 100).toFixed(2).replace('.', ','), 'ABD arsa paneli: ev fiyatı ölçekli, kuruşlu ve yukarı yuvarlı (fmtCost): ' + lotTxt + ' (iç ' + evc.toFixed(1) + ')');
+  ok(lotTxt === '$' + Math.ceil(evc * 2500 / 1e3 - 1e-9) + 'B', 'ABD arsa paneli: ev fiyatı fiyat seviyesiyle (× 2.500), kuruşsuz ve yukarı yuvarlı (fmtCost): ' + lotTxt + ' (iç ' + evc.toFixed(1) + ')');
   await p.keyboard.press('Escape'); await p.clock.runFor(400);
   await openBank(p);
   const usClosed = lo(await p.evaluate(() => document.querySelector('#sheetBody .bk-closed')?.innerText || ''));
-  ok(/ikinci semtini alınca ya da \$116 kazanınca/.test(usClosed), 'ABD’de banka (tek semt, az kazanç) kapalı; eşik ölçekli ($116 = iç 5.000): ' + usClosed);
+  ok(/ikinci semtini alınca ya da \$12,5mn kazanınca/.test(usClosed), 'ABD’de banka (tek semt, az kazanç) kapalı; eşik fiyat seviyesiyle ($12,5Mn = iç 5.000): ' + usClosed);
   await p.screenshot({ path: out + 'banka-8-abd.png' });
   await p.keyboard.press('Escape'); await p.clock.runFor(400);
   // Japonya'ya geç: şehir seçilince emanet başlangıç sermayesi

@@ -832,7 +832,9 @@
   "yenileniyor · {c}": "renovating · {c}",
   "{n} bu binanın cephesi için {c} rengini istiyor": "{n} wants this facade in {c}",
   "Çarşı büyüsün: projenin 2. etabı yapılsın, yeni katta dükkânım olsun.": "Let the bazaar grow: build phase 2 and give me a shop on the new floor.",
-  "Çocuklar bahçe ister: bu bloğu projeye dönüştürün, ilk biz taşınalım.": "The kids want a garden: turn this block into a project and we’ll be the first to move in."
+  "Çocuklar bahçe ister: bu bloğu projeye dönüştürün, ilk biz taşınalım.": "The kids want a garden: turn this block into a project and we’ll be the first to move in.",
+  "Fiyat seviyesi ülkeye göre değişir: aynı para pahalı ülkede daha az, ucuz ülkede daha çok iş görür.": "Price levels differ by country: the same money buys less in an expensive country and more in a cheaper one.",
+  "Toplam {m} kazan": "Earn {m} in total"
  },
  "de": {
   "Dil ve bölge": "Sprache & Region",
@@ -1667,7 +1669,9 @@
   "yenileniyor · {c}": "Renovierung · {c}",
   "{n} bu binanın cephesi için {c} rengini istiyor": "{n} wünscht sich die Fassade in {c}",
   "Çarşı büyüsün: projenin 2. etabı yapılsın, yeni katta dükkânım olsun.": "Der Markt soll wachsen: Baut den 2. Abschnitt, und ich bekomme einen Laden im neuen Stock.",
-  "Çocuklar bahçe ister: bu bloğu projeye dönüştürün, ilk biz taşınalım.": "Die Kinder wollen einen Garten: Macht den Block zum Projekt, und wir ziehen als Erste ein."
+  "Çocuklar bahçe ister: bu bloğu projeye dönüştürün, ilk biz taşınalım.": "Die Kinder wollen einen Garten: Macht den Block zum Projekt, und wir ziehen als Erste ein.",
+  "Fiyat seviyesi ülkeye göre değişir: aynı para pahalı ülkede daha az, ucuz ülkede daha çok iş görür.": "Das Preisniveau ist je nach Land verschieden: Dasselbe Geld reicht in einem teuren Land für weniger, in einem günstigen für mehr.",
+  "Toplam {m} kazan": "Verdiene insgesamt {m}"
  },
  "ja": {
   "Dil ve bölge": "言語と地域",
@@ -2502,6 +2506,8 @@
   "yenileniyor · {c}": "改装中・{c}",
   "{n} bu binanın cephesi için {c} rengini istiyor": "{n}さんはこの外壁を{c}にしてほしいそうです",
   "Çarşı büyüsün: projenin 2. etabı yapılsın, yeni katta dükkânım olsun.": "市場を広げよう。第2期を建てて、新しい階に店を持たせて。",
-  "Çocuklar bahçe ister: bu bloğu projeye dönüştürün, ilk biz taşınalım.": "子どもたちは庭が欲しいって。この区画をプロジェクトにしたら、最初に引っ越します。"
+  "Çocuklar bahçe ister: bu bloğu projeye dönüştürün, ilk biz taşınalım.": "子どもたちは庭が欲しいって。この区画をプロジェクトにしたら、最初に引っ越します。",
+  "Fiyat seviyesi ülkeye göre değişir: aynı para pahalı ülkede daha az, ucuz ülkede daha çok iş görür.": "物価水準は国によって違います。同じお金でも、物価の高い国では少なく、安い国では多くのことができます。",
+  "Toplam {m} kazan": "累計{m}を稼ぐ"
  }
 }

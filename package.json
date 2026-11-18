@@ -25,6 +25,7 @@
     "kiracilar": "node scripts/kiracilar/gen.mjs && npm run i18n",
     "test:yon": "vite build --mode preview && node tests/yon.cjs",
     "test:iy": "vite build --mode preview && node tests/iyilestirme.cjs",
+    "test:fiyat": "vite build --mode preview && node tests/fiyat.cjs",
     "test:soak": "vite build --mode preview && node tests/soak/repro_banka.cjs && node tests/soak/run.cjs"
   },
   "dependencies": {

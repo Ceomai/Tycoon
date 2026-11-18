@@ -6,6 +6,8 @@ const TYPES = { ev: 100, kafe: 1500, dukkan: 20000, ofis: 250000 };
 const UP_COST = [0, 2, 5, 12, 30], MAXLV = 5, COLS = 4, TIER_M = [1, 10, 100, 1000, 10000], TIER_FEE = [0, 80e3, 1e6, 1.2e7, 1.5e8];
 const FEES = [60e3, 600e3, 6e6, 60e6];
 const CUR_OF = { tr: 'TRY', us: 'USD', uk: 'GBP', de: 'EUR', jp: 'JPY', gl: 'USD' };
+/** Ülke fiyat seviyesi (CFG.PL_*): gösterim = iç birim × seviye; 1 iç birimin ₺ karşılığı = seviye × taban kur. */
+const PL = { tr: 12000, us: 2500, uk: 2200, de: 1800, jp: 240000, gl: 2500 };
 const tryPer = c => ({ USD: 43, EUR: 43 * 1.15, GBP: 43 * 1.33, JPY: 43 * 0.66 / 100, TRY: 1 }[c]);
 function h01(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
 const noise = (c, k, n) => h01(c + k + n) * 2 - 1;
@@ -14,9 +16,10 @@ function amps() { let day = CFG.FX_DAY, hour = CFG.FX_HOUR; const c = costMult()
 const dayNode = (c, d) => 0.5 * noise(c, ':d', d) + 0.3 * noise(c, ':d', d - 1) + 0.2 * noise(c, ':d', d - 2);
 const hourNode = (c, h) => 0.4 * noise(c, ':h', h) + 0.3 * noise(c, ':h', h - 1) + 0.2 * noise(c, ':h', h - 2) + 0.1 * noise(c, ':h', h - 3);
 function idx(c, t) { const h = Math.floor(t / 3600e3), d = Math.floor(h / 24), f = (h - d * 24) / 24, A = amps(); return 1 + A.day * (dayNode(c, d) * (1 - f) + dayNode(c, d + 1) * f) + A.hour * hourNode(c, h); }
-const midIn = (from, to, t) => { const a = CUR_OF[from], b = CUR_OF[to]; return a === b ? 1 : idx(a, t) / idx(b, t); };
+const unitTry = r => PL[r] * tryPer(CUR_OF[r]);
+const midIn = (from, to, t) => { const a = CUR_OF[from], b = CUR_OF[to]; return unitTry(from) / unitTry(to) * (a === b ? 1 : idx(a, t) / idx(b, t)); };
 const net = (from, to, t) => midIn(from, to, t) * costMult(CUR_OF[from] === CUR_OF[to]);
-const inCur = (x, r, c, t) => x * idx(CUR_OF[r], t) / idx(c, t) / tryPer(c);
+const inCur = (x, r, c, t) => x * unitTry(r) * idx(CUR_OF[r], t) / idx(c, t) / tryPer(c);
 const lotCost = (t, m, j, lv) => { let v = TYPES[t] * m * Math.pow(1.12, j); for (let l = 1; l < lv && l < UP_COST.length; l++) v += TYPES[t] * m * UP_COST[l]; return v; };
 function valueOf(save) {
   if (!save || !save.city || !Array.isArray(save.own)) return null;
@@ -55,4 +58,4 @@ function total(saves, c, t) {
   for (const r of Object.keys(CUR_OF)) { const s = saves[r]; for (const o of (s && s.bank && s.bank.out) || []) if (!o.s && !saves[o.to]) pend += inCur(o.a, o.to, c, t); }
   return { sum, rows, pend };
 }
-module.exports = { valueOf, total, inCur, idx, midIn, net, costMult, tryPer, CUR_OF };
+module.exports = { valueOf, total, inCur, idx, midIn, net, costMult, tryPer, CUR_OF, PL, unitTry };

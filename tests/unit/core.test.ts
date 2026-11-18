@@ -4,18 +4,20 @@ import { newState, migrate, setS, S } from '../../src/state';
 import { guardRollback, Time } from '../../src/time';
 import { checksum } from '../../src/storage';
 import { unlockInfo, now, portfolioBonus, citiesOwned, totalRate } from '../../src/economy';
-import { CFG, TIER_FEE } from '../../src/config';
+import { CFG, TIER_FEE, fromDisp } from '../../src/config';
 
 const T = Date.UTC(2026, 10, 1, 12);
 const full = () => Array.from({ length: 20 }, () => ({ t: 'ev' as const, lvl: 2, buf: 0, until: 0, dur: 1, up: false }));
 
 describe('fmt', () => {
   it('küçük sayılar ve birimler', () => {
-    expect(fmt(150)).toBe('₺150');
-    expect(fmt(1500)).toMatch(/B$/);
-    expect(fmt(2.5e6)).toMatch(/Mn$/);
-    expect(fmt(3e9)).toMatch(/Mr$/);
-    expect(fmt(4e12)).toMatch(/Tn$/);
+    // tutarlar iç birimde; ekranda bölgenin fiyat seviyesiyle: fromDisp ekrandaki tutarı iç birime çevirir
+    expect(fmt(fromDisp(150))).toBe('₺150');
+    expect(fmt(fromDisp(1500))).toMatch(/B$/);
+    expect(fmt(fromDisp(2.5e6))).toMatch(/Mn$/);
+    expect(fmt(fromDisp(3e9))).toMatch(/Mr$/);
+    expect(fmt(fromDisp(4e12))).toMatch(/Tn$/);
+    expect(fmt(100)).toBe('₺1,2Mn'); // en ucuz ev
   });
   it('çok büyük sayılar boş ya da NaN dönmez', () => {
     for (const n of [1e20, 1e33, 1e45, 1e60, 1e100]) { const s = fmt(n); expect(s).not.toMatch(/NaN|undefined|Infinity/); expect(s.length).toBeLessThan(14); }

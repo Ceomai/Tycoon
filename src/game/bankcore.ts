@@ -1,16 +1,21 @@
 /* =========================================================
    BANKA ÇEKİRDEĞİ (saf hesap: arayüzsüz, depolamasız) — kur, makas/komisyon, günlük aktarım hakkı, bilanço değerlemesi.
-   Birimler: tüm tutarlar İÇ BİRİMDE (her bölgede aynı ekonomi; ₺ = iç birim). Ekranda her bölgenin parası taban kurla
-   ölçeklenir (config.ts dispScale). Bankada iç birimin değeri para birimine göre gün içinde hafifçe oynar:
+   Birimler: tüm tutarlar İÇ BİRİMDE (her bölgede aynı ekonomi). Ekranda her bölgenin parası o ülkenin fiyat seviyesiyle
+   ölçeklenir (config.ts priceLevel). AKTARIM: gönderen iç birim → gönderenin parası (× seviye) → kur (makas + komisyon) →
+   alanın parası → alan iç birim (÷ seviye). Yani kaynakta 1 iç birim, hedefte unitTry(kaynak) / unitTry(hedef) iç birim eder
+   (unitTry = seviye × taban kur): pahalı ülkeye giden para orada daha az iş görür, ucuz ülkeye giden daha çok. Günlük hak,
+   kasanın yarısı sınırı ve emanet tabanı iç birimde kaldığı için alan bölgenin kazanabileceği en çok hız değişmez.
+   Paranın değeri ayrıca gün içinde hafifçe oynar:
      g_c(t) = 1 + FX_DAY · sürüklenme(gün) + FX_HOUR · gün içi(saat)      (|g_c − 1| ≤ A = FX_DAY + FX_HOUR)
    - herkes için aynı ve deterministik (UTC saat ve gün sırasından tohumlu), saatlik yumuşak adımlar; sürüklenme gün içinde
      bir sonraki günün değerine doğru saat saat kayar (gece yarısı sıçrama yok);
    - çapraz kur (a → b) = g_a / g_b: gün içinde ±%1, toplamda ±%3 içinde (para başına ±%0,49 ve ±%0,98).
    SÖMÜRÜLEMEZLİK: bir aktarım en çok (1+A)/(1−A) kez "iyi" zamanlanabilir; maliyeti c = (1 − makas)(1 − komisyon).
-   A ≤ (1 − c)/(1 + c) iken (1+A)/(1−A) · c < 1: hangi saatlerde, kaç bacaklı (a→b→…→a) tur atılırsa atılsın her bacak
-   zarardır, dolayısıyla gidiş-dönüş < 1. Remote Config bu sınırı aşan bir değer verirse genlik sınırın %98'ine indirilir.
+   A ≤ (1 − c)/(1 + c) iken (1+A)/(1−A) · c < 1: hangi saatlerde, kaç bacaklı (a→b→…→a) tur atılırsa atılsın her bacağın
+   kur + maliyet çarpanı 1'in altındadır; seviye oranları (unitTry) tur boyunca birbirini götürür (çarpımları 1), dolayısıyla
+   gidiş-dönüş < 1. Remote Config bu sınırı aşan bir değer verirse genlik sınırın %98'ine indirilir.
    ========================================================= */
-import { CFG, REGIONS, RegionId, CurId, CUR_OF, CUR_SYM, CURS, tryPer, TYPES, TIER_M, TIER_FEE, UP_COST, MAXLV, DMAP, BuildingType, COLS } from '../config';
+import { CFG, REGIONS, RegionId, CurId, CUR_OF, CUR_SYM, CURS, tryPer, unitTry, TYPES, TIER_M, TIER_FEE, UP_COST, MAXLV, DMAP, BuildingType, COLS } from '../config';
 import { tk, t, units, LANG } from '../i18n';
 
 export { CURS, CUR_OF };
@@ -56,8 +61,12 @@ export function idx(c: CurId, t: number): number {
 }
 /** Gösterilen kur: 1 [from] kaç [to] (taban kur × gün içi oran). */
 export const rate = (from: CurId, to: CurId, t: number) => (from === to ? 1 : (tryPer(from) / tryPer(to)) * idx(from, t) / idx(to, t));
-/** İç birim oranı: kaynakta 1 iç birim, hedefte kaç iç birim eder (orta kur). */
-export const midIn = (from: RegionId, to: RegionId, t: number) => { const a = CUR_OF[from], b = CUR_OF[to]; return a === b ? 1 : idx(a, t) / idx(b, t); };
+/** Seviye oranı: kaynakta 1 iç birimin hedefte taban kurla kaç iç birim ettiği (fiyat seviyesi × taban kur oranı). */
+export const levelRatio = (from: RegionId, to: RegionId) => (from === to ? 1 : unitTry(from) / unitTry(to));
+/** İç birim oranı: kaynakta 1 iç birim, hedefte kaç iç birim eder (orta kur: seviye oranı × gün içi dalgalanma). */
+export const midIn = (from: RegionId, to: RegionId, t: number) => { const a = CUR_OF[from], b = CUR_OF[to]; return levelRatio(from, to) * (a === b ? 1 : idx(a, t) / idx(b, t)); };
+/** Bilanço: r bölgesindeki iç birim tutarın c parasıyla gerçek değeri (bölgenin fiyat seviyesi, o anki orta kur). */
+export const worthIn = (x: number, r: RegionId, c: CurId, t: number) => x * unitTry(r) * idx(CUR_OF[r], t) / idx(c, t) / tryPer(c);
 /** Aktarım teklifi: kaynakta 1 iç birim gönderilince hedefe varan iç birim (makas + komisyon düşülmüş). */
 export function quote(from: RegionId, to: RegionId, t: number) {
   const same = CUR_OF[from] === CUR_OF[to], m = midIn(from, to, t);
