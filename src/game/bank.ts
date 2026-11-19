@@ -23,6 +23,7 @@ import { readRegionSave, cachedRegionSave, writeRegionSave, flushSaves, validSav
 import { persist, persistNow } from './persist';
 import { BankOut, BankState, rid, dailyCap, usedToday, quote, newBank, vsWeek, trimIn, BANK_LOG, BANK_OUT_MAX } from './bankcore';
 import { REGION_INFO } from '../storage';
+import { Funnel, magB } from '../services/funnel';
 
 export const today = () => dayKey(new Date(now()));
 const bank = (): BankState => (S.bank || (S.bank = newBank()));
@@ -69,7 +70,7 @@ export { BANK_OUT_MAX };
 
 export type TransferResult = { ok: true; got: number; held: boolean } | { ok: false; why: 'closed' | 'same' | 'cash' | 'cap' | 'busy' | 'save' };
 /** Aktarım: amt kaynak iç biriminde. busy: yoldaki havale sınırı dolu · save: gönderen kaydı yazılamadı (para geri). */
-export function transfer(to: RegionId, amt: number): Promise<TransferResult> { return serial(() => transferNow(to, amt)); }
+export function transfer(to: RegionId, amt: number): Promise<TransferResult> { const c0 = S.cash; return serial(() => transferNow(to, amt)).then(r => { Funnel.bankSend(to, amt, r, capLeft(to), c0); return r; }); }
 async function transferNow(to: RegionId, amt: number): Promise<TransferResult> {
   if (!bankOpen()) return { ok: false, why: 'closed' };
   if (to === REGION || !REGION_ORDER.includes(to)) return { ok: false, why: 'same' };
@@ -161,7 +162,7 @@ export function carryOut(old: any): BankOut[] {
     .map((o: any) => ({ id: o.id, to: o.to, a: +o.a, at: Number.isFinite(+o.at) ? +o.at : 0 }));
 }
 /** Açılış: önce gelen emanetler, sonra yoldaki gidenler. Dönen: alınan emanet (iç birim). */
-export function bankBoot(): Promise<number> { return serial(async () => { const got = await claimNow(); await deliverNow(); return got; }); }
+export function bankBoot(): Promise<number> { return serial(async () => { const got = await claimNow(); await deliverNow(); if (got > 0) Funnel.bank('claim', { amt_e: magB(got) }); return got; }); }
 
 /** Başka bir (başlanmış) bölgenin parası şimdi, oynanan paraya göre 7 günlük ortalamasından en az BANK_TIP_PCT ucuzsa: o bölge.
  *  started: yalnız başlanmış bölgeler (REGION_INFO ya da panelin okuduğu kayıtlar). Rıfkı'nın kur notu için. */

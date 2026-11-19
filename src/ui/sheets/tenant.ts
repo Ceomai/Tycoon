@@ -22,7 +22,7 @@ import { pjOf } from '../../economy';
 import { deny } from '../motion';
 import { view } from '../ctx';
 import { persist } from '../../game/persist';
-import { Analytics } from '../../services/analytics';
+import { Funnel } from '../../services/funnel';
 import { Panel, STAY, openSheet, closeSheet, lv } from './core';
 
 const where = (x: Tenant) => {
@@ -138,15 +138,15 @@ function settleToast(x: Tenant) {
 
 /* ---------- olaylar: Rıfkı Abi tanıtır, hatırlatır, haber verir, kutlar; gidişte konuşmaz (kısa bildirim, suçlamaz) ---------- */
 const redraw = (x: Tenant) => { if (x.k === S.cur) ui.tileSig[x.i] = ''; ui.sheetSig = ''; };
-tenantHooks.arrive = x => { redraw(x); sayEvent('ten', x.k, x); Analytics.log('tenant_arrive', { arch: x.a, wish: x.w.k, ch: x.c || '' }); persist(); };
+tenantHooks.arrive = x => { redraw(x); sayEvent('ten', x.k, x); Funnel.tenant('arrive', x); persist(); };
 tenantHooks.note = x => sayEvent('tennote', x.k, x);
-tenantHooks.ready = x => { redraw(x); sayEvent('tenready', x.k, x); };
+tenantHooks.ready = x => { redraw(x); sayEvent('tenready', x.k, x); Funnel.tenant('ready', x); };
 tenantHooks.settle = x => {
   if (x.k === S.cur) { ui.teslim[x.i] = { at: performance.now() + 1800, txt: tName(x.a, x.k)[0], b: t('YERLEŞTİ') }; ui.pop.add(x.i); }
   redraw(x); Snd.unlock(); buzz.success();
   settleToast(x);
-  sayEvent('tenok', x.k, x); Analytics.log('tenant_settle', { arch: x.a, wish: x.w.k, ch: x.c || '' }); persist();
+  sayEvent('tenok', x.k, x); Funnel.tenant('settle', x); persist();
 };
-tenantHooks.leave = x => { redraw(x); toast(leaveText(x), 3000); };
-tenantHooks.renov = x => { redraw(x); sayEvent('tenrv', x.k, x); Analytics.log('tenant_renov', { arch: x.a, ch: x.c || '' }); };
-tenantHooks.end = x => { redraw(x); toast(endText(x), 3000); };
+tenantHooks.leave = x => { redraw(x); toast(leaveText(x), 3000); Funnel.tenant('leave', x); };
+tenantHooks.renov = x => { redraw(x); sayEvent('tenrv', x.k, x); Funnel.tenant('renov', x); };
+tenantHooks.end = x => { redraw(x); toast(endText(x), 3000); Funnel.tenant('end', x); };

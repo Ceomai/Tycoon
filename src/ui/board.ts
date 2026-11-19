@@ -8,6 +8,7 @@ import { Pj } from '../state';
 import { projSvg, projSite, psvg } from '../projdraw';
 import { pjName, styleOf, kindOf, typesAt, blocks } from '../game/project';
 import { openPjConfirm } from './pjcard';
+import { Funnel } from '../services/funnel';
 import { bld, site, emptyLot, svg } from '../draw';
 import { specialSvg, specialOf } from '../specials';
 import { season } from '../game/calendar';
@@ -336,7 +337,7 @@ function renderPjTile(i: number, el: HTMLElement, k: DistrictKey, q: Pj, tn: num
 let pjSel: { k: DistrictKey; i: number } | null = null, pjFrameSig = '';
 export function enterPjSelect(k: DistrictKey, i: number) {
   const opts = blocks(k, i); if (!opts.length) return;
-  pjSel = { k, i }; pjFrameSig = '';
+  pjSel = { k, i }; pjFrameSig = ''; Funnel.project('select', k, { n: opts.length });
   if (opts.length === 1) { renderPjSelect(); openPjConfirm(k, opts[0], exitPjSelect, exitPjSelect); return; }
   render();
 }

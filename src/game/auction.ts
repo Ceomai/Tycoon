@@ -14,7 +14,7 @@ import { rivalFace, type RivalMood } from '../ui/rivalFace';
 import { rifkiFace, type Mood } from '../ui/rifkiFace';
 import { Snd, buzz } from '../sound';
 import { persist } from './persist';
-import { Analytics } from '../services/analytics';
+import { Funnel } from '../services/funnel';
 import { sayTip } from './rifki';
 import {
   IH, ihaleTickCore, setProxyCore, placeKoseCore, standing, isLate, advice, rivalById, rivalHere, nextWindow, ARCHE,
@@ -106,7 +106,7 @@ export function setProxy(a: Auction, max: number, tn = now()): boolean {
   if (e === 'cash') { toast(t('Kasada yeterli para yok')); return false; }
   if (e) return false;
   const st = standing(a, tn);
-  Analytics.log('ihale_proxy', { kind: a.kind, lead: st.lead });
+  Funnel.ihale('proxy', a, { lead: st.lead }, tn);
   if (st.lead === 'me') { Snd.collect(2); buzz.light(); } else buzz.light();
   persist(); ui.sheetSig = ''; view.render();
   return true;
@@ -114,7 +114,7 @@ export function setProxy(a: Auction, max: number, tn = now()): boolean {
 /** Köşe başı damgasını arsaya vur. */
 export function placeKose(k: DistrictKey, i: number): boolean {
   if (!placeKoseCore(k, i)) return false;
-  Analytics.log('ihale_kose', { district: k });
+  Funnel.ihale('kose', null, { district: k });
   persist(); ui.tileSig = []; ui.sheetSig = ''; Snd.unlock(); buzz.success();
   bigStamp(t('KÖŞE BAŞI'), t('KİRA +{p}', { p: pctTxt(Math.round(CFG.IH_KOSE_X * 100)) }));
   view.render();
@@ -126,10 +126,11 @@ export function placeKose(k: DistrictKey, i: number): boolean {
 export function ihaleTick(tn: number) {
   const ev = ihaleTickCore(tn);
   const a = IH().cur;
-  if (ev.created) { ui.sheetSig = ''; Analytics.log('ihale_open', { kind: ev.created.kind, rival: ev.created.rv }); }
+  if (ev.created) { ui.sheetSig = ''; Funnel.ihale('open', ev.created, {}, tn); }
   if (ev.cut) sayTip({ id: 'ihcut', text: t('Efendim, kasa vekâleti karşılamadı; vekâletiniz {x} oldu. Biraz para birikince yükseltebilirsiniz.', { x: fmtCost(ev.cut.my) }), go: { k: 'ihale' } });
+  if (ev.late) Funnel.ihale('passed', ev.late, {}, tn);
   if (ev.late) sayTip({ id: 'ihlate', text: t('Son düzlük! {r} sizi geçti: {p}. Vekâleti yükseltmek isterseniz bakalım.', { r: rvName(rvOf(ev.late)), p: prizeName(ev.late) }), go: { k: 'ihale' } });
-  if (ev.resolved) { ui.sheetSig = ''; persist(); Analytics.log('ihale_close', { kind: ev.resolved.kind, result: ev.resolved.done, joined: ev.resolved.my > 0 }); }
+  if (ev.resolved) { ui.sheetSig = ''; persist(); Funnel.ihale('close', ev.resolved, {}, tn); }
   if (a && a.done && !a.seen) {
     if (tn - a.close > CFG.IH_SHOW_MS) { a.seen = true; return; } // çok eski sonuç: kart yok (ödül zaten verildi)
     if (!ui.modal && !ui.ad && (!ui.sheet || ui.sheet.k === 'ihale')) showResult(a);

@@ -82,6 +82,7 @@ export interface State {
   pj: Record<DistrictKey, Pj[]>;   // büyük projeler (arsa birleştirme), semt başına en fazla CFG.PJ_MAX
   pjIntro: boolean;                // Rıfkı projeleri bir kez tanıttı mı
   ihale: IhaleState;               // rakip emlakçı ve ihale (game/auccore.ts)
+  fn: number;                      // analitik: bir kez gönderilen olayların bit alanı (services/funnel.ts)
   bank: BankState;                 // banka (game/bank.ts): son taban kira, kayıt kimliği, gelen/yoldaki havaleler, bugünkü hak, hareketler
   clubDay: string;                 // Kulüp günlük jetonunun verildiği gün // tapu sezonu // lig (kaynak sunucu; bu önbellek), last = gösterilen son hafta sonucu
 }
@@ -109,7 +110,7 @@ export function newState(now: number, weekKey: string, city: CityId | null = nul
     noAds: false, club: false, starter: { at: 0, bought: false }, seasonFirst: false, adCredit: 0, clubDay: '',
     ten: [], tdef: {}, tdc: {}, nextTen: 0, pj: {}, pjIntro: false,
     ihale: { cur: null, rm: {}, got: [], kose: [], kp: 0, intro: false, wins: 0, losses: 0 },
-    bank: newBank(),
+    bank: newBank(), fn: 0,
   };
 }
 
@@ -307,7 +308,7 @@ function sanitize(s: any, now: number, weekKey: string): State {
   out.pj = cleanPj(s.pj, out.own, out.d, now); out.pjIntro = s.pjIntro === true;
   out.ten = cleanTenants(s.ten, out.own, out.playMs); out.tdef = cleanTdef(s.tdef); out.tdc = cleanTdc(s.tdc); out.nextTen = num(s.nextTen, 0, 0);
   out.ihale = cleanIhale(s.ihale, out.own, out);
-  out.bank = cleanBank(s.bank);
+  out.bank = cleanBank(s.bank); out.fn = Math.floor(num(s.fn, 0, 0, 0xFFFF));
   if (!out.ref.code || typeof out.ref.code !== 'string') out.ref = base.ref;
   if (out.collectMode !== 'auto') out.collectMode = 'tap';
   return out as State;

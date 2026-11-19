@@ -14,10 +14,12 @@
 // İnceleme (20): web'de oyun tek sekmede — ikinci sekme bekleme ekranı, devralma, durmuş sekme yazmaz, yabancı yazmada yeniden yükleme.
 // Kiracılar · geç oyun (21): dolu Sv5 semtte aday gelir (cephe rengi), yenileme (bedel, kira durur, anahtar), proje isteği akışı, koyu 320 px.
 // Rakip ve ihale (18): hap, tanıtım, panel, vekâlet/emanet, geçilme, kazanma/kaybetme, köşe başı seçimi, şehir rakipleri, koyu tema, 320 px, UK, EN.
+// Analitik hunisi (22): ilk bina / ilk toplama kilometre taşları (bir kez, yeniden yüklemede de), kiracı olayları, banka paneli (iy-analitik.cjs).
 // Çalıştır: npm run test:iy  (önizleme paketi dist-preview/index.html; Playwright gerekir)
 const {chromium}=require('playwright');
 const { serve, PREF_IF: PREF, state, vis, recorder, out, dismissCards } = require('./helpers.cjs');
 const { incelemeBolum } = require('./iy-inceleme.cjs');
+const { analitikBolum } = require('./iy-analitik.cjs');
 let URL; // http://127.0.0.1:<port>/index.html — main başında serve() ile
 const results=[]; const ok=recorder(results);
 const S=state;
@@ -1339,6 +1341,8 @@ async function kiraciGecBolum(b) {
   await kiraciGecBolum(b);
   console.log('20) İnceleme düzeltmeleri: oyun tek sekmede (iy-inceleme.cjs)');
   await incelemeBolum(b, ok, URL);
+  console.log('22) Analitik hunisi: kilometre taşları ve kiracı olayları (iy-analitik.cjs)');
+  await analitikBolum(b, ok, URL);
   await b.close();
   const pass=results.filter(r=>r.pass).length;
   console.log(`\nSONUÇ: ${pass}/${results.length} geçti`);

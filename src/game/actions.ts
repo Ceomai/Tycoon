@@ -11,6 +11,7 @@ import { track } from './tasks';
 import { Ads } from '../services/ads';
 import { persist } from './persist';
 import { Analytics } from '../services/analytics';
+import { Funnel } from '../services/funnel';
 import { weekKey, fmt } from '../format';
 import { weekSpecial, specialOf } from '../specials';
 import { addXp } from './fun';
@@ -33,7 +34,7 @@ export function addBoost(ms: number) { S.boostUntil = Math.min(Math.max(S.boostU
 
 export function collect(k: DistrictKey, i: number) {
   const p = lotsOf(S, k)[i]; if (!p || p.buf <= 0) return;
-  const a = p.buf; p.buf = 0; addCash(a, a / ihaleLotMult(k, i)); S.collects++; track('collect');
+  const a = p.buf; p.buf = 0; addCash(a, a / ihaleLotMult(k, i)); S.collects++; track('collect'); Funnel.ms('first_collect');
   ui.lastCollect[i] = performance.now();
   const t = performance.now(); ui.combo = t - ui.comboT < 500 ? ui.combo + 1 : 0; ui.comboT = t;
   Snd.collect(ui.combo); buzz.light(); bump();
@@ -45,7 +46,7 @@ export function build(k: DistrictKey, i: number, bt: BuildingType) {
   if (lienBlocks(k)) { toast(t('Kaporalı semtte {n} arsa açık · borç bitince hepsi açılır', { n: CFG.KAPORA_LOTS })); deny(); return; }
   S.cash -= c; S.disc = 0;
   lotsOf(S, k)[i] = { t: bt, lvl: 0, buf: 0, until: now() + d, dur: d, up: false }; track('build'); addXp(15);
-  Analytics.log('build', { type: bt, district: k });
+  Analytics.log('build', { type: bt, district: k }); Funnel.ms('first_build');
   if (k === S.cur) ui.pop.add(i); // inşaat başlangıcı: karoda küçük pop (render sonrası)
   Snd.build(); buzz.light(); persist(); view.closeSheet(); view.render();
 }
@@ -105,7 +106,7 @@ export function collectAll(from?: Element | null) {
   for (const k of S.own) lotsOf(S, k).forEach((p, i) => { if (p && p.buf > 0) { a += p.buf; lg += p.buf / ihaleLotMult(k, i); p.buf = 0; } });
   if (a < 1) { toast(t('Toplanacak kira yok, biraz bekle')); deny(from || $('#collectBtn')); return; }
   const before = S.cash;
-  addCash(a, lg); S.collects++; track('collect'); addXp(5);
+  addCash(a, lg); S.collects++; track('collect'); addXp(5); Funnel.ms('first_collect');
   // paralar binalardan kasaya uçar; sonuncusu varınca kasa vurgulanır ve sayaç saymaya başlar
   const cash = $('#cash'), flights = from ? src.map((x, n) => { const q = pjOf(S.cur, x.i), el = ui.tiles[q ? q.a : x.i]; return el ? flyTo(el, cash, n * 45) : Promise.resolve(); }) : [];
   const landed = Promise.all(flights).then(() => bump());
@@ -152,7 +153,7 @@ export function buyDistrict(k: DistrictKey, kapora = false) {
   switchDistrict(k); persist(); view.closeSheet();
   Snd.unlock(); buzz.success();
   showDistrictCard(k); sayEvent('deed', k); // kart kapanınca Rıfkı tebrik eder
-  Analytics.log(newCity ? 'city_unlock' : 'district_unlock', { district: k, kapora });
+  Analytics.log(newCity ? 'city_unlock' : 'district_unlock', { district: k, kapora }); Funnel.ms('second_deed');
 }
 export function switchDistrict(k: DistrictKey) {
   if (!S.own.includes(k)) return; ui.breakAt = performance.now(); const from = S.cur; S.cur = k; ui.teslim = {}; ui.pop.clear(); showSummary(k, from); ui.tileSig = []; ui.linkSig = ''; view.render();

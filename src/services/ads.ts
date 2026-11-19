@@ -111,7 +111,7 @@ export const Ads = {
       if (err && !got) { toast(t('Reklam şu an yüklenemedi'), AD_FAIL_MS); Analytics.error(err, 'ad_rewarded'); }
     } catch (e) { if (!got) toast(t('Reklam şu an yüklenemedi'), AD_FAIL_MS); Analytics.error(e, 'ad_rewarded'); }
     finally { for (const h of hs) { try { void Promise.resolve(h.remove()).catch(() => { /* yok */ }); } catch { /* yok */ } } ui.ad = false; busy = false; }
-    if (got) { credit(); grantReward(onReward); Analytics.log('ad_reward', { kind }); S.ads++; }
+    if (got) { credit(); grantReward(onReward); Analytics.log('rewarded_done', { kind }); S.ads++; }
     else onFail?.();
     flushQueue(); this.preload();
   },
@@ -161,7 +161,7 @@ function showSimulated(rewarded: boolean, label: string, onReward: (() => void) 
   x.onclick = () => {
     if (!done) return;
     el.hidden = true; el.innerHTML = ''; ui.ad = false; ui.lastClose = performance.now(); S.ads++;
-    if (rewarded) { credit(); grantReward(onReward || undefined); Analytics.log('ad_reward', { kind }); } else { persist(); view.render(); }
+    if (rewarded) { credit(); grantReward(onReward || undefined); Analytics.log('rewarded_done', { kind }); } else { persist(); view.render(); }
     flushQueue();
   };
   const pr = $('#adPrem'); if (pr) pr.onclick = () => { if (!done) return toast(t('Reklam bitince açılır')); x.onclick(); view.openSheet({ k: 'store' }); };

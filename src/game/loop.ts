@@ -19,6 +19,7 @@ import { clearSave, lockSaves, unlockSaves, loadRaw } from '../storage';
 import { Ads } from '../services/ads';
 import { Cloud } from '../services/cloud';
 import { Analytics } from '../services/analytics';
+import { Funnel } from '../services/funnel';
 import { checkGoals } from './goals';
 import { checkAch, showMarket, maybeCivic } from './fun';
 import { payLien, showDistrictCard } from './district';
@@ -62,6 +63,7 @@ function step(pt: number, dt: number) {
         if (p.buf < cap) p.buf = Math.min(cap, p.buf + g);
       }
     }
+    if (built && isFull(k)) Funnel.ms('district_full');
     if (built && isFull(k)) sayEvent('done', k); // son arsa da doldu: Rıfkı kutlar
   }
   tickProjects(tn, pt); // büyük projeler: biten etap teslim

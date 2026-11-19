@@ -9,6 +9,7 @@ import { projSvg, psvg } from '../projdraw';
 import { pjName, styleOf, kindOf, typesAt, pjCost, pjTime, pjTenants, startProject, KIND_N } from '../game/project';
 import { tName, tenantsOpen, bonusPct } from '../game/tenants';
 import { openModal, closeModal } from './modal';
+import { Funnel } from '../services/funnel';
 
 /** Dört binanın kirası ve proje olunca (kiracı bonusuyla toplanır, çarpılmaz: economy.ts baseRate). */
 export function pjRates(k: DistrictKey, a: number, x: number): [number, number] {
@@ -25,6 +26,7 @@ export const pjChips = (k: DistrictKey, a: number) => {
 export function openPjConfirm(k: DistrictKey, a: number, onStart: () => void, onCancel: () => void) {
   const kind = kindOf(typesAt(k, a)), name = pjName(k, kind), cost = pjCost(k, a), time = pjTime(k, a), d = DMAP[k];
   const [now4, after] = pjRates(k, a, CFG.PJ_X1), afford = S.cash >= cost, tn = pjTenants(k, a);
+  Funnel.project('card', k, { kind, cost });
   const nameOf = (x: { a: Parameters<typeof tName>[0]; k: DistrictKey }) => esc(tName(x.a, x.k)[0]);
   const ten = [
     ...tn.live.map(x => t('{n} projede oturmaya devam eder: sözleşmesi bitene kadar +{p}.', { n: nameOf(x), p: bonusPct() })),

@@ -8,6 +8,7 @@ import { t } from '../../i18n';
 import { $, ui, view, SheetState, syncHistory, reduceMotion } from '../ctx';
 import { play, fadeIn, DUR, EASE } from '../motion';
 import { Purchases, type ProductKey } from '../../services/purchases';
+import { Funnel } from '../../services/funnel';
 
 /** Panel eylemi sonucu: STAY = eylem paneli kendisi yönetti (ör. başka panel açtı, kapattı); panel yeniden çizilmez.
  *  Başka her dönüş (undefined) eylemden sonra panelin yeniden çizilmesini ister. */
@@ -35,6 +36,7 @@ export function openSheet(s: SheetState, fromBack = false) {
     else if (prev !== s) { const j = ui.sheetStack.findIndex(x => x.k === s.k); if (j >= 0) { ui.sheetStack.length = j; dir = -1; } else if (prev.k !== s.k) ui.sheetStack.push(prev); }
   }
   ui.openedAt = performance.now(); ui.sheet = s; ui.sheetSig = ''; renderSheet();
+  if (!fromBack) Funnel.sheet(s);
   if (wasOpen && prev !== s) slideBody(dir); // açık panelde içerik değişimi: yönüne göre kısa kayma + belirme
   const el = $('#sheet') as HTMLElement; el.inert = false; el.removeAttribute('aria-hidden'); el.classList.add('on'); $('#scrim').classList.add('on'); Snd.tap();
   if (wasOpen) el.scrollTop = 0;

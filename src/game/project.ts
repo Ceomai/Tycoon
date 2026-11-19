@@ -14,7 +14,7 @@ import { deny } from '../ui/motion';
 import { persist } from './persist';
 import { addXp } from './fun';
 import { sayTip } from './rifki';
-import { Analytics } from '../services/analytics';
+import { Funnel } from '../services/funnel';
 import { pjStart, pjStage2, pjSplit, pjDue, pjName } from './projcore';
 
 export * from './projcore';
@@ -25,21 +25,21 @@ export function startProject(k: DistrictKey, a: number): boolean {
   const q = pjStart(k, a);
   if (!q) { deny(); return false; }
   addXp(40); Snd.build(); buzz.success(); redraw(); persist(); view.render();
-  Analytics.log('project_start', { district: k, kind: q.kd, n: (S.pj[k] || []).length });
+  Funnel.project('start', k, { q });
   return true;
 }
 /** 2. etap (kat ekle). */
 export function upgradeProject(k: DistrictKey, q: Pj): boolean {
   if (!pjStage2(k, q)) { deny(); return false; }
   addXp(40); Snd.build(); buzz.light(); redraw(); persist(); view.render();
-  Analytics.log('project_stage2', { district: k, kind: q.kd });
+  Funnel.project('stage2', k, { q });
   return true;
 }
 /** Projeyi ayır: dört bina Sv5 olarak yerinde kalır, ödenen bedel iade edilmez. */
 export function splitProject(k: DistrictKey, q: Pj): boolean {
   if (!pjSplit(k, q)) return false;
   Snd.wreck(); toast(t('Proje ayrıldı · dört bina yerinde')); redraw(); persist(); view.closeSheet(); view.render();
-  Analytics.log('project_split', { district: k, kind: q.kd, st: q.st });
+  Funnel.project('split', k, { q });
   return true;
 }
 /** Oyun döngüsünden: biten etaplar teslim edilir. Teslim mührü projenin (sol üst) karosunda; başka semtte kısa bildirim. */
@@ -53,7 +53,7 @@ export function tickProjects(tn = now(), pt = performance.now()) {
       bigStamp(t('PROJE TESLİM'), t('KİRALAR +{p}', { p }));
     } else toast(t('{name} teslim edildi · {d}', { name, d: nm(DMAP[k].n) }), 3000);
     sayTip({ id: 'project', text: t('{name} hayırlı olsun efendim! Dört binanın kirası aynen duruyor, üstüne {p} de proje primi.', { name, p }), go: { k: 'proj', key: k, i: q.a } });
-    Analytics.log('project_done', { district: k, kind: q.kd, st: q.st });
+    Funnel.project('done', k, { q });
   }
   Snd.unlock(); buzz.success(); ui.sheetSig = ''; persist();
 }

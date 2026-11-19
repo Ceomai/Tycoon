@@ -49,7 +49,9 @@ import { applyTheme } from './theme';
 import { anySave, loadRegionInfo } from './storage';
 import { setLang, loadLang, deviceLang, t } from './i18n';
 import { REGIONS, RegionId } from './config';
-import { Analytics } from './services/analytics';
+import { Analytics, sent as AnalyticsSent } from './services/analytics';
+import { Funnel } from './services/funnel';
+import { pjUnlocked } from './game/projcore';
 import { applyRemoteConfig } from './services/remote';
 import { Cloud } from './services/cloud';
 import { Purchases } from './services/purchases';
@@ -57,7 +59,7 @@ import { Ads } from './services/ads';
 import { Notify } from './services/notify';
 import { showLeagueResult } from './game/league';
 import { onTipClick, showTip } from './game/rifki';
-import { spawnTenant, handKey, tenantTick, tenants } from './game/tenants';
+import { spawnTenant, handKey, tenantTick, tenants, tenantsOpen } from './game/tenants';
 import * as Ihale from './game/auction';
 import * as Bank from './game/bank';
 const { openIhale } = Ihale;
@@ -256,7 +258,8 @@ async function boot() {
   // satın alınan paketler tüm bölgelerde geçerli
   S.premium = S.premium || P.ent.premium; S.noAds = S.noAds || P.ent.noAds; S.club = S.club || P.ent.club;
 
-  if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult, totalRate: () => totalRate(true), showTip, toast, showSummary, bigStamp, switchDistrict, spawnTenant, handKey, tenantTick, tenants, ihale: Ihale, bank: Bank, openSheet }; } // uçtan uca testler için (yalnızca önizleme paketi)
+  if (__PREVIEW__) { (window as any).__tapuState = () => S; (window as any).__tapuTest = { showLeagueResult, totalRate: () => totalRate(true), showTip, toast, showSummary, bigStamp, switchDistrict, spawnTenant, handKey, tenantTick, tenants, ihale: Ihale, bank: Bank, openSheet, events: () => AnalyticsSent, funnel: Funnel }; } // uçtan uca testler için (yalnızca önizleme paketi)
+  Funnel.boot({ tenant: tenantsOpen, project: pjUnlocked, ihale: Ihale.ihaleUnlocked, bank: Bank.bankOpen });
   setupGrid(); Street.init(); ensureTasks(); drawGuilloche(); bindUi(); fit();
   ui.lastInput = performance.now();
   render();

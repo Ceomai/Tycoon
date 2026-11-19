@@ -15,6 +15,7 @@ import { switchRegion } from '../../game/loop';
 import { CURS, CUR_OF, CUR_N, worthIn, quote, fxPair, rnum, curWord, hist, valueOf, type Sheet } from '../../game/bankcore';
 import { REG, loadAll, capLeft, maxSend, transfer, bankOpen, cheapCur, pendingTo } from '../../game/bank';
 import { Panel, STAY, lv, openSheet } from './core';
+import { Funnel } from '../../services/funnel';
 
 const regName = (r: RegionId) => t(REGIONS[r].n);
 const symOf = (r: RegionId) => REGIONS[r].cur;
@@ -154,7 +155,7 @@ export const banka: Panel = {
       <div class="bk-body">${body}</div>`;
   },
   async action(a, btn, s) {
-    const v = btn.dataset.v;
+    const v = btn.dataset.v; Funnel.bankAct(a, v);
     if (a === 'tab') s.tab = v;
     else if (a === 'to') s.to = btn.dataset.r;
     else if (a === 'pick') s.pick = +v!;
@@ -175,7 +176,7 @@ export const banka: Panel = {
       openModal(`<div class="card bk-done"><div class="bk-stamp">${t('HAVALE')}</div><h3>${r.held ? t('Emanete alındı') : t('{r} kasasına geçti', { r: regName(to) })}</h3>
         <p>${r.held ? t('{m}, {r} bölgesine başladığında başlangıç sermayesi olarak kasanda olacak.', { m, r: regName(to) }) : t('{m} {r} kasasında. Orada harcamak için bölgeye geç.', { m, r: regName(to) })}</p>
         <div class="btns"><button class="btn gold" data-a="go">${t('{r} bölgesine geç', { r: regName(to) })}</button><button class="txt" data-a="stay" data-back>${t('Burada kal')}</button></div></div>`,
-        k => { closeModal(); if (k === 'go') switchRegion(to); else openSheet({ k: 'banka', tab: 'send', to, pick: s.pick }); }); // kart paneli kapatır: geri açılır
+        k => { closeModal(); if (k === 'go') { Funnel.bank('go', { to }); switchRegion(to); } else openSheet({ k: 'banka', tab: 'send', to, pick: s.pick }); }); // kart paneli kapatır: geri açılır
       return STAY;
     }
   },

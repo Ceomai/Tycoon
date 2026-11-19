@@ -11,6 +11,7 @@ import { specialSvg, specialOf } from '../../specials';
 import { lienBlocks, closeLien, clearCost, clearObstacle, obstacleSvg, OBSTACLES } from '../../game/district';
 import { SKIN_COLORS, ROOFS, skinUnlocked, skinShown, skinStyle, setSkin } from '../../game/fun';
 import { t, tk, nm, pctTxt, lowTxt } from '../../i18n';
+import { Funnel } from '../../services/funnel';
 import { Panel, STAY, openSheet, lv, lvBar, discBox, later } from './core';
 import { tenantAt, wishTargets, wishType, tName, wishShort, nbAsk, handKey, inProgress, bonusPct, paintName, Tenant } from '../../game/tenants';
 import { tenantBadge, tenantLook } from '../tenantFace';
@@ -187,7 +188,7 @@ function pjOffer(k: string, i: number) {
   const p = lotsOf(S, k)[i]; if (!p || p.lvl < 3) return '';
   const why = pjDistrictOk(k), b = blocks(k, i);
   if (b.length) {
-    const kind = kindOf(typesAt(k, b[0]));
+    const kind = kindOf(typesAt(k, b[0])); Funnel.project('offer', k, { kind, n: b.length });
     return `<div class="pjoffer"><span class="pjo-ic bpbg">${psvg(projSvg(kind, styleOf(k), 1))}</span><span class="pjo-t"><b>${t('Büyük proje')}</b><small>${b.length > 1 ? t('{n} blok uygun', { n: b.length }) + ' · ' : pjName(k, kind) + ' · '}${t('Bu bina ve yanındaki üç bina tek projeye dönüşebilir · kira +{p}', { p: pctTxt(Math.round(CFG.PJ_X1 * 100)) })}</small></span>
       <button class="btn soft pjo-b" data-a="pj">${t('Projeye dönüştür')}${b.length === 1 ? ` <small>${fmtCost(pjCost(k, b[0]))}</small>` : ''}</button></div>`;
   }
